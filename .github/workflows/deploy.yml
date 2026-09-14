@@ -25,7 +25,7 @@ jobs:
 
       - name: Download latest green prototype build
         env:
-          BUILD_URL: 'https://sdmntprnortheu.oaiusercontent.com/files/00000000-c20c-81f4-98fd-40b3eed7b073/raw?se=2026-09-14T16%3A42%3A38Z&sp=r&sv=2026-02-06&sr=b&scid=c6537625-eb03-58f3-bd05-eccf0429592f&skoid=34268b52-5349-4f34-9be4-e38a5fb9f231&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-14T08%3A50%3A16Z&ske=2026-09-15T08%3A50%3A16Z&sks=b&skv=2026-02-06&sig=h52rfV5NM34dgwZRUqKWDrgCjNsNafEHv1NKETNkuJk%3D'
+          BUILD_URL: 'https://sdmntprukwest.oaiusercontent.com/files/00000000-48d0-8243-af27-183c0dcfbb20/raw?se=2026-09-14T17%3A07%3A06Z&sp=r&sv=2026-02-06&sr=b&scid=438821eb-07ce-5091-b9f3-031b44b17204&skoid=34268b52-5349-4f34-9be4-e38a5fb9f231&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-14T08%3A51%3A02Z&ske=2026-09-15T08%3A51%3A02Z&sks=b&skv=2026-02-06&sig=LNXjEj4liAjfIRSeBKQ0snZgiNjn3vrwDXfaBeDaARc%3D'
         run: |
           mkdir -p site
           curl -L --fail --retry 3 "$BUILD_URL" -o /tmp/mps-prototype-build.zip
