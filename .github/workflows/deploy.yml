@@ -23,10 +23,12 @@ jobs:
     steps:
       - uses: actions/configure-pages@v6
 
-      - name: Download latest green prototype build
+      - name: Download QA-verified prototype build
         env:
-          BUILD_URL: 'https://sdmntprnortheu.oaiusercontent.com/files/00000000-fe14-81f4-9618-30276ff4ba60/raw?se=2026-09-14T19%3A12%3A03Z&sp=r&sv=2026-02-06&sr=b&scid=6b441ef1-1e80-5d94-a74d-502fd3a0d1b6&skoid=34268b52-5349-4f34-9be4-e38a5fb9f231&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-14T08%3A50%3A58Z&ske=2026-09-15T08%3A50%3A58Z&sks=b&skv=2026-02-06&sig=jj25L7iWT3sJHdmaQqdRt9%2BwrjcUtlqWBMq72e94jKE%3D'
+          SOURCE_COMMIT: '616920eea66194dca1e4e92cef7fbf73a9dd9fe1'
+          BUILD_URL: 'https://sdmntprdenmarkeast.oaiusercontent.com/files/00000000-261c-8210-9a46-8e4daa13f58f/raw?se=2026-09-14T21%3A44%3A40Z&sp=r&sv=2026-02-06&sr=b&scid=09b1756c-4c27-52f1-92f2-672a31079623&skoid=34268b52-5349-4f34-9be4-e38a5fb9f231&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-14T20%3A07%3A39Z&ske=2026-09-15T20%3A07%3A39Z&sks=b&skv=2026-02-06&sig=exUts4cdDrAENv92TNCdc4zNm16cHfkoiev%2BLaYSKeI%3D'
         run: |
+          echo "Publishing QA-verified source commit $SOURCE_COMMIT"
           mkdir -p site
           curl -L --fail --retry 3 "$BUILD_URL" -o /tmp/mps-prototype-build.zip
           unzip -q /tmp/mps-prototype-build.zip -d site
