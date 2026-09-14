@@ -3,16 +3,11 @@ name: Deploy MPS Prototype Review
 on:
   push:
     branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
   pages: write
   id-token: write
-
-concurrency:
-  group: mps-review-pages
-  cancel-in-progress: true
 
 jobs:
   deploy:
@@ -21,24 +16,10 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@v7
       - uses: actions/configure-pages@v6
+      - uses: actions/upload-pages-artifact@v5
         with:
-          enablement: true
-
-      - name: Download tested build from private CI artifact
-        env:
-          BUILD_URL: 'https://sdmntprnortheu.oaiusercontent.com/files/00000000-3894-81f4-a3cd-541f3236bcef/raw?se=2026-09-14T16%3A20%3A03Z&sp=r&sv=2026-02-06&sr=b&scid=90b4e24a-4f12-5b8c-a735-79a9eb5ad4cf&skoid=34268b52-5349-4f34-9be4-e38a5fb9f231&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-14T04%3A27%3A18Z&ske=2026-09-15T04%3A27%3A18Z&sks=b&skv=2026-02-06&sig=jHLdlVRKy1LmENqXxYXDq3onC8dhbQ3VZA1Lh5c1tkg%3D'
-        run: |
-          mkdir -p site
-          curl -L --fail --retry 3 "$BUILD_URL" -o /tmp/mps-prototype-build.zip
-          unzip -q /tmp/mps-prototype-build.zip -d site
-          test -f site/index.html
-
-      - name: Upload Pages artifact
-        uses: actions/upload-pages-artifact@v5
-        with:
-          path: site
-
-      - name: Deploy
-        id: deployment
+          path: ./
+      - id: deployment
         uses: actions/deploy-pages@v5
