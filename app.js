@@ -1530,7 +1530,7 @@ recordAdmissionPayment = function(caseId){
   closeOverlay();
 };
 // Owner Issue 017 — keep Waitlisted/Closed easy to retrieve without turning them into normal journey stages.
-// Owner refinement (15 Sep 2026): these are contextual Application outcomes, not global filters.
+// Owner refinement (15 Sep 2026): these are contextual Application views, not global filters.
 const admissionSecondaryFilters = ['Waitlisted','Closed'];
 
 function admissionSecondaryOutcome(c){
@@ -1574,12 +1574,13 @@ admissionsMetrics = function(){
     const selected = active === stage || (stage === 'Application' && applicationContext);
     return `<button class="tab ${selected?'active':''}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`;
   };
-  const renderSecondaryFilter = stage => {
-    const count = all.filter(c=>admissionMatchesFilter(c,stage)).length;
-    return `<button class="tab ${active===stage?'active':''}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`;
+  const renderApplicationView = (label,filter) => {
+    const count = all.filter(c=>admissionMatchesFilter(c,filter)).length;
+    const stageAttr = filter === 'Application' ? '' : ` data-stage-filter="${esc(filter)}"`;
+    return `<button class="tab ${active===filter?'active':''}" data-application-outcome-filter="${esc(label)}"${stageAttr} onclick='setAdmissionsStageFilter(${JSON.stringify(filter)})'>${label} <strong>${count}</strong></button>`;
   };
   const secondary = applicationContext
-    ? `<div data-application-outcome-filters style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><span style="font-size:12px;color:var(--muted);font-weight:700">Application outcomes</span><div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${admissionSecondaryFilters.map(renderSecondaryFilter).join('')}</div></div>`
+    ? `<div data-application-outcome-filters style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${renderApplicationView('Under review','Application')}${renderApplicationView('Waitlisted','Waitlisted')}${renderApplicationView('Closed','Closed')}</div></div>`
     : '';
   return `<div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderPrimaryFilter).join('')}</div>${secondary}`;
 };
