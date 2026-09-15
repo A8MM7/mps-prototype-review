@@ -1633,6 +1633,37 @@ modalView = function(m){
   }
   return _mpsIssue015ModalView(m);
 };
+// Owner Issue 016 — payment evidence should be attached, not typed as a filename.
+const _mpsIssue016ModalView = modalView;
+modalView = function(m){
+  const n = m?.name, d = m?.data || {};
+  if(n === 'record-admission-payment'){
+    const c = db.admissions[d.caseId];
+    if(!c) return _mpsIssue016ModalView(m);
+    const out = feeOutstanding(c.fee);
+    return modal(
+      'Record admission-fee payment',
+      'Record what the family says was paid. It remains Pending Verification until an authorised real-source check.',
+      `${kv('Family',c.childName)}${kv('Outstanding',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method')}${field('Amount',String(out),'number',false,'adm_record_amount')}${field('Reference','','text',false,'adm_record_reference')}<div class="field"><label>Optional payment evidence</label><input id="adm_record_evidence" type="file"><small>Attach a screenshot, receipt, deposit slip or other supporting file.</small></div>${notice('Attachment is optional. Verification against the real bank/cash source is still required.','info')}`,
+      `${btn('Cancel','closeOverlay()','secondary')}${btn('Record payment',`recordAdmissionPayment('${c.id}')`,'primary')}`
+    );
+  }
+  return _mpsIssue016ModalView(m);
+};
+
+recordAdmissionPayment = function(caseId){
+  const c = db.admissions[caseId];
+  const amount = Math.max(0,Number(val('adm_record_amount')||0));
+  if(!amount){alert('Enter the payment amount.');return}
+  const max = feeOutstanding(c.fee);
+  if(amount>max){alert('The recorded amount cannot exceed the current admission-fee outstanding balance in this prototype.');return}
+  const file = byId('adm_record_evidence')?.files?.[0] || null;
+  const evidence = file ? {name:file.name,type:file.type||'',size:file.size||0} : null;
+  const p = {id:'admp_'+Date.now(),amount,method:val('adm_record_method'),reference:val('adm_record_reference')||'No reference',evidence,status:'pending'};
+  c.fee.pending.push(p);
+  addEvent(caseId,'fee_payment_recorded','Admission-fee payment recorded',`${money(amount)} · Pending Verification${evidence?` · Evidence attached: ${evidence.name}`:''}`);
+  closeOverlay();
+};
 
 </script>
 </body>
