@@ -24,17 +24,29 @@ jobs:
       - uses: actions/checkout@v7
       - uses: actions/configure-pages@v6
 
-      - name: Download and verify QA-tested prototype
+      - name: Prepare QA-tested review site
         shell: bash
         run: |
           set -euo pipefail
-          source DEPLOY_SOURCE.env
-          echo "Publishing QA-verified source commit $SOURCE_COMMIT"
-          echo "Private CI run $CI_RUN · artifact $ARTIFACT_ID"
           mkdir -p site
-          curl -L --fail --retry 3 "$BUILD_URL" -o /tmp/mps-prototype-build.zip
-          echo "$ARTIFACT_SHA256  /tmp/mps-prototype-build.zip" | sha256sum -c -
-          unzip -q /tmp/mps-prototype-build.zip -d site
+
+          if [[ -f index.html && -f app.js && -f styles.css && -f MPS_UI_UX_Prototype.html ]]; then
+            echo "Publishing QA-tested files committed by private Prototype CI."
+            cp index.html app.js styles.css MPS_UI_UX_Prototype.html site/
+            if [[ -f BUILD_PROVENANCE.txt ]]; then
+              cp BUILD_PROVENANCE.txt site/
+              cat BUILD_PROVENANCE.txt
+            fi
+          else
+            echo "Direct QA build is not present yet; using the legacy verified-artifact manifest."
+            source DEPLOY_SOURCE.env
+            echo "Publishing QA-verified source commit $SOURCE_COMMIT"
+            echo "Private CI run $CI_RUN · artifact $ARTIFACT_ID"
+            curl -L --fail --retry 3 "$BUILD_URL" -o /tmp/mps-prototype-build.zip
+            echo "$ARTIFACT_SHA256  /tmp/mps-prototype-build.zip" | sha256sum -c -
+            unzip -q /tmp/mps-prototype-build.zip -d site
+          fi
+
           test -f site/index.html
           test -f site/app.js
           test -f site/styles.css
