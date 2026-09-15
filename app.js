@@ -1727,3 +1727,40 @@ commitNewEnquiry=function(mode){
   p.duplicateReviewed=true;
   _mpsIssue018CommitNewEnquiry(mode);
 };
+// Owner Issue 019 — duplicate-review candidates must be real Admissions records, not comparison-only fixtures.
+function duplicateReviewFixtureRecords(){
+  const guardian='Sajana J.';
+  const phone='0714417525';
+  return {
+    existing_amara:{id:'existing_amara',childName:'Amara Perera',dob:'2023-10-18',guardian,phone,start:'2026-01-05',service:'Upper Class',source:'Existing-family referral',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Existing-family referral'),ev('qualified','Confirmed Interest','Family wants to continue'),ev('tour','Visit completed','Family wants to proceed'),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted','Upper Class'),ev('fee_verified','Admission fee verified','LKR 15,000'),ev('enrolled','Enrolment created','Upper Class')],tour:{status:'completed',date:'2025-12-10',time:'10:00',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Amara Perera',dob:'2023-10-18',guardian,phone,service:'Upper Class',start:'2026-01-05',note:''},snapshot:null},fee:{amount:15000,due:'2025-12-20',verified:15000,pending:[],status:'satisfied'},enrolment:{status:'active',className:'Upper Class',service:'Preschool',start:'2026-01-05'},onboarding:null,closed:null},
+    existing_dinu:{id:'existing_dinu',childName:'Dinu Perera',dob:'2022-08-09',guardian,phone,start:'2026-01-05',service:'Upper Class',source:'Existing-family referral',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Existing-family referral'),ev('qualified','Confirmed Interest','Family wants to continue'),ev('tour','Visit completed','Family wants to proceed'),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted','Upper Class'),ev('fee_verified','Admission fee verified','LKR 15,000'),ev('enrolled','Enrolment created','Upper Class')],tour:{status:'completed',date:'2025-12-11',time:'10:30',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Dinu Perera',dob:'2022-08-09',guardian,phone,service:'Upper Class',start:'2026-01-05',note:''},snapshot:null},fee:{amount:15000,due:'2025-12-20',verified:15000,pending:[],status:'satisfied'},enrolment:{status:'active',className:'Upper Class',service:'Preschool',start:'2026-01-05'},onboarding:null,closed:null},
+    existing_senal:{id:'existing_senal',childName:'Senal Perera',dob:'2024-01-27',guardian,phone,start:'2027-01-05',service:'Baby Class',source:'Phone call',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Phone call'),ev('qualified','Confirmed Interest','Family wants to continue'),ev('tour','Visit completed','Family wants to proceed'),ev('application_sent','Application link sent',''),ev('application_submitted','Application submitted','')],tour:{status:'completed',date:'2026-09-09',time:'11:00',outcome:'Family wants to proceed'},application:{status:'submitted',draft:{childName:'Senal Perera',dob:'2024-01-27',guardian,phone,service:'Baby Class',start:'2027-01-05',note:''},snapshot:{submittedAt:'2026-09-13T17:00',data:{childName:'Senal Perera'}}},fee:null,enrolment:null,onboarding:null,closed:null}
+  };
+}
+
+function ensureDuplicateReviewFixtures(target){
+  if(!target?.admissions)return target;
+  const fixtures=duplicateReviewFixtureRecords();
+  Object.entries(fixtures).forEach(([id,record])=>{if(!target.admissions[id])target.admissions[id]=record});
+  return target;
+}
+
+const _mpsIssue019SeedDB=seedDB;
+seedDB=function(){return ensureDuplicateReviewFixtures(_mpsIssue019SeedDB())};
+ensureDuplicateReviewFixtures(db);
+save();
+
+duplicateCandidateRecords=function(){
+  const meta=[
+    {id:'existing_amara',matchReason:'same guardian name + registered phone',matchStrength:'Strong family/contact match'},
+    {id:'existing_dinu',matchReason:'same registered guardian phone',matchStrength:'Family/contact match'},
+    {id:'existing_senal',matchReason:'same guardian phone on another admissions record',matchStrength:'Family/contact match'}
+  ];
+  return meta.map(m=>{
+    const c=db.admissions[m.id];
+    const stage=admissionDisplayStage(c);
+    const status=stage==='Enrolled'?'Enrolled · active family':stage==='Application'?'Application · under review':stage;
+    const className=c.enrolment?.className||(c.service?.includes('Upper Class')?'Upper Class':'Baby Class');
+    return {...c,status,className,matchReason:m.matchReason,matchStrength:m.matchStrength};
+  });
+};
