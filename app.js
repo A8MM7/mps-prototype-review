@@ -1346,7 +1346,7 @@ modalView = function(m){
 // Owner Issue 012 / BQ-089 — keep Application lean but review the whole relevant Admissions story.
 // Owner-review copy registry: wording can change here without changing the withdrawal business outcome.
 const MPS_UI_COPY = Object.freeze({
-  applicationFamilyWithdrawalAction: 'daddy'
+  applicationFamilyWithdrawalAction: 'mommy'
 });
 
 function latestAdmissionEvent(c, types){
