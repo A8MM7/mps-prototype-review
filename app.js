@@ -1530,6 +1530,7 @@ recordAdmissionPayment = function(caseId){
   closeOverlay();
 };
 // Owner Issue 017 — keep Waitlisted/Closed easy to retrieve without turning them into normal journey stages.
+// Owner refinement (15 Sep 2026): these are contextual Application outcomes, not global filters.
 const admissionSecondaryFilters = ['Waitlisted','Closed'];
 
 function admissionSecondaryOutcome(c){
@@ -1542,11 +1543,20 @@ function admissionSecondaryOutcome(c){
   return c.closed?.type || '';
 }
 
+function admissionIsApplicationClosed(c){
+  if(!c?.closed) return false;
+  return c.application?.status === 'declined' || c.application?.status === 'submitted';
+}
+
 function admissionMatchesFilter(c,filter){
   if(filter === 'All') return true;
   if(filter === 'Waitlisted') return c.application?.status === 'waitlisted' && !c.closed;
-  if(filter === 'Closed') return !!c.closed;
+  if(filter === 'Closed') return admissionIsApplicationClosed(c);
   return admissionDisplayStage(c) === filter;
+}
+
+function admissionApplicationOutcomeContext(filter){
+  return filter === 'Application' || admissionSecondaryFilters.includes(filter);
 }
 
 admissionsFilteredCases = function(){
@@ -1557,12 +1567,21 @@ admissionsFilteredCases = function(){
 admissionsMetrics = function(){
   const all = Object.values(db.admissions);
   const active = ui().admissionsStageFilter || 'All';
+  const applicationContext = admissionApplicationOutcomeContext(active);
   const primary = ['All',...admissionStageLabels];
-  const renderFilter = stage => {
+  const renderPrimaryFilter = stage => {
+    const count = all.filter(c=>admissionMatchesFilter(c,stage)).length;
+    const selected = active === stage || (stage === 'Application' && applicationContext);
+    return `<button class="tab ${selected?'active':''}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`;
+  };
+  const renderSecondaryFilter = stage => {
     const count = all.filter(c=>admissionMatchesFilter(c,stage)).length;
     return `<button class="tab ${active===stage?'active':''}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`;
   };
-  return `<div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderFilter).join('')}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><span style="font-size:12px;color:var(--muted);font-weight:700">Other outcomes</span><div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${admissionSecondaryFilters.map(renderFilter).join('')}</div></div>`;
+  const secondary = applicationContext
+    ? `<div data-application-outcome-filters style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><span style="font-size:12px;color:var(--muted);font-weight:700">Application outcomes</span><div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${admissionSecondaryFilters.map(renderSecondaryFilter).join('')}</div></div>`
+    : '';
+  return `<div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderPrimaryFilter).join('')}</div>${secondary}`;
 };
 
 caseListItem = function(c){
@@ -1571,7 +1590,7 @@ caseListItem = function(c){
   let condition = admissionCondition(c);
   if(outcome === 'Waitlisted') condition = 'Waitlisted · review when capacity changes';
   else if(stage === 'Closed' && outcome) condition = `${outcome}${c.closed?.reason?` · ${c.closed.reason}`:''}`;
-  const secondary = outcome ? `<span>${badge(outcome,outcome==='Waitlisted'?'amber':'grey')}</span>` : '';
+  const secondary = outcome && outcome !== stage ? `<span>${badge(outcome,outcome==='Waitlisted'?'amber':'grey')}</span>` : '';
   const searchable = (c.childName+' '+c.guardian+' '+stage+' '+outcome+' '+condition).toLowerCase();
   return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="${esc(stage)}" data-search="${esc(searchable)}" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${c.childName}</strong><span style="margin-left:auto;display:flex;gap:6px;align-items:center">${badge(stage,admissionStageTone(c))}${secondary}</span></div><div class="meta">${c.guardian} · ${c.service}${condition?`<br>${esc(condition)}`:''}</div></div>`;
 };
