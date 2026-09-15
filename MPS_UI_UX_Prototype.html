@@ -133,6 +133,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 @media(max-width:780px){.review-harness{margin:8px 12px 0;padding:8px 10px}.review-harness>span{display:none}.prototype-persona span{display:none}.prototype-persona select{max-width:150px}.search{display:none}.case-layout{display:flex!important;flex-direction:column}.case-workspace{order:1}.case-list{order:2;max-height:220px;overflow:auto}.topbar{gap:8px}.week-board{display:block!important}.tabs{scrollbar-width:thin}.tab{flex:0 0 auto}.drawer .modal-body{padding-bottom:90px}}
 </style>
 <script>
+// Owner-review copy registry. Keep display wording separate from business actions/state.
+const MPS_UI_COPY = Object.freeze({
+  applicationFamilyWithdrawalAction: 'mommy'
+});
 
 const ORG = 'Malithi International Preschool';
 const storageKey = 'mpsPrototypeProductV3';
@@ -1479,11 +1483,6 @@ modalView = function(m){
 };
 
 // Owner Issue 012 / BQ-089 — keep Application lean but review the whole relevant Admissions story.
-// Owner-review copy registry: wording can change here without changing the withdrawal business outcome.
-const MPS_UI_COPY = Object.freeze({
-  applicationFamilyWithdrawalAction: 'mommy'
-});
-
 function latestAdmissionEvent(c, types){
   const wanted = Array.isArray(types) ? types : [types];
   return [...(c.events||[])].reverse().find(e=>wanted.includes(e.type)) || null;

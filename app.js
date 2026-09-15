@@ -1,3 +1,7 @@
+// Owner-review copy registry. Keep display wording separate from business actions/state.
+const MPS_UI_COPY = Object.freeze({
+  applicationFamilyWithdrawalAction: 'mommy'
+});
 
 const ORG = 'Malithi International Preschool';
 const storageKey = 'mpsPrototypeProductV3';
@@ -1344,11 +1348,6 @@ modalView = function(m){
 };
 
 // Owner Issue 012 / BQ-089 — keep Application lean but review the whole relevant Admissions story.
-// Owner-review copy registry: wording can change here without changing the withdrawal business outcome.
-const MPS_UI_COPY = Object.freeze({
-  applicationFamilyWithdrawalAction: 'mommy'
-});
-
 function latestAdmissionEvent(c, types){
   const wanted = Array.isArray(types) ? types : [types];
   return [...(c.events||[])].reverse().find(e=>wanted.includes(e.type)) || null;
