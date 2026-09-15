@@ -1367,7 +1367,7 @@ admissionApplication = function(c){
   const visitNote = issue012VisitNote(c);
   const additionalInfo = c.tour?.additionalInfo || '';
   const decision = a.status === 'submitted'
-    ? `<div class="section-title">Decision</div><div style="display:flex;gap:8px;flex-wrap:wrap">${btn('Decline',`openModal('decline-application',{caseId:'${c.id}'})`,'danger')}${btn('Not Proceeding',`openModal('withdraw-application',{caseId:'${c.id}'})`,'secondary')}${btn('Waitlist',`openModal('waitlist-application',{caseId:'${c.id}'})`,'secondary')}${btn('Accept',`openModal('accept-application',{caseId:'${c.id}'})`,'primary')}</div>`
+    ? `<div class="section-title">Decision</div><div style="display:flex;gap:8px;flex-wrap:wrap">${btn('Decline',`openModal('decline-application',{caseId:'${c.id}'})`,'danger')}${btn('Family withdrew',`openModal('withdraw-application',{caseId:'${c.id}'})`,'secondary')}${btn('Waitlist',`openModal('waitlist-application',{caseId:'${c.id}'})`,'secondary')}${btn('Accept',`openModal('accept-application',{caseId:'${c.id}'})`,'primary')}</div>`
     : '';
 
   const contactValue = contact
