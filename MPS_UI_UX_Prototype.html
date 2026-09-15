@@ -1754,6 +1754,111 @@ withdrawApplication = function(id){
   render();
 };
 
+// Owner Issue 018 / BQ-090 — multiple possible duplicate candidates must all be resolved before creating a new Admissions record.
+function duplicateCandidateRecords(){
+  const p=ui().pendingEnquiry||{};
+  return [
+    {id:'existing_amara',childName:'Amara Perera',dob:'2023-10-18',guardian:p.guardian||'Sajana J.',phone:p.phone||'070 000 0000',status:'Enrolled · active family',className:'Upper Class',matchReason:'same guardian name + registered phone',matchStrength:'Strong family/contact match'},
+    {id:'existing_dinu',childName:'Dinu Perera',dob:'2022-08-09',guardian:p.guardian||'Sajana J.',phone:p.phone||'070 000 0000',status:'Enrolled · active family',className:'Upper Class',matchReason:'same registered guardian phone',matchStrength:'Family/contact match'},
+    {id:'existing_senal',childName:'Senal Perera',dob:'2024-01-27',guardian:'S. Jayawardena',phone:p.phone||'070 000 0000',status:'Application · under review',className:'Baby Class',matchReason:'same guardian phone on another admissions record',matchStrength:'Family/contact match'}
+  ];
+}
+
+duplicateCandidateRecord = function(id){
+  const candidates=duplicateCandidateRecords();
+  return candidates.find(c=>c.id===id)||candidates[0];
+};
+
+function duplicateReviewState(){
+  const p=ui().pendingEnquiry||{};
+  if(!p.duplicateReviews||typeof p.duplicateReviews!=='object')p.duplicateReviews={};
+  return p.duplicateReviews;
+}
+
+function duplicateCandidateCleared(id){return duplicateReviewState()[id]==='cleared'}
+function duplicateAllCandidatesCleared(){const candidates=duplicateCandidateRecords();return candidates.length>0&&candidates.every(c=>duplicateCandidateCleared(c.id))}
+function nextUnresolvedDuplicateCandidate(){return duplicateCandidateRecords().find(c=>!duplicateCandidateCleared(c.id))||duplicateCandidateRecords()[0]}
+
+const _mpsIssue018ModalView=modalView;
+modalView=function(m){
+  if(m?.name!=='duplicate-candidate')return _mpsIssue018ModalView(m);
+  const p=ui().pendingEnquiry||{};
+  const candidates=duplicateCandidateRecords();
+  const reviews=duplicateReviewState();
+  const cleared=candidates.filter(c=>reviews[c.id]==='cleared').length;
+  const allCleared=cleared===candidates.length;
+  const rows=candidates.map((c,index)=>{
+    const done=reviews[c.id]==='cleared';
+    return `<div class="card flat" data-duplicate-candidate="${esc(c.id)}" style="margin-top:8px"><div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><div class="eyebrow">Match ${index+1} · ${esc(c.matchStrength)}</div><h3 style="margin-top:3px">${esc(c.childName)}</h3><p>${esc(c.matchReason)}</p><small>${esc(c.guardian)} · ${esc(c.status)}</small></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${badge(done?'Cleared':'Needs review',done?'green':'amber')}${btn('Review match',`openDuplicateRecord('${c.id}')`,'secondary','sm')}</div></div></div>`;
+  }).join('');
+  const proceed=allCleared
+    ? btn('Proceed as new record',"commitNewEnquiry('separate')",'primary')
+    : `<button class="btn primary" type="button" disabled aria-disabled="true" title="Review and clear every possible match first">Proceed as new record</button>`;
+  const next=nextUnresolvedDuplicateCandidate();
+  return modal('Possible family matches',`${candidates.length} possible matches found · ${cleared} of ${candidates.length} cleared`,`${kv('New enquiry',`${esc(p.childName||'')} · ${esc(p.phone||'')}`)}${notice('Review every possible match before creating a new Admissions record. A shared guardian phone may legitimately belong to siblings; MPS never merges automatically.','warn')}${rows}`,`${btn('Edit enquiry',"editPendingEnquiry()",'secondary')}${!allCleared?btn('Open existing record',`openDuplicateRecord('${next.id}')`,'secondary'):''}${proceed}`);
+};
+
+const _mpsIssue018DrawerView=drawerView;
+drawerView=function(d){
+  if(d?.name!=='duplicate-existing-record')return _mpsIssue018DrawerView(d);
+  const p=ui().pendingEnquiry||{};
+  const candidates=duplicateCandidateRecords();
+  const c=duplicateCandidateRecord(d.data?.id);
+  const index=Math.max(0,candidates.findIndex(x=>x.id===c.id));
+  const cleared=duplicateCandidateCleared(c.id);
+  return drawer('Compare possible match',`Candidate ${index+1} of ${candidates.length} · ${cleared?'Cleared as different':'Needs a decision'}`,`${notice(`MPS flagged this candidate because of ${esc(c.matchReason)}. Matching family contact details can legitimately belong to another child in the same family.`,'info')}<div class="grid" style="margin-top:14px"><div class="span-6 card flat"><div class="eyebrow">New enquiry</div><h3>${esc(p.childName||'New child')}</h3>${kv('Date of birth',fmtDate(p.dob))}${kv('Guardian',esc(p.guardian||'—'))}${kv('Phone',esc(p.phone||'—'))}${kv('Interested service',esc(p.service||'—'))}</div><div class="span-6 card flat"><div class="eyebrow">Existing record</div><h3>${esc(c.childName)}</h3>${kv('Date of birth',fmtDate(c.dob))}${kv('Guardian',esc(c.guardian))}${kv('Phone',`${esc(c.phone)} ${c.phone===p.phone?badge('Match','amber'):''}`)}${kv('Current status',esc(c.status))}${kv('Programme / class',esc(c.className))}</div></div>${notice('If this is the same child/person, close the new enquiry as a duplicate against this record. If it is not the same child/person, explicitly clear this candidate and continue reviewing the others.','warn')}`,`${btn('Back to matches',"returnToDuplicateReview()",'secondary')}${btn('Not the same child/person',`clearDuplicateCandidate('${c.id}')`,'secondary')}${btn('Close new enquiry as duplicate',`closePendingAsDuplicate('${c.id}')`,'danger')}`);
+};
+
+const _mpsIssue018SaveNewEnquiry=saveNewEnquiry;
+saveNewEnquiry=function(){
+  _mpsIssue018SaveNewEnquiry();
+  if(ui().pendingEnquiry){ui().pendingEnquiry.duplicateReviews={};delete ui().pendingEnquiry.duplicateReviewed;save();render()}
+};
+
+openDuplicateRecord=function(id){
+  if(!ui().pendingEnquiry)return;
+  const c=duplicateCandidateRecord(id);
+  ui().modal=null;
+  ui().drawer={name:'duplicate-existing-record',data:{id:c.id}};
+  save();
+  render();
+};
+
+function clearDuplicateCandidate(id){
+  if(!ui().pendingEnquiry)return;
+  duplicateReviewState()[id]='cleared';
+  ui().drawer=null;
+  ui().modal={name:'duplicate-candidate',data:null};
+  save();
+  render();
+}
+
+returnToDuplicateReview=function(){ui().drawer=null;ui().modal={name:'duplicate-candidate',data:null};save();render()};
+
+closePendingAsDuplicate=function(candidateId){
+  const p=ui().pendingEnquiry;
+  if(!p)return closeOverlay();
+  const c=duplicateCandidateRecord(candidateId);
+  if(!confirm(`Close the unsaved enquiry for ${p.childName} as a duplicate of ${c.childName}?`))return;
+  ui().pendingEnquiry=null;
+  ui().modal=null;
+  ui().drawer=null;
+  save();
+  render();
+};
+
+const _mpsIssue018CommitNewEnquiry=commitNewEnquiry;
+commitNewEnquiry=function(mode){
+  const p=ui().pendingEnquiry;
+  if(!p)return closeOverlay();
+  if(!duplicateAllCandidatesCleared()){
+    alert('Review and clear every possible match before proceeding as a new record.');
+    return;
+  }
+  p.duplicateReviewed=true;
+  _mpsIssue018CommitNewEnquiry(mode);
+};
+
 </script>
 </body>
 </html>
