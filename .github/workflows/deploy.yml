@@ -25,8 +25,8 @@ jobs:
 
       - name: Download QA-verified prototype build
         env:
-          SOURCE_COMMIT: '3b0065b71aa44a20a85149cf53c9600a16dbf81d'
-          BUILD_URL: 'https://sdmntprnortheu.oaiusercontent.com/files/00000000-1cf8-81f4-8d36-409b75a2d32c/raw?se=2026-09-14T22%3A04%3A21Z&sp=r&sv=2026-02-06&sr=b&scid=bb19828d-27d8-5667-b824-d320ae7839b3&skoid=34268b52-5349-4f34-9be4-e38a5fb9f231&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-14T20%3A05%3A10Z&ske=2026-09-15T20%3A05%3A10Z&sks=b&skv=2026-02-06&sig=dWHshDEAfsPFS7KKrLat3NljOgfl13tRkJSaCrvU55I%3D'
+          SOURCE_COMMIT: '44612418f5198e07e7d815c9a7c2d62e5cd1be15'
+          BUILD_URL: 'https://sdmntprpolandcentral.oaiusercontent.com/files/00000000-cf20-820a-b7ef-105b1019cd37/raw?se=2026-09-15T12%3A34%3A02Z&sp=r&sv=2026-02-06&sr=b&scid=bba07b9b-7878-5d4a-841e-aa5791b59dbf&skoid=34268b52-5349-4f34-9be4-e38a5fb9f231&sktid=a48cca56-e6da-484e-a814-9c849652bcb3&skt=2026-09-15T08%3A32%3A19Z&ske=2026-09-16T08%3A32%3A19Z&sks=b&skv=2026-02-06&sig=X0Sfg5daPG3uCC1X/Os/skKxOIwkO0CicuKJKNskNhw%3D'
         run: |
           echo "Publishing QA-verified source commit $SOURCE_COMMIT"
           mkdir -p site
