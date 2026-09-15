@@ -1583,6 +1583,56 @@ completeTour = function(id){
   addEvent(id,'tour','Visit completed',details);
   closeOverlay();
 };
+// Owner Issue 015 — Accepted must remain a real stage before Admission Fee.
+const _mpsIssue015AdmissionOverview = admissionOverview;
+admissionOverview = function(c){
+  const html = _mpsIssue015AdmissionOverview(c);
+  if(admissionDisplayStage(c)==='Accepted' && !c.fee){
+    const action = actionCard(
+      'Accepted · create admission-fee invoice',
+      'The application is accepted. Create the admission-fee invoice when you are ready to move this family into the Admission Fee stage.',
+      btn('Create admission-fee invoice',`openModal('issue-admission-fee',{caseId:'${c.id}'})`,'primary','sm')
+    );
+    return `${action}${html}`;
+  }
+  return html;
+};
+
+acceptApplication = function(id){
+  const c = db.admissions[id];
+  c.application.status = 'accepted';
+  c.start = val('accept_start') || c.start;
+  addEvent(id,'accepted','Application accepted',`${val('accept_class')} · ${fmtDate(c.start)}`);
+  ui().admissionsStageFilter = 'Accepted';
+  ui().admissionsTab = 'overview';
+  closeOverlay();
+};
+
+function issueAdmissionFee(id){
+  const c = db.admissions[id];
+  if(!c || c.application.status!=='accepted' || c.fee) return closeOverlay();
+  c.fee = {amount:15000,due:'2026-09-21',verified:0,pending:[],status:'pending'};
+  addEvent(id,'fee_invoice','Admission-fee invoice issued','LKR 15,000');
+  ui().admissionsStageFilter = 'Admission Fee';
+  ui().admissionsTab = 'payments';
+  closeOverlay();
+}
+
+const _mpsIssue015ModalView = modalView;
+modalView = function(m){
+  const n = m?.name, d = m?.data || {};
+  if(n === 'issue-admission-fee'){
+    const c = db.admissions[d.caseId];
+    if(!c) return _mpsIssue015ModalView(m);
+    return modal(
+      'Create admission-fee invoice',
+      'Acceptance is already recorded. Creating the invoice moves this family into the Admission Fee stage.',
+      `${kv('Family',esc(c.childName))}${kv('Amount',money(15000))}${kv('Due date',fmtDate('2026-09-21'))}${notice('Accepted remains a separate stage until this invoice is created.','info')}`,
+      `${btn('Cancel','closeOverlay()','secondary')}${btn('Create invoice',`issueAdmissionFee('${c.id}')`,'primary')}`
+    );
+  }
+  return _mpsIssue015ModalView(m);
+};
 
 </script>
 </body>
