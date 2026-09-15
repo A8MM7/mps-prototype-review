@@ -1,6 +1,6 @@
 // Owner-review copy registry. Keep display wording separate from business actions/state.
 const MPS_UI_COPY = Object.freeze({
-  applicationFamilyWithdrawalAction: 'sweet mommy'
+  applicationFamilyWithdrawalAction: 'Family withdrew'
 });
 
 const ORG = 'Malithi International Preschool';
