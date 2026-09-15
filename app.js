@@ -1642,7 +1642,8 @@ function duplicateReviewState(){
 
 function duplicateCandidateCleared(id){return duplicateReviewState()[id]==='cleared'}
 function duplicateAllCandidatesCleared(){const candidates=duplicateCandidateRecords();return candidates.length>0&&candidates.every(c=>duplicateCandidateCleared(c.id))}
-function nextUnresolvedDuplicateCandidate(){return duplicateCandidateRecords().find(c=>!duplicateCandidateCleared(c.id))||duplicateCandidateRecords()[0]}
+function nextUnresolvedDuplicateCandidate(){return duplicateCandidateRecords().find(c=>!duplicateCandidateCleared(c.id))||null}
+function duplicateClearedCount(){return duplicateCandidateRecords().filter(c=>duplicateCandidateCleared(c.id)).length}
 
 const _mpsIssue018ModalView=modalView;
 modalView=function(m){
@@ -1650,17 +1651,16 @@ modalView=function(m){
   const p=ui().pendingEnquiry||{};
   const candidates=duplicateCandidateRecords();
   const reviews=duplicateReviewState();
-  const cleared=candidates.filter(c=>reviews[c.id]==='cleared').length;
+  const cleared=duplicateClearedCount();
   const allCleared=cleared===candidates.length;
   const rows=candidates.map((c,index)=>{
     const done=reviews[c.id]==='cleared';
-    return `<div class="card flat" data-duplicate-candidate="${esc(c.id)}" style="margin-top:8px"><div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><div class="eyebrow">Match ${index+1} · ${esc(c.matchStrength)}</div><h3 style="margin-top:3px">${esc(c.childName)}</h3><p>${esc(c.matchReason)}</p><small>${esc(c.guardian)} · ${esc(c.status)}</small></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${badge(done?'Cleared':'Needs review',done?'green':'amber')}${btn('Review match',`openDuplicateRecord('${c.id}')`,'secondary','sm')}</div></div></div>`;
+    return `<div class="card flat" data-duplicate-candidate="${esc(c.id)}" style="margin-top:8px"><div style="display:flex;gap:10px;align-items:flex-start"><div style="flex:1"><div class="eyebrow">Match ${index+1} of ${candidates.length} · ${esc(c.matchStrength)}</div><h3 style="margin-top:3px">${esc(c.childName)}</h3><p>${esc(c.matchReason)}</p><small>${esc(c.guardian)} · ${esc(c.status)}</small></div><div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;justify-content:flex-end">${badge(done?'Cleared as different':'Review needed',done?'green':'amber')}${btn('Review',`openDuplicateRecord('${c.id}')`,'secondary','sm')}</div></div></div>`;
   }).join('');
   const proceed=allCleared
     ? btn('Proceed as new record',"commitNewEnquiry('separate')",'primary')
     : `<button class="btn primary" type="button" disabled aria-disabled="true" title="Review and clear every possible match first">Proceed as new record</button>`;
-  const next=nextUnresolvedDuplicateCandidate();
-  return modal('Possible family matches',`${candidates.length} possible matches found · ${cleared} of ${candidates.length} cleared`,`${kv('New enquiry',`${esc(p.childName||'')} · ${esc(p.phone||'')}`)}${notice('Review every possible match before creating a new Admissions record. A shared guardian phone may legitimately belong to siblings; MPS never merges automatically.','warn')}${rows}`,`${btn('Edit enquiry',"editPendingEnquiry()",'secondary')}${!allCleared?btn('Open existing record',`openDuplicateRecord('${next.id}')`,'secondary'):''}${proceed}`);
+  return modal('Possible family matches',`${candidates.length} possible matches found · ${cleared} of ${candidates.length} cleared`,`${kv('New enquiry',`${esc(p.childName||'')} · ${esc(p.phone||'')}`)}${notice('Review each candidate below. The detailed comparison is shown one candidate at a time so it stays easy to read on desktop and mobile. A shared guardian phone may legitimately belong to siblings; MPS never merges automatically.','warn')}${rows}`,`${btn('Edit enquiry',"editPendingEnquiry()",'secondary')}${proceed}`);
 };
 
 const _mpsIssue018DrawerView=drawerView;
@@ -1670,8 +1670,9 @@ drawerView=function(d){
   const candidates=duplicateCandidateRecords();
   const c=duplicateCandidateRecord(d.data?.id);
   const index=Math.max(0,candidates.findIndex(x=>x.id===c.id));
+  const clearedCount=duplicateClearedCount();
   const cleared=duplicateCandidateCleared(c.id);
-  return drawer('Compare possible match',`Candidate ${index+1} of ${candidates.length} · ${cleared?'Cleared as different':'Needs a decision'}`,`${notice(`MPS flagged this candidate because of ${esc(c.matchReason)}. Matching family contact details can legitimately belong to another child in the same family.`,'info')}<div class="grid" style="margin-top:14px"><div class="span-6 card flat"><div class="eyebrow">New enquiry</div><h3>${esc(p.childName||'New child')}</h3>${kv('Date of birth',fmtDate(p.dob))}${kv('Guardian',esc(p.guardian||'—'))}${kv('Phone',esc(p.phone||'—'))}${kv('Interested service',esc(p.service||'—'))}</div><div class="span-6 card flat"><div class="eyebrow">Existing record</div><h3>${esc(c.childName)}</h3>${kv('Date of birth',fmtDate(c.dob))}${kv('Guardian',esc(c.guardian))}${kv('Phone',`${esc(c.phone)} ${c.phone===p.phone?badge('Match','amber'):''}`)}${kv('Current status',esc(c.status))}${kv('Programme / class',esc(c.className))}</div></div>${notice('If this is the same child/person, close the new enquiry as a duplicate against this record. If it is not the same child/person, explicitly clear this candidate and continue reviewing the others.','warn')}`,`${btn('Back to matches',"returnToDuplicateReview()",'secondary')}${btn('Not the same child/person',`clearDuplicateCandidate('${c.id}')`,'secondary')}${btn('Close new enquiry as duplicate',`closePendingAsDuplicate('${c.id}')`,'danger')}`);
+  return drawer('Compare possible match',`Match ${index+1} of ${candidates.length} · ${clearedCount} cleared${cleared?' · already cleared as different':''}`,`${notice(`MPS flagged this candidate because of ${esc(c.matchReason)}. Matching family contact details can legitimately belong to another child in the same family.`,'info')}<div class="grid" style="margin-top:14px"><div class="span-6 card flat"><div class="eyebrow">New enquiry</div><h3>${esc(p.childName||'New child')}</h3>${kv('Date of birth',fmtDate(p.dob))}${kv('Guardian',esc(p.guardian||'—'))}${kv('Phone',esc(p.phone||'—'))}${kv('Interested service',esc(p.service||'—'))}</div><div class="span-6 card flat"><div class="eyebrow">Selected existing record</div><h3>${esc(c.childName)}</h3>${kv('Date of birth',fmtDate(c.dob))}${kv('Guardian',esc(c.guardian))}${kv('Phone',`${esc(c.phone)} ${c.phone===p.phone?badge('Match','amber'):''}`)}${kv('Current status',esc(c.status))}${kv('Programme / class',esc(c.className))}</div></div>${notice('If this is the same child/person, close the new enquiry as a duplicate against this record. If it is not the same child/person, clear this candidate. MPS will then move to the next match that still needs review.','warn')}`,`${btn('Back to all matches',"returnToDuplicateReview()",'secondary')}${btn('Not the same child/person',`clearDuplicateCandidate('${c.id}')`,'secondary')}${btn('Close new enquiry as duplicate',`closePendingAsDuplicate('${c.id}')`,'danger')}`);
 };
 
 const _mpsIssue018SaveNewEnquiry=saveNewEnquiry;
@@ -1692,8 +1693,10 @@ openDuplicateRecord=function(id){
 function clearDuplicateCandidate(id){
   if(!ui().pendingEnquiry)return;
   duplicateReviewState()[id]='cleared';
-  ui().drawer=null;
-  ui().modal={name:'duplicate-candidate',data:null};
+  const next=nextUnresolvedDuplicateCandidate();
+  ui().modal=null;
+  ui().drawer=next?{name:'duplicate-existing-record',data:{id:next.id}}:null;
+  if(!next)ui().modal={name:'duplicate-candidate',data:null};
   save();
   render();
 }
