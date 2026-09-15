@@ -1529,3 +1529,73 @@ recordAdmissionPayment = function(caseId){
   addEvent(caseId,'fee_payment_recorded','Admission-fee payment recorded',`${money(amount)} · Pending Verification${evidence?` · Evidence attached: ${evidence.name}`:''}`);
   closeOverlay();
 };
+// Owner Issue 017 — keep Waitlisted/Closed easy to retrieve without turning them into normal journey stages.
+const admissionSecondaryFilters = ['Waitlisted','Closed'];
+
+function admissionSecondaryOutcome(c){
+  if(!c) return '';
+  if(c.application?.status === 'waitlisted' && !c.closed) return 'Waitlisted';
+  if(c.closed?.type === 'Declined') return 'Declined';
+  if(c.closed?.type === 'Withdrawn') return 'Family withdrew';
+  if(c.closed?.type === 'Released') return 'Place released';
+  if(c.closed?.type === 'Closed') return '';
+  return c.closed?.type || '';
+}
+
+function admissionMatchesFilter(c,filter){
+  if(filter === 'All') return true;
+  if(filter === 'Waitlisted') return c.application?.status === 'waitlisted' && !c.closed;
+  if(filter === 'Closed') return !!c.closed;
+  return admissionDisplayStage(c) === filter;
+}
+
+admissionsFilteredCases = function(){
+  const filter = ui().admissionsStageFilter || 'All';
+  return Object.values(db.admissions).filter(c=>admissionMatchesFilter(c,filter));
+};
+
+admissionsMetrics = function(){
+  const all = Object.values(db.admissions);
+  const active = ui().admissionsStageFilter || 'All';
+  const primary = ['All',...admissionStageLabels];
+  const renderFilter = stage => {
+    const count = all.filter(c=>admissionMatchesFilter(c,stage)).length;
+    return `<button class="tab ${active===stage?'active':''}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`;
+  };
+  return `<div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderFilter).join('')}</div><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><span style="font-size:12px;color:var(--muted);font-weight:700">Other outcomes</span><div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${admissionSecondaryFilters.map(renderFilter).join('')}</div></div>`;
+};
+
+caseListItem = function(c){
+  const stage = admissionDisplayStage(c);
+  const outcome = admissionSecondaryOutcome(c);
+  let condition = admissionCondition(c);
+  if(outcome === 'Waitlisted') condition = 'Waitlisted · review when capacity changes';
+  else if(stage === 'Closed' && outcome) condition = `${outcome}${c.closed?.reason?` · ${c.closed.reason}`:''}`;
+  const secondary = outcome ? `<span>${badge(outcome,outcome==='Waitlisted'?'amber':'grey')}</span>` : '';
+  const searchable = (c.childName+' '+c.guardian+' '+stage+' '+outcome+' '+condition).toLowerCase();
+  return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="${esc(stage)}" data-search="${esc(searchable)}" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${c.childName}</strong><span style="margin-left:auto;display:flex;gap:6px;align-items:center">${badge(stage,admissionStageTone(c))}${secondary}</span></div><div class="meta">${c.guardian} · ${c.service}${condition?`<br>${esc(condition)}`:''}</div></div>`;
+};
+
+const _mpsIssue017WaitlistApplication = waitlistApplication;
+waitlistApplication = function(id){
+  _mpsIssue017WaitlistApplication(id);
+  ui().admissionsStageFilter = 'Waitlisted';
+  save();
+  render();
+};
+
+const _mpsIssue017DeclineApplication = declineApplication;
+declineApplication = function(id){
+  _mpsIssue017DeclineApplication(id);
+  ui().admissionsStageFilter = 'Closed';
+  save();
+  render();
+};
+
+const _mpsIssue017WithdrawApplication = withdrawApplication;
+withdrawApplication = function(id){
+  _mpsIssue017WithdrawApplication(id);
+  ui().admissionsStageFilter = 'Closed';
+  save();
+  render();
+};
