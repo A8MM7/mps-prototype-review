@@ -4615,6 +4615,10 @@ const _mpsExplainerBasePlainLanguageHtml = mpsPlainLanguageHtml;
 mpsPlainLanguageHtml = function(html){
   let out = _mpsExplainerBasePlainLanguageHtml(html);
   MPS_OPERATIONAL_COPY_REPLACEMENTS.forEach(([from,to])=>{out=out.split(from).join(to)});
+  // Remove audited explainer fragments at the HTML boundary as well as at the DOM
+  // boundary. This catches old modules that combine a redundant sentence with a later
+  // useful sentence in the same notice without deleting the useful sentence.
+  MPS_UNNECESSARY_EXPLAINER_TEXTS.forEach(text=>{out=out.split(text).join('')});
   return out;
 };
 
@@ -4626,7 +4630,8 @@ function mpsPruneUnnecessaryExplainers(root){
   if(!root) return;
   const removeTexts = new Set(MPS_UNNECESSARY_EXPLAINER_TEXTS.map(mpsNormaliseUiText));
   root.querySelectorAll('p,.notice,.sub,small').forEach(el=>{
-    if(removeTexts.has(mpsNormaliseUiText(el.textContent))) el.remove();
+    const text=mpsNormaliseUiText(el.textContent);
+    if(!text || removeTexts.has(text)) el.remove();
   });
   root.querySelectorAll('.kv').forEach(row=>{
     const key=row.querySelector('.k');
