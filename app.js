@@ -4688,3 +4688,46 @@ window.__mpsPreschoolClockTimer=setInterval(mpsRefreshPreschoolClock,30000);
 
 // Re-render once so the first visible frame uses the preschool clock.
 render();
+// Owner review — page-heading simplicity.
+// Small eyebrow labels should add context, not repeat the page title or expose
+// an internal product/domain label that does not help staff finish the job.
+
+function mpsHeadingText(value){
+  return String(value||'').replace(/\s+/g,' ').trim();
+}
+
+function mpsSimplifyPageHeadings(root){
+  if(!root) return;
+  root.querySelectorAll('.page-head').forEach(head=>{
+    const eyebrow=head.querySelector('.eyebrow');
+    const title=head.querySelector('h2');
+    if(!eyebrow||!title) return;
+
+    const eye=mpsHeadingText(eyebrow.textContent);
+    const heading=mpsHeadingText(title.textContent);
+
+    // Daycare covers the whole daycare workspace (including Standard and
+    // Extended Daycare). "Extended care" wrongly makes the page sound like it
+    // covers only one service. "Today" adds useful operational context instead.
+    if(heading==='Daycare'&&eye==='Extended care'){
+      eyebrow.textContent='Today';
+      return;
+    }
+
+    const redundantPair=
+      (eye==='Organisation calendar'&&heading==='Calendar')||
+      (eye==='Organisation'&&heading==='Staff & access');
+
+    if(eye.toLowerCase()===heading.toLowerCase()||redundantPair){
+      eyebrow.remove();
+    }
+  });
+}
+
+const _mpsPageHeadingRender=render;
+render=function(){
+  _mpsPageHeadingRender();
+  mpsSimplifyPageHeadings(document.getElementById('root'));
+};
+
+render();
