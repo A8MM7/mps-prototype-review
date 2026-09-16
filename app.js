@@ -2897,14 +2897,15 @@ admissionOverview=function(c){
 };
 
 // Operational Simplicity — approved wording only; no business-rule change.
-// Enquiry follow-up can record the contact outcome and, where appropriate,
-// schedule a Visit in the same interaction, so the action label should not
-// imply that it only records an outcome.
-const _mpsFollowUpAdmissionNextAction = admissionNextAction;
-admissionNextAction=function(c){
-  const html=_mpsFollowUpAdmissionNextAction(c);
-  if(stage(c)!=='Enquiry') return html;
+// Apply the wording at the rendered Admissions overview boundary. These exact
+// strings occur only on the Enquiry follow-up card, so no stage helper is
+// needed here (avoids coupling the copy patch to unrelated rendering state).
+const _mpsFollowUpAdmissionOverview = admissionOverview;
+admissionOverview=function(c){
+  const html=_mpsFollowUpAdmissionOverview(c);
   return html
     .replace('Next action · Contact parent','Next action · Follow up with parent')
-    .replace('Record contact outcome','Update enquiry');
+    .replace('Next action · Follow up parent','Next action · Follow up with parent')
+    .replace('Record contact outcome','Update enquiry')
+    .replace('Record follow-up outcome','Update enquiry');
 };
