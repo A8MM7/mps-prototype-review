@@ -4501,3 +4501,134 @@ render = function(){
 };
 
 render();
+// Operational Simplicity — second copy audit: every sentence must earn its place for the person doing the job.
+// A sentence stays only when it helps someone act, decide, avoid a mistake, understand a consequence,
+// recover access, or keep a child safe. Product narration and implementation commentary stay underneath.
+
+const MPS_TASK_PURPOSE_REMOVALS = Object.freeze([
+  'One clear admission journey. Choose a stage, open a family, and do the next real job.',
+  'Keep the Admissions record aligned with the real conversation.',
+  'Keep the visit on the same admission record.',
+  'Record the visit outcome.',
+  'Keep the application active without pretending a place has been accepted.',
+  'Record the real non-conversion reason.',
+  'The family chose to withdraw before enrolment.',
+  'Reuse the accepted Application; do not create the family again.',
+  'Enrolment reuses the accepted placement and the existing Admissions history.',
+  'The parent submission is now part of this same admission record.',
+  'A familiar month calendar for operating days and important preschool context. What you can see still follows your existing permissions.',
+  'Operating truth and contextual items stay separate.',
+  'MPS provides the configured Sri Lankan public/Poya reference dates automatically.',
+  'Open any other area available to this staff member.',
+  'These records are already organised by child and mapped learning-area context.',
+  'Activity and learning-area context are inherited from Today.',
+  'Evidence is organised automatically from normal teaching records.',
+  'Evidence candidates are generated from teaching records.',
+  'Parent-friendly evidence — not a technical scoring grid.',
+  'Manual delivery records Sent only. MPS never guesses Delivered/Read.',
+  'Keep it factual and lightweight.',
+  'Issued snapshot / draft lines, payments and audit history.',
+  'Only DRAFT invoices can be changed freely.',
+  'Deleting a photo is separate from deciding whether it can be used publicly.',
+  'Basic settings for this preschool workspace.',
+  'Disabling access never deletes attribution.',
+  'Official learning-area mapping, MPS summary and teacher adaptation remain distinct.'
+]);
+
+const MPS_TASK_PURPOSE_REPLACEMENTS = Object.freeze([
+  [
+    'Review each candidate below. The detailed comparison is shown one candidate at a time so it stays easy to read on desktop and mobile. A shared guardian phone may legitimately belong to siblings; MPS never merges automatically.',
+    'Review each possible match. A shared guardian phone may belong to siblings, so confirm the child before closing the enquiry as a duplicate.'
+  ],
+  [
+    'MPS flagged this candidate because of the same registered guardian phone. Only actual matching fields are marked below; a family-contact match may still belong to a sibling or another child. Staff makes the identity decision.',
+    'Matching fields are marked below. A shared family contact may belong to a sibling or another child, so confirm the child before closing the enquiry.'
+  ],
+  [
+    'If this is the same child/person, close the incoming enquiry as a duplicate against this record. If it is not the same child/person, clear this candidate; MPS then moves to the next unresolved match.',
+    'Same child/person: close this enquiry as a duplicate. Different child/person: clear this match and continue.'
+  ],
+  [
+    'The secure application link is active. Staff can resend it without leaving this family record.',
+    'Waiting for the parent to submit the application.'
+  ],
+  [
+    'Create the enrolment from the accepted application; do not retype the family.',
+    'Admission fee is complete. Create the enrolment.'
+  ],
+  [
+    'Parent onboarding and staff review live here; safety readiness is separate from non-critical checklist completion.',
+    'Complete the required safety information before the child starts.'
+  ],
+  [
+    'Set the actual operating state. Special occasions belong in Events, not in the operating status.',
+    'For celebrations or reminders, use Add event instead.'
+  ],
+  [
+    'Events explain what is happening; they do not change operating status.',
+    'Use this for celebrations, reminders and other important dates.'
+  ],
+  [' · materials and curriculum context already carried forward.',''],
+  ['Why this is lightweight','Evidence & progress'],
+  [
+    'No lesson transcription. No compulsory full-class scoring. One delivery outcome, then only evidence worth keeping.',
+    'Review observations and assessments recorded from teaching.'
+  ],
+  [
+    'Choose a reusable activity; the selected activity will actually be added to this week.',
+    'Choose an activity to add to this week.'
+  ],
+  [
+    'The adaptation is local teacher/preschool text; it is not represented as official source wording.',
+    'Add your teaching notes without changing the curriculum wording.'
+  ],
+  [
+    'Only where evidence genuinely exists.',
+    'Record an assessment only when you observed enough to judge it.'
+  ],
+  [
+    'Use observations and assessments to prepare the monthly report. The Head Teacher approves it before it is sent.',
+    'Review the evidence, add the teacher note, and approve the report before sending.'
+  ],
+  [
+    'Drafts can be edited before issue. Later charges never rewrite an issued invoice.',
+    'You can edit this draft until it is issued.'
+  ],
+  [
+    'One person, one MPS account. Add only the access this person actually needs.',
+    'Give this person only the access they need.'
+  ],
+  [
+    'One account can hold several responsibilities without role switching.',
+    'Choose the access this person needs.'
+  ]
+]);
+
+const MPS_TASK_PURPOSE_AUDIT_COUNT = MPS_TASK_PURPOSE_REMOVALS.length + MPS_TASK_PURPOSE_REPLACEMENTS.length;
+
+const _mpsTaskPurposeBasePlainLanguageHtml = mpsPlainLanguageHtml;
+mpsPlainLanguageHtml = function(html){
+  let out = _mpsTaskPurposeBasePlainLanguageHtml(html);
+  MPS_TASK_PURPOSE_REPLACEMENTS.forEach(([from,to])=>{ out=out.split(from).join(to); });
+  MPS_TASK_PURPOSE_REMOVALS.forEach(text=>{ out=out.split(text).join(''); });
+  return out;
+};
+
+// Calendar's earlier compatibility layer used the old explanatory subtitle as a string anchor
+// when adding the ordinary staff "Add calendar entry" action. The subtitle is now deliberately
+// gone, so keep the approved action structurally rather than depending on wording.
+const _mpsTaskPurposeRenderCalendar = renderCalendar;
+renderCalendar = function(){
+  let html = _mpsTaskPurposeRenderCalendar();
+  if(html.includes('Add calendar entry')) return html;
+  const headStart = html.indexOf('<div class="page-head">');
+  if(headStart < 0) return html;
+  const closePair = html.indexOf('</div></div>', headStart);
+  if(closePair < 0) return html;
+  const insertAt = closePair + '</div>'.length;
+  const action = `<div class="page-actions">${btn('Add calendar entry',`openModal('calendar-event',{date:'${TODAY}'})`,'primary')}</div>`;
+  return html.slice(0,insertAt) + action + html.slice(insertAt);
+};
+
+// Install the stricter copy layer immediately so a refresh and Reset render the same UI.
+render();
