@@ -3045,6 +3045,14 @@ admissionOverview=function(c){
     .replace('Record follow-up outcome','Update enquiry');
 };
 
+// The modular prototype renders once before later patch modules have finished
+// loading. On a normal page refresh that left the early/base Admissions markup
+// in the DOM until another action caused a render; Reset happened to trigger
+// that later render, which is why Reset showed the approved labels but Refresh
+// showed the old ones. Re-render once after the final module is installed so
+// the initial page always uses the complete current implementation.
+render();
+
 </script>
 </body>
 </html>
