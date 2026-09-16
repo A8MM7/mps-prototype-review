@@ -4632,3 +4632,59 @@ renderCalendar = function(){
 
 // Install the stricter copy layer immediately so a refresh and Reset render the same UI.
 render();
+// BQ-094 refinement — useful preschool context in the staff header.
+// Replace the generic workspace subtitle with the current preschool date/time,
+// calculated from the preschool timezone configured in Preschool settings.
+
+function mpsPreschoolClockTimezone(){
+  const configured=String(db.organization?.timezone||'Asia/Colombo');
+  try{
+    new Intl.DateTimeFormat('en-GB',{timeZone:configured}).format(new Date());
+    return configured;
+  }catch(_err){
+    return 'Asia/Colombo';
+  }
+}
+
+function mpsPreschoolClockText(now=new Date()){
+  const timeZone=mpsPreschoolClockTimezone();
+  const dateText=new Intl.DateTimeFormat('en-GB',{
+    timeZone,
+    weekday:'long',
+    day:'numeric',
+    month:'long'
+  }).format(now);
+  const timeText=new Intl.DateTimeFormat('en-US',{
+    timeZone,
+    hour:'numeric',
+    minute:'2-digit',
+    hour12:true
+  }).format(now);
+  return `${dateText} · ${timeText}`;
+}
+
+function mpsPreschoolClockHtml(){
+  const timeZone=mpsPreschoolClockTimezone();
+  return `<span id="mps-preschool-clock" data-timezone="${esc(timeZone)}">${esc(mpsPreschoolClockText())}</span>`;
+}
+
+function mpsRefreshPreschoolClock(){
+  const clock=document.getElementById('mps-preschool-clock');
+  if(!clock)return;
+  const timeZone=mpsPreschoolClockTimezone();
+  clock.dataset.timezone=timeZone;
+  clock.textContent=mpsPreschoolClockText();
+}
+
+const _mpsPreschoolClockBaseShell=shell;
+shell=function(content){
+  let html=_mpsPreschoolClockBaseShell(content);
+  html=html.replace('<span>Preschool workspace</span>',mpsPreschoolClockHtml());
+  return html;
+};
+
+if(window.__mpsPreschoolClockTimer) clearInterval(window.__mpsPreschoolClockTimer);
+window.__mpsPreschoolClockTimer=setInterval(mpsRefreshPreschoolClock,30000);
+
+// Re-render once so the first visible frame uses the preschool clock.
+render();
