@@ -2945,6 +2945,9 @@ function mpsDefaultPhoneCountry(){
   const configured=String(MPS_TENANT_CONFIG.phoneCountryDefault||'').toUpperCase();
   return mpsPhoneCountryOptions().some(x=>x.code===configured) ? configured : 'LK';
 }
+function mpsPhoneInput(raw){
+  return String(raw||'').replace(/[^+()\-\s0-9]/g,'');
+}
 function mpsNormalisePhone(raw,countryCode=mpsDefaultPhoneCountry()){
   const country=mpsPhoneCountryOptions().find(x=>x.code===countryCode)||mpsPhoneCountryOptions().find(x=>x.code===mpsDefaultPhoneCountry());
   const trimmed=String(raw||'').trim();
@@ -2981,8 +2984,9 @@ modalView=function(m){
     const countries=mpsPhoneCountryOptions();
     const defaultCountry=p.phoneCountry||mpsDefaultPhoneCountry();
     const countrySelect=`<div class="field"><label>Phone country</label><select id="ne_phone_country">${countries.map(x=>`<option value="${x.code}" ${x.code===defaultCountry?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
+    const phoneField=`<div class="field"><label>Phone</label><input id="ne_phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(p.phone||'070 000 0000')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
     const serviceOptions=['Baby Class','Upper Class','Baby Class + Standard Daycare','Baby Class + Extended Daycare','Upper Class + Standard Daycare','Upper Class + Extended Daycare'];
-    const body=`${selectField('How did you hear about us?',sources,p.source||'Facebook','ne_source')}<div class="form-grid">${field('Parent / contact name',p.guardian||'New Parent','text',false,'ne_guardian')}${countrySelect}${field('Phone',p.phone||'070 000 0000','tel',false,'ne_phone')}${field('Email (optional)',p.email||'','email',false,'ne_email')}${field('Child name',p.childName||'New Child','text',false,'ne_child')}${field('Child DOB',p.dob||'2024-06-01','date',false,'ne_dob')}${field('Desired start',p.start||'2027-01-19','date',false,'ne_start')}${selectField('Interested service',serviceOptions,p.service||'Baby Class','ne_service')}</div>${textArea('Message',p.message||'Interested in 2027 admissions.','ne_message')}${notice('Phone is checked for reliable matching. Email is optional.','info')}`;
+    const body=`${selectField('How did you hear about us?',sources,p.source||'Facebook','ne_source')}<div class="form-grid">${field('Parent / contact name',p.guardian||'New Parent','text',false,'ne_guardian')}${countrySelect}${phoneField}${field('Email (optional)',p.email||'','email',false,'ne_email')}${field('Child name',p.childName||'New Child','text',false,'ne_child')}${field('Child DOB',p.dob||'2024-06-01','date',false,'ne_dob')}${field('Desired start',p.start||'2027-01-19','date',false,'ne_start')}${selectField('Interested service',serviceOptions,p.service||'Baby Class','ne_service')}</div>${textArea('Message',p.message||'Interested in 2027 admissions.','ne_message')}${notice('Phone is checked for reliable matching. Email is optional.','info')}`;
     return modal('New enquiry','Capture the minimum useful information.',body,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save enquiry','mpsSaveValidatedEnquiry()','primary')}`);
   }
   return _mpsBq092ModalView(m);
