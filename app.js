@@ -4274,3 +4274,192 @@ submitOnboarding=function(caseId){
 
 // Re-render so direct refresh uses the validated parent-form controls immediately.
 render();
+// BQ-095 — provider-side MPS Support access and read-only View as.
+// MPS Support is not a preschool staff account and never counts as Account Admin.
+// Routine access is tenant-authorised, temporary, audited and read-only for business changes.
+
+const MPS_SUPPORT_ACTOR='MPS Support';
+
+function mpsRetireLegacySystemAdminSample(){
+  let changed=false;
+  const legacy=db.staff?.accounts?.sajana;
+  if(legacy&&legacy.username==='sajana.admin'){
+    delete db.staff.accounts.sajana;
+    changed=true;
+  }
+  if(db.personas?.sajana){delete db.personas.sajana;changed=true}
+  if(ui().persona==='sajana'){ui().persona='anjali';changed=true}
+  if(changed) save();
+}
+
+// BQ-094 says the first authorised workspace user becomes the initial Account Admin,
+// but that capability can later be transferred. The older migration re-added Account
+// Admin to Anjali on every render. Keep the bootstrap behaviour only when no other
+// active Account Admin already exists, so an approved transfer remains transferred.
+const _mpsSupportBaseMigrateAccountAdminModel=mpsMigrateAccountAdminModel;
+mpsMigrateAccountAdminModel=function(){
+  const initial=mpsAccount('anjali');
+  const initialHadAdmin=!!initial?.bundles?.includes(MPS_ACCOUNT_ADMIN);
+  const otherAdminsBefore=mpsActiveAccountAdmins().filter(a=>a.id!=='anjali').length;
+  _mpsSupportBaseMigrateAccountAdminModel();
+  if(initial&&!initialHadAdmin&&otherAdminsBefore>0&&initial.bundles.includes(MPS_ACCOUNT_ADMIN)){
+    initial.bundles=initial.bundles.filter(b=>b!==MPS_ACCOUNT_ADMIN);
+    mpsEnsurePersonaForAccount(initial);
+    mpsEnsureLastAdminRecovery();
+    save();
+  }
+};
+
+function mpsEnsureSupportState(){
+  if(!db.support){db.support={grant:null,audit:[]};save()}
+  if(!Array.isArray(db.support.audit)){db.support.audit=[];save()}
+  return db.support;
+}
+function mpsSupportGrantActive(){return !!mpsEnsureSupportState().grant?.active}
+function mpsSupportViewActive(){return !!ui().supportSession?.active}
+function mpsSupportAudit(type,detail={}){
+  const s=mpsEnsureSupportState();
+  s.audit.push({id:`support_${Date.now()}_${Math.random().toString(36).slice(2,6)}`,at:new Date().toISOString(),type,actor:detail.actor||MPS_SUPPORT_ACTOR,tenant:mpsOrganisationName(),viewedAsId:detail.viewedAsId||null,viewedAsName:detail.viewedAsName||null,reason:detail.reason||'',by:detail.by||''});
+  save();
+}
+function mpsSupportGrantLabel(){
+  const g=mpsEnsureSupportState().grant;
+  if(!g?.active) return 'Not enabled';
+  return `Enabled by ${g.grantedBy||'Account Admin'}`;
+}
+function mpsGrantSupportAccess(){
+  if(!mpsCurrentIsAccountAdmin()){alert('Account Admin access is required.');return}
+  if(!confirm('Allow temporary MPS Support access for troubleshooting? Support can view the workspace as a staff member, but operational changes remain blocked during support view.')) return;
+  const s=mpsEnsureSupportState();
+  s.grant={id:`grant_${Date.now()}`,active:true,grantedBy:currentPersona().name,grantedAt:new Date().toISOString()};
+  mpsSupportAudit('grant_enabled',{by:currentPersona().name});
+  render();
+}
+function mpsEndSupportAccess(){
+  if(!mpsCurrentIsAccountAdmin()){alert('Account Admin access is required.');return}
+  const s=mpsEnsureSupportState();
+  if(!s.grant?.active)return;
+  s.grant.active=false;s.grant.endedBy=currentPersona().name;s.grant.endedAt=new Date().toISOString();
+  mpsSupportAudit('grant_ended',{by:currentPersona().name});
+  if(mpsSupportViewActive()) mpsExitSupportView(true);
+  else render();
+}
+
+function mpsSupportAccountOptions(selected){
+  return Object.values(db.staff?.accounts||{}).filter(a=>a.status==='active').map(a=>`<option value="${esc(a.id)}" ${a.id===selected?'selected':''}>${esc(a.name)} · ${esc((a.bundles||[]).join(' · ')||'No operational access')}</option>`).join('');
+}
+function mpsSupportConsoleModal(){
+  const support=mpsEnsureSupportState();
+  const session=ui().supportSession||{};
+  const grant=support.grant;
+  if(!grant?.active){
+    return modal('MPS Support','Provider troubleshooting access is not currently enabled.',`<div data-support-console>${notice('Ask a preschool Account Admin to enable temporary MPS Support access from Staff & access. MPS Support is not a preschool staff account.','info')}${notice('Emergency platform recovery is a separate controlled break-glass process and is not simulated as normal support access here.','warn')}</div>`,btn('Close','closeOverlay()','secondary'));
+  }
+  const selected=session.viewedAsId||currentPersona().id;
+  const history=support.audit.slice(-5).reverse().map(x=>`<div class="support-audit-row"><strong>${esc(x.type.replaceAll('_',' '))}</strong><span>${esc(x.viewedAsName||x.by||'')} ${x.reason?`· ${esc(x.reason)}`:''}</span></div>`).join('');
+  return modal('MPS Support','Provider-side troubleshooting. View the tenant exactly as an authorised staff member sees it.',`<div data-support-console>${notice('Support view is read-only for operational changes. The provider session is kept separate from the preschool staff roster.','info')}<div class="field"><label>View as</label><select id="support_view_as">${mpsSupportAccountOptions(selected)}</select></div>${textArea('Support reason',session.reason||'Troubleshooting support call','support_reason')}${history?`<div class="section-title">Recent support activity</div>${history}`:''}</div>`,`${btn('Close','closeOverlay()','secondary')}${session.active?`<button class="btn secondary" data-support-control onclick="mpsExitSupportView()">Exit support view</button><button class="btn primary" data-support-control onclick="mpsSwitchSupportView()">Switch view</button>`:`<button class="btn primary" data-support-control onclick="mpsStartSupportView()">Start support view</button>`}`);
+}
+function mpsStartSupportView(){
+  if(!mpsSupportGrantActive()){alert('The preschool has not enabled MPS Support access.');return}
+  const target=val('support_view_as');
+  const account=mpsAccount(target);
+  const reason=val('support_reason').trim();
+  if(!account||account.status!=='active'){alert('Choose an active staff account to view.');return}
+  if(!reason){alert('Record the support reason.');return}
+  const returnPersona=ui().persona;
+  ui().supportSession={active:true,actor:MPS_SUPPORT_ACTOR,returnPersona,viewedAsId:account.id,reason,startedAt:new Date().toISOString()};
+  ui().persona=account.id;ui().route='today';ui().modal=null;ui().drawer=null;
+  mpsSupportAudit('view_started',{viewedAsId:account.id,viewedAsName:account.name,reason});
+  save();render();
+}
+function mpsSwitchSupportView(){
+  if(!mpsSupportViewActive()) return mpsStartSupportView();
+  if(!mpsSupportGrantActive()){mpsExitSupportView(true);return}
+  const target=val('support_view_as');
+  const account=mpsAccount(target);
+  const reason=val('support_reason').trim()||ui().supportSession.reason;
+  if(!account||account.status!=='active'){alert('Choose an active staff account to view.');return}
+  ui().supportSession.viewedAsId=account.id;ui().supportSession.reason=reason;
+  ui().persona=account.id;ui().route='today';ui().modal=null;ui().drawer=null;
+  mpsSupportAudit('view_switched',{viewedAsId:account.id,viewedAsName:account.name,reason});
+  save();render();
+}
+function mpsExitSupportView(revoked=false){
+  const session=ui().supportSession;
+  if(!session?.active)return;
+  const viewed=mpsAccount(session.viewedAsId);
+  mpsSupportAudit(revoked?'view_revoked':'view_ended',{viewedAsId:session.viewedAsId,viewedAsName:viewed?.name||'',reason:session.reason});
+  const back=session.returnPersona&&mpsAccount(session.returnPersona)?.status==='active'?session.returnPersona:'anjali';
+  ui().supportSession=null;ui().persona=back;ui().route='today';ui().modal=null;ui().drawer=null;save();render();
+}
+
+const _mpsSupportBasePersonaSelect=personaSelect;
+personaSelect=function(){
+  let html=_mpsSupportBasePersonaSelect();
+  if(mpsSupportViewActive()) html=html.replace('<select ','<select disabled ');
+  return `${html}<button class="btn secondary sm provider-support-launch" data-support-control onclick="openModal('mps-support-console')">MPS Support</button>`;
+};
+
+const _mpsSupportBaseModalView=modalView;
+modalView=function(m){
+  if(m?.name==='mps-support-console') return mpsSupportConsoleModal();
+  return _mpsSupportBaseModalView(m);
+};
+
+const _mpsSupportBaseRenderStaff=renderStaff;
+renderStaff=function(){
+  let html=_mpsSupportBaseRenderStaff();
+  if(!mpsCurrentIsAccountAdmin()) return html;
+  const support=mpsEnsureSupportState();
+  const active=!!support.grant?.active;
+  const audit=support.audit.slice(-4).reverse().map(x=>`<div class="support-audit-row"><strong>${esc(x.type.replaceAll('_',' '))}</strong><span>${esc(x.viewedAsName||x.by||'')} ${x.reason?`· ${esc(x.reason)}`:''}</span></div>`).join('');
+  const panel=`<div class="support-access-card"><div class="support-access-copy"><div class="eyebrow">Provider support</div><h3>MPS Support</h3><p>Temporary troubleshooting access for the MPS software provider. Support is separate from staff accounts and uses a read-only View as session.</p>${active?`<div class="notice ok">Support access is currently enabled. ${esc(mpsSupportGrantLabel())}.</div>`:notice('Support cannot enter this preschool through the normal support route until an Account Admin enables it.','info')}${audit?`<div class="section-title">Recent support activity</div>${audit}`:''}</div><div class="support-access-action">${active?btn('End support access','mpsEndSupportAccess()','secondary'):btn('Allow MPS Support','mpsGrantSupportAccess()','primary')}</div></div>`;
+  return html.replace('<div class="table-wrap">',`${panel}<div class="table-wrap">`);
+};
+
+const _mpsSupportBaseShell=shell;
+shell=function(content){
+  let html=_mpsSupportBaseShell(content);
+  if(!mpsSupportViewActive()) return html;
+  const p=currentPersona();
+  const banner=`<div class="mps-support-banner"><div><strong>MPS Support · viewing as ${esc(p.name)}</strong><span>Read-only troubleshooting view · ${esc(ui().supportSession.reason||'Support session')}</span></div><div class="mps-support-banner-actions"><button class="btn secondary sm" data-support-control onclick="openModal('mps-support-console')">Change view</button><button class="btn secondary sm" data-support-control onclick="mpsExitSupportView()">Exit support</button></div></div>`;
+  return html.replace('<div class="content">',`${banner}<div class="content">`);
+};
+
+function mpsSupportSafeButton(button){
+  if(button.hasAttribute('data-support-control')) return true;
+  if(button.classList.contains('tab')) return true;
+  const action=String(button.getAttribute('onclick')||'').trim();
+  if(!action) return false;
+  return /^(setRoute|setAdmissionCase|setAdmissionTab|setLessonTab|setHealthTab|setMediaTab|changeWeek|openDrawer|openModal|openAdmissionsCaseFromCalendar|calendarOpen|mpsOpenAccountModal)\b/.test(action)||action==='closeOverlay()';
+}
+function mpsApplySupportReadOnly(){
+  if(!mpsSupportViewActive()) return;
+  const root=document.getElementById('root'),overlayRoot=document.getElementById('overlay');
+  if(root){
+    root.querySelectorAll('.content input,.content select,.content textarea').forEach(el=>{el.disabled=true;el.title='Read-only during MPS Support view'});
+    root.querySelectorAll('.content button').forEach(el=>{if(!mpsSupportSafeButton(el)){el.disabled=true;el.title='Read-only during MPS Support view'}});
+    root.querySelectorAll('.prototype-persona select').forEach(el=>el.disabled=true);
+    root.querySelectorAll('.account-menu button').forEach(el=>{const a=String(el.getAttribute('onclick')||'');if(a.includes('mpsPrototypeSignOut')){el.disabled=true;el.title='Sign out is unavailable during MPS Support view'}});
+  }
+  if(overlayRoot){
+    overlayRoot.querySelectorAll('input,select,textarea').forEach(el=>{if(!el.closest('[data-support-console]')){el.disabled=true;el.title='Read-only during MPS Support view'}});
+    overlayRoot.querySelectorAll('button').forEach(el=>{if(el.closest('[data-support-console]')||mpsSupportSafeButton(el))return;el.disabled=true;el.title='Read-only during MPS Support view'});
+  }
+}
+
+const _mpsSupportBaseRender=render;
+render=function(){
+  mpsRetireLegacySystemAdminSample();
+  mpsEnsureSupportState();
+  if(mpsSupportViewActive()&&!mpsSupportGrantActive()){
+    const back=ui().supportSession?.returnPersona&&mpsAccount(ui().supportSession.returnPersona)?ui().supportSession.returnPersona:'anjali';
+    ui().supportSession=null;ui().persona=back;save();
+  }
+  _mpsSupportBaseRender();
+  mpsApplySupportReadOnly();
+};
+
+// Ensure fresh and previously-saved prototype states immediately drop the retired
+// System Administrator sample and expose the provider-support model instead.
+render();
