@@ -3411,6 +3411,290 @@ calendarPlanningContext=function(){
 // Re-render after the final Calendar module is installed so refresh and Reset use
 // the same audience-aware Calendar behaviour.
 render();
+// Operational Simplicity — cross-product plain-language audit.
+// Presentation only: keep approved states, permissions, provenance and business logic
+// unchanged underneath, but describe them in the language preschool staff need.
+
+const MPS_PLAIN_LANGUAGE_REPLACEMENTS = [
+  // Shell / general
+  ['Configured tenant · MPS product','Preschool workspace'],
+  ['No record in your authorised prototype scope matched that search.','No matching record found.'],
+
+  // Today
+  ['Your MPS view contains approved public-safe assets only.','Only photos approved for public use are shown here.'],
+  ['No approved MarketingAssets are currently available. Private child photos, nominations, profiles, Health and assessment data are not exposed to this persona.','No photos are currently approved for public use. Private classroom photos and child records stay private.'],
+  ['Finance-only action view. Child Health, teaching and private media are outside this persona.','Here are the billing tasks that need attention today.'],
+  ['Real-source check','Check bank/cash record'],
+  ['Organisation access and recovery work only; operational child data is not automatically exposed.','Manage staff accounts, access and account recovery.'],
+  ['Personal identities','Staff accounts'],
+  ['Historical attribution retained','Past actions kept'],
+  ['Access governance','Staff access'],
+  ['Permission bundles are additive. One person uses one account; responsibilities do not require role switching.','Each staff member uses one account. Give them access to the areas they need.'],
+  ['Ordinary staff → System Administrator reset. Last/only administrator → configured secure recovery; platform break-glass requires ownership/control verification.','A System Administrator can reset staff passwords. If the last administrator is locked out, use the secure account-recovery process.'],
+  ['One personalised operational view built from the permission bundles on this account.','What needs your attention today.'],
+  ['Physical-presence truth','Currently checked in'],
+  ['Source-backed work','Items needing action'],
+  ['Assigned teaching scope','Your classes'],
+  ['Planning context only. It does not change operating-day truth or invent a lesson.','This calendar entry does not change opening hours or create a lesson plan.'],
+  ['derived from DOB. Calm context, not an alert.','birthday'],
+  ['Persistent safety context','Important care note'],
+  ['Visible where care requires it. It is not a permanent red Today alert.','Shown here because it matters while caring for this child.'],
+
+  // Admissions / application / fees
+  ['A persistent family workspace. Staff do the next real job and leave; MPS keeps the case state.','One family record, the current stage, and the next thing to do.'],
+  ['The parent submission is now part of this same case.','The parent has submitted the application. Review it together with the admissions notes.'],
+  ['Parent submission stays on the same admissions record with provenance.','The parent application is shown together with information already recorded during admissions.'],
+  ['No fee gate exists yet for this case. It is created only after Acceptance.','No admission-fee invoice has been created yet.'],
+  ['Issued financial history is stable; verified money is allocated to the gate.','Payments appear here after Billing verifies them.'],
+  ['Accepted is not Enrolled. Full verified settlement or an authorised waiver is required before conversion.','The child can be enrolled after the fee is fully verified or an authorised waiver is recorded.'],
+  ['Fee gate satisfied','Admission fee complete'],
+  ['Create the enrolment from the accepted Application; do not retype the family.','The admission fee is complete. Create the enrolment using the details already on file.'],
+  ['Billing owns the invoice, payment verification and allocation. Admissions consumes the gate result.','Billing records and verifies the payment. Admissions shows the latest payment status.'],
+  ['Cash/bank-transfer payment entry and real-source verification are Finance actions in Billing. Admissions does not verify money.','Record and verify cash or bank-transfer payments in Billing.'],
+  ['Accepted · awaiting Billing invoice','Accepted · admission-fee invoice needed'],
+  ['The accepted placement is frozen. Authorised Finance creates the admission-fee invoice in Billing before this family enters the Admission Fee stage.','The accepted class and start date are confirmed. Billing now needs to create the admission-fee invoice.'],
+  ['Billing action required','Billing needs to act'],
+  ['Billing real-source verification required','Payment needs checking in Billing'],
+  ['Billing invoice action required after Acceptance','Create the admission-fee invoice in Billing'],
+  ['Acceptance freezes the approved placement facts for conversion.','Confirm the class and start date for this child.'],
+  ['Programme, classroom and start date are stored as separate placement facts. These labels come from tenant prototype configuration; MPS does not treat them as universal product rules.','Check the programme, class and start date before accepting.'],
+  ['Accepted is not Enrolled. The admission-fee gate must be satisfied or waived before conversion.','Acceptance does not enrol the child. Complete or waive the admission fee before enrolment.'],
+  ['Time-limited · production duration not yet specified','Time-limited link'],
+  ['Billing policy is snapshotted for this accepted application.','Review the admission-fee amount and due date before creating the invoice.'],
+  ['The amount shown is tenant-configured prototype data, not a universal MPS fee.','This is the preschool’s configured admission fee.'],
+  ['Reuse the accepted Application; do not create the family again.','The family details are already here.'],
+  ['Enrolment reuses the accepted placement and the existing Admissions history.','MPS will use the accepted class, start date and family details already recorded.'],
+  ['Admission-fee gate','Admission fee'],
+  ['Check the real finance source before marking Verified.','Check the payment against the bank, cash record or other authorised source before marking it verified.'],
+  ['The optional attachment is supporting evidence, not the control. The authorised real-source check is.','An attachment can help, but verify the payment against the actual bank, cash or payment record.'],
+  ['Admissions prefill','Already on file'],
+  ['MPS reused','Already on file'],
+  ['Recorded in Admissions','Staff recorded'],
+  ['Admissions history','From admissions'],
+  ['Staff recorded at Visit','Staff note'],
+  ['Case timeline','Admissions history'],
+  ['Derived only from this family’s actual recorded events.','A history of what has happened with this family.'],
+  ['Record what actually happened. Confirmed Interest requires a real positive signal; the enquiry itself is not enough.','Record the parent’s response. Move to Confirmed Interest only when they say they want to continue.'],
+  ['A visit and ability to pay are not required to confirm interest. If a convenient Visit time is agreed during this conversation, staff can schedule it here now. Otherwise, schedule it later from Confirmed Interest.','If the family wants to continue, you can schedule a Visit now or arrange it later.'],
+  ['Keep the Admissions record aligned with the real conversation.','Record what the parent said.'],
+  ['Non-conversion reason','Reason for closing enquiry'],
+  ['The case is now in Visit because that is the next active step.','Next step: Visit.'],
+  ['The case is now in Confirmed Interest. The Visit can be arranged later.','Next step: arrange the Visit.'],
+  ['Only actual matching fields are marked below; a family-contact match may still belong to a sibling or another child. Staff makes the identity decision.','Matching fields are highlighted. A shared family phone can belong to siblings, so staff should confirm whether this is the same child.'],
+
+  // Pre-start / parent forms
+  ['Safety readiness and practical checklist completion are shown separately.','Safety information and practical items are tracked separately.'],
+  ['Safety / operational readiness','Safety readiness'],
+  ['guardian/pickup/Health/communication controls','guardian, pickup, Health and communication details'],
+  ['non-critical documents/starter items','documents and starter items'],
+  ['Parent input → authorised review','Waiting for staff review'],
+  ['Ready to Start for safety/operations.','Safety information is ready.'],
+  ['Any remaining non-critical checklist items stay visible and do not masquerade as 100% complete.','Any remaining practical items stay visible.'],
+  ['Do not rely on parent-submitted Health as authoritative until an authorised review confirms it.','A staff member must review parent-submitted Health information before it becomes the current Health record.'],
+  ['This is deliberately a lean Application. Pickup, Health, documents and consent belong to post-enrolment onboarding.','This application only asks for the information needed for the admissions decision. Pickup, Health, documents and consent will be collected later if the child enrols.'],
+  ['Admissions information is prefilled. Complete or confirm the remaining pre-start family details.','We have filled in information already provided during admissions. Complete or confirm the remaining family details.'],
+  ['This submission is parent-provided evidence. It does not overwrite authoritative Health until staff review.','A staff member must review this Health information before it becomes the current Health record.'],
+
+  // Lessons / teaching / progress
+  ['Curriculum engine','Teaching'],
+  ['Plan from structured framework context, reuse activities, teach from Today, and let evidence flow downstream.','Plan the week, choose activities, teach, and record what happened.'],
+  ['Planning context','This week'],
+  ['Official source','Curriculum'],
+  ['Official Teacher Guide structure','From Teacher Guide'],
+  ['MPS teacher-friendly summary','Teaching focus'],
+  ['MPS keeps official source structure, teacher-friendly summaries and preschool-created activity/adaptation text visually distinct.','Your preschool’s own notes stay separate from the curriculum wording.'],
+  ['Mapped official learning area','Learning area'],
+  [' · mapped to ',' · Learning area: '],
+  ['Teacher adaptation','Your notes'],
+  ['Open / adapt','Open / adjust'],
+  ['materials and curriculum context already carried forward.','everything needed for this activity is here.'],
+  ['Official learning area','Learning area'],
+  ['Official structure','From curriculum'],
+  ['Teacher-friendly MPS summary','Teaching focus'],
+  ['Record delivery','How did it go?'],
+  ['Meaningful evidence','Record learning if useful'],
+  ['Why this is lightweight','Keep it quick'],
+  ['No lesson transcription. No compulsory full-class scoring. One delivery outcome, then only evidence worth keeping.','Record what happened, then add an observation or assessment only when it is useful.'],
+  ['See evidence chain','View progress notes'],
+  ['>Evidence & progress<','>Progress<'],
+  ['Teaching evidence','Observations'],
+  ['These records are already organised by child and mapped learning-area context.','MPS groups these records by child and learning area.'],
+  ['Report candidate','Can use in report'],
+  ['Internal evidence','Staff only'],
+  ['Activity and learning-area context are inherited from Today.','Activity and learning area are filled in for you.'],
+  ['Prefilled','Filled in'],
+  ['The local 1–5 rubric is not presented as an official NIE scoring scale.','Use the preschool’s 1–5 scale. It is not an NIE score.'],
+  ['Save evidence','Save assessment'],
+  ['Official learning-area mapping, MPS summary and teacher adaptation remain distinct.','Review the learning area, teaching focus and your own notes.'],
+  ['This adaptation is local teacher/preschool text; it is not represented as official source wording.','Your changes are saved as your preschool’s notes, separate from the curriculum wording.'],
+  ['MPS-provided activity','Suggested activity'],
+  ['Preschool-created activity','Preschool activity'],
+
+  // Attendance / pickup
+  ['Physical presence','Today'],
+  ['One attendance truth: real arrival, safe handover, then checkout. Corrections preserve history.','Check children in when they arrive and out after a safe handover. Corrections keep the original record.'],
+  ['Truthful absence','Marked absent'],
+  ['Amaya has one audited arrival-time correction.','Amaya has one corrected arrival time.'],
+  ['Rapid arrival','Quick check-in'],
+  ['Fast convenience; each selected child still becomes physically present individually.','Check in several children quickly.'],
+  ['Routine authorised collector · manual human check','Authorised collector checked by staff'],
+  ['Human verification remains the safety decision.','Confirm the collector before handing over the child.'],
+  ['Authorised corrections preserve the original fact and amendment.','The original time and the correction are both kept in the history.'],
+
+  // Daycare
+  ['Bookings create the roster; physical attendance remains the single presence truth.','Today’s daycare list comes from bookings. Attendance shows who is actually here.'],
+  ['Derived roster','Booked children'],
+  ['Configured capacity','Capacity'],
+  ['Operational review','Needs review'],
+  ['Add ad-hoc booking','Add booking'],
+  ['Authorise booking','Add booking'],
+  ['The system detects; the authorised reviewer approves or waives with reason before Billing.','MPS has flagged the late pickup. Review it before any charge is sent to Billing.'],
+
+  // Health
+  ['Only the safety context needed for your role is visible here; authoritative Health review and medication authorisation stay restricted.','You can see the care information needed for your role. Health updates and medication authorisations are restricted.'],
+  ['Relevant care context','Care information'],
+  ['Parent updates and authoritative Health editing are not available to this permission set.','Your role cannot review parent Health updates or change Health records.'],
+  ['One authoritative Health truth; parent input, medication authority and incidents remain separate workflows.','Review Health updates, medication authorisations and incidents in one place.'],
+  ['Authoritative profile example','Current Health record'],
+  ['Confirmed family / authorised review','Confirmed by staff'],
+  ['Accounts and Social Media personas cannot access this route.',''],
+  ['Do not overwrite authoritative Health until reviewed.','Review the parent’s update before changing the current Health record.'],
+  ['Confirm into Health','Update Health record'],
+
+  // Billing
+  ['Clear invoice states, verified payments and immutable issued history — without becoming a full accounting system.','Create invoices, verify payments, and follow up outstanding balances.'],
+  ['Real-source verification','Check bank/cash record'],
+  ['Pending operational charges','Charges to add'],
+  ['No approved operational charge awaiting Accounts review.','No charges waiting to be added.'],
+  ['Issued snapshot / draft lines, payments and audit history.','Invoice details, payments and history.'],
+  ['<div class="section-title">Lines</div>','<div class="section-title">Invoice items</div>'],
+  ['Evidence & history','Invoice & payment history'],
+  ['Issued PDF snapshot','Issued invoice PDF'],
+  ['Issued lines are immutable. Correct with an auditable void/replacement path.','An issued invoice can’t be edited. Void and replace it if a correction is needed.'],
+  ['Every payment is checked against the real source before allocation.','Check the payment against the bank, cash or payment record before marking it verified.'],
+  ['Verification method','How was it checked?'],
+  ['Verify & allocate','Verify payment'],
+  ['Receipt history retained','Receipt saved'],
+  ['Payment verified and allocated','Payment verified and applied to invoice'],
+  ['immutable PDF snapshot created','PDF copy saved'],
+
+  // Reports
+  ['MPS starts from real evidence. Teachers curate; Head Teacher approves the exact parent-facing version.','Use observations and assessments to prepare the monthly report. The Head Teacher approves it before it is sent.'],
+  ['Evidence candidates are generated from teaching records.','MPS suggests relevant observations from teaching records.'],
+  ['Observation candidates','Suggested observations'],
+  ['No parent-eligible observation candidates yet.','No suitable observations have been marked for this report yet.'],
+  ['Assessment context','Assessment notes'],
+  ['Progress context','Progress'],
+  ['Raw rating stays internal','Rating is staff only'],
+  ['Record manual Send','Mark as sent'],
+  ['Manual delivery records Sent only. MPS never guesses Delivered/Read.','When sent manually, MPS records only “Sent”.'],
+  ['Parent-friendly evidence — not a technical scoring grid.','This is the version the parent will see.'],
+
+  // Photos & media
+  ['Only approved public-safe MarketingAssets are visible to this persona.','Only photos approved for public use are shown here.'],
+  ['Private evidence stays private by default. Marketing and deletion are separate decisions.','Classroom photos stay private unless they are approved for public use.'],
+  ['No approved MarketingAssets in this prototype state.','No photos are currently approved for public use.'],
+  ['Public-safe asset','Approved for public use'],
+  ['Nominate','Send for approval'],
+  ['Marketing queue','Photos awaiting approval'],
+  ['Review final intended Facebook asset','Review for Facebook'],
+  ['Approve the exact asset/context, not a generic permission.','Check this photo and its intended use before approving.'],
+  ['Reject for marketing does not delete the legitimate private classroom photo.','Rejecting public use does not delete the classroom photo.'],
+  ['Approve asset','Approve for public use'],
+  ['Reject for marketing','Reject public use'],
+  ['Deletion is different from marketing rejection.','Deleting a photo is separate from deciding whether it can be used publicly.'],
+  ['The photo leaves normal use immediately and remains in a restricted recycle bin for 30 days unless a retention hold applies.','The photo moves to the recycle bin and can be restored for 30 days unless it must be kept.'],
+
+  // Staff & access
+  ['One real person, one account. Permission bundles are additive; Head Teacher is not automatically System Administrator.','Each staff member has their own account. Give them only the access they need.'],
+  ['<th>Permission bundles</th><th>Scope</th>','<th>Access</th><th>Class / area</th>'],
+  ['Ordinary staff → System Administrator reset. Last/only administrator → configured secure recovery. Platform break-glass requires ownership/control verification and is audited.','A System Administrator can reset staff passwords. If the last administrator is locked out, use the secure account-recovery process.'],
+  ['Disabling access never removes historical attribution. One real person keeps one MPS identity even when responsibilities change.','Deactivating an account stops future access. Past actions remain linked to that staff member.'],
+  ['Preschool-controlled MPS identity; personal email is not required.','Create a separate MPS account for this staff member. A personal email is not required.'],
+  ['Permission bundle','Access role'],
+  ['One account can hold several bundles without role switching.','Give this account access to the areas this person needs.'],
+  ['Deactivation stops future access but preserves historical attribution.','Deactivating the account stops future access. Past actions remain in the history.'],
+  ['Historical access','Past access'],
+  ['Disabling access never deletes attribution.','Past actions remain linked to this account.'],
+  ['Former bundle','Previous access'],
+  ['Historical actions','Past actions'],
+  ['Retained / attributable','Kept in history']
+];
+
+function mpsPlainLanguageHtml(html){
+  let out=String(html??'');
+  MPS_PLAIN_LANGUAGE_REPLACEMENTS.forEach(([from,to])=>{out=out.split(from).join(to)});
+  // These labels are display-only, but the stored values must remain unchanged.
+  out=out.replace(/<option([^>]*)>Parent-eligible candidate<\/option>/g,'<option value="Parent-eligible candidate"$1>Can be used in parent report</option>');
+  out=out.replace(/<option([^>]*)>Internal<\/option>/g,'<option value="Internal"$1>Staff only</option>');
+  return out;
+}
+
+const _mpsPlainShell=shell;
+shell=function(content){return mpsPlainLanguageHtml(_mpsPlainShell(content))};
+
+const _mpsPlainModal=modal;
+modal=function(title,sub,body,foot=''){return mpsPlainLanguageHtml(_mpsPlainModal(title,sub,body,foot))};
+
+if(typeof drawer==='function'){
+  const _mpsPlainDrawer=drawer;
+  drawer=function(title,sub,body,foot=''){return mpsPlainLanguageHtml(_mpsPlainDrawer(title,sub,body,foot))};
+}
+
+const _mpsPlainParentApplication=renderParentApplication;
+renderParentApplication=function(){return mpsPlainLanguageHtml(_mpsPlainParentApplication())};
+
+const _mpsPlainParentOnboarding=renderParentOnboarding;
+renderParentOnboarding=function(){return mpsPlainLanguageHtml(_mpsPlainParentOnboarding())};
+
+// Refresh once after installing the copy layer so a normal reload and Reset use
+// the same final staff-facing language.
+render();
+// Final staff-language pass.
+// Some earlier prototype modules add contextual HTML after shell() has already
+// rendered. Apply the same presentation-only wording at the final render boundary
+// so those late additions cannot leak architecture language into the staff UI.
+
+const MPS_PLAIN_LANGUAGE_FINAL_REPLACEMENTS = [
+  ['Automatic weekly baseline. Events, birthdays and holiday references cannot silently change this status.','Events and birthdays do not change opening hours.'],
+  ['Operating exception. Events, birthdays and holiday references cannot silently change this status.','This day has a changed operating status. Events and birthdays do not change opening hours.'],
+  ['Events, birthdays and holiday references cannot silently change this status.','Events and birthdays do not change opening hours.'],
+  ['It does not change operating-day truth or invent a lesson.','It does not change opening hours or create a lesson plan.'],
+  ['Planning context only.','Calendar note.'],
+  ['Important-date context only.','Calendar note.'],
+  ['staff-created event','calendar entry'],
+  ['derived from DOB already held in MPS. Calm context, not an alert.','Birthday'],
+  ['No important-date context today','Nothing else scheduled today'],
+  ['The operating-day status above remains the operational truth.','The opening status above still applies.'],
+  ['Operating amendment history','Opening-status history'],
+  ['Restored to automatic baseline (','Returned to regular schedule ('],
+  ['Operating-day exception','Change operating status'],
+  ['Amend operating-day exception','Change operating status'],
+  ['This changes operating truth; it is separate from ordinary calendar events.','Change whether preschool and daycare are open on this date.'],
+  ['Amendment history is retained.','Previous changes are kept in the history.'],
+  ['Save exception','Save change'],
+  ['The holiday label does not decide whether the preschool is open.','Check the opening status above for this day.'],
+  ['The case is now in Confirmed Interest; arrange the Visit when the family is ready.','Next step: arrange the Visit.'],
+  ['Approved MarketingAssets only','Approved photos only']
+];
+
+const _mpsPlainLanguageBase = mpsPlainLanguageHtml;
+mpsPlainLanguageHtml = function(html){
+  let out=_mpsPlainLanguageBase(html);
+  MPS_PLAIN_LANGUAGE_FINAL_REPLACEMENTS.forEach(([from,to])=>{out=out.split(from).join(to)});
+  return out;
+};
+
+const _mpsPlainFinalRender = render;
+render = function(){
+  _mpsPlainFinalRender();
+  const root=document.getElementById('root');
+  const overlayRoot=document.getElementById('overlay');
+  if(root) root.innerHTML=mpsPlainLanguageHtml(root.innerHTML);
+  if(overlayRoot) overlayRoot.innerHTML=mpsPlainLanguageHtml(overlayRoot.innerHTML);
+};
+
+render();
 
 </script>
 </body>
