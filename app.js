@@ -2681,18 +2681,32 @@ modalView = function(m){
   }
   return _mpsAuditModalViewFinanceVerification(m);
 };
-// Owner Issue 022 — surface the original Enquiry message before staff make contact.
+// Owner Issues 022–023 — preserve the original Enquiry message as persistent Admissions context.
 function mpsEnquiryMessageProvenance(c){
   const source=String(c?.source||'').trim();
-  if(source==='Website') return 'Parent submitted · Website';
-  return source ? `Staff recorded · ${source}` : 'Staff recorded';
+  return source==='Website'
+    ? {label:'Parent submitted',kind:'parent'}
+    : {label:'Staff recorded',kind:'staff'};
 }
 
-const _mpsIssue022AdmissionOverview=admissionOverview;
-admissionOverview=function(c){
-  const html=_mpsIssue022AdmissionOverview(c);
+function mpsEnquiryMessageRow(c){
   const message=String(c?.message||'').trim();
-  if(!message) return html;
-  const messageCard=`<div class="card" data-enquiry-message style="margin-bottom:12px"><div class="eyebrow">Enquiry message</div><p style="white-space:pre-wrap;margin:6px 0 8px">${esc(message)}</p><small>${esc(mpsEnquiryMessageProvenance(c))}</small></div>`;
-  return `${messageCard}${html}`;
+  if(!message) return '';
+  const provenance=mpsEnquiryMessageProvenance(c);
+  return kv('Enquiry message',`<span data-enquiry-message style="white-space:pre-wrap">${esc(message)}</span> ${prov(provenance.label,provenance.kind)}`);
+}
+
+const _mpsIssue023AdmissionOverview=admissionOverview;
+admissionOverview=function(c){
+  const html=_mpsIssue023AdmissionOverview(c);
+  const messageRow=mpsEnquiryMessageRow(c);
+  if(!messageRow) return html;
+
+  const leadSourceRow=kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`);
+  if(html.includes(leadSourceRow)) return html.replace(leadSourceRow,`${leadSourceRow}${messageRow}`);
+
+  const detailsHeading='<h3>Admission details</h3>';
+  if(html.includes(detailsHeading)) return html.replace(detailsHeading,`${detailsHeading}${messageRow}`);
+
+  return html;
 };
