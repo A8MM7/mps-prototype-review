@@ -4731,3 +4731,55 @@ render=function(){
 };
 
 render();
+// Rendered-interface copy audit — review actual staff-facing states, not only known source phrases.
+// Presentation only: no business state, permission, workflow or safety rule changes.
+const MPS_RENDERED_COPY_AUDIT_REMOVALS = Object.freeze([
+  'Contact the parent/guardian and record the real outcome. Do not assume continuing interest from the enquiry alone.',
+  'Use only when staff later confirms that this established Admissions record is a duplicate of another record.',
+  'Detailed guardian, pickup, Health, documents, consents and other pre-start information remains in New Family Onboarding unless a particular fact is genuinely needed for this admissions decision.',
+  'Billing records and verifies the payment. Admissions shows the latest payment status.',
+  'Tap any date above for its operating status and the context you are allowed to see.',
+  'Calendar is viewable by all staff, but operating-day changes remain restricted to Head Teacher / authorised administration.',
+  'Context is reused from its source and remains separate from operating status.',
+  'Useful context only. Nothing here automatically creates a curriculum activity or compulsory lesson.',
+  'Shown here because it matters while caring for this child.',
+  'This calendar entry does not change opening hours or create a lesson plan.',
+  'It does not change opening hours or create a lesson plan.',
+  'Record what the parent said.',
+  'If the family wants to continue, you can schedule a Visit now or arrange it later.',
+  'Check the programme, class and start date before accepting.',
+  'Activity and learning area are filled in for you.',
+  'Check in several children quickly.',
+  'Invoice details, payments and history.',
+  'Add the appointment or item people need to know about.',
+  'Choose the access this person needs.'
+]);
+
+const MPS_RENDERED_COPY_AUDIT_REPLACEMENTS = Object.freeze([
+  ['Use the whole From admissions for the decision — not only the parent form.','Review the admissions notes and parent application together.'],
+  ['Pre-start work begins after Enrolment. Accepted is not Enrolled.','Available after enrolment.'],
+  ['Only dates that differ from the automatic weekly schedule. Restored dates fall back to the baseline while their history is kept.','Only changes from the regular weekly schedule are shown here.'],
+  ['Record what the family says was paid. It remains Pending Verification until an authorised real-source check.','Payment stays pending until it is verified.'],
+  ['Attachment is optional. Verification against the real bank/cash source is still required.','Attachment is optional and does not verify the payment.'],
+  ['An attachment can help, but verify the payment against the actual bank, cash or payment record.','An attachment alone does not verify the payment.'],
+  ['Choose the surviving record. MPS preserves this record and its history, removes it from the active pipeline, and links it durably to the survivor.','Choose the record to keep. This record will be linked to it and removed from the active Admissions list.'],
+  ['This is not an ordinary lost lead and does not delete either history.','Both histories are kept.'],
+  ['MPS has flagged the late pickup. Review it before any charge is sent to Billing.','Review the late pickup before sending any charge to Billing.'],
+  ['Account Admin manages MPS accounts and basic preschool settings. It does not automatically grant access to Admissions, Billing, Health, teaching or other preschool work.','Account Admin manages accounts and preschool settings only. Add other access separately.'],
+  ['Record family withdrawal','Family withdrew'],
+  ['Record withdrawal','Family withdrew'],
+  ['Mark Admissions record as duplicate','Mark as duplicate'],
+  ['Surviving record','Record to keep'],
+  ['Record contact outcome','Update enquiry']
+]);
+
+const _mpsRenderedCopyAuditBase = mpsPlainLanguageHtml;
+mpsPlainLanguageHtml = function(html){
+  let out=_mpsRenderedCopyAuditBase(html);
+  MPS_RENDERED_COPY_AUDIT_REPLACEMENTS.forEach(([from,to])=>{out=out.split(from).join(to)});
+  MPS_RENDERED_COPY_AUDIT_REMOVALS.forEach(text=>{out=out.split(text).join('')});
+  out=out.replace(/Automatic weekly schedule for this date: ([^.]+)\. Choosing that same status restores the automatic schedule instead of keeping a redundant exception\./g,'Regular schedule for this date: $1. Choosing it removes the exception.');
+  return out;
+};
+
+render();
