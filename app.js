@@ -3131,7 +3131,7 @@ calendarUpcomingVisibleEvents=function(monthKey){
 function calendarEntryClassesPanel(){
   const classes=calendarConfiguredClassNames();
   if(!classes.length) return notice('No configured classes are available for class visibility. Choose another audience or configure classes first.','warn');
-  return `<div id="evt_classes_panel" style="display:none;margin-top:8px"><div class="field"><label>Classes</label><label class="check-row"><input id="evt_all_classes" type="checkbox" onchange="calendarSelectAllEntryClasses(this.checked)"> Select all classes</label>${classes.map(c=>`<label class="check-row"><input data-calendar-entry-class type="checkbox" value="${esc(c)}" onchange="calendarSyncAllEntryClasses()"> ${esc(c)}</label>`).join('')}</div><div class="sub">The Head Teacher and the person creating the entry are included automatically.</div></div>`;
+  return `<div id="evt_classes_panel" style="display:block;margin-top:8px"><div class="field"><label>Classes</label><label class="check-row"><input id="evt_all_classes" type="checkbox" onchange="calendarSelectAllEntryClasses(this.checked)"> Select all classes</label>${classes.map(c=>`<label class="check-row"><input data-calendar-entry-class type="checkbox" value="${esc(c)}" onchange="calendarSyncAllEntryClasses()"> ${esc(c)}</label>`).join('')}</div><div class="sub">The Head Teacher and the person creating the entry are included automatically.</div></div>`;
 }
 
 function calendarEntryVisibilityChanged(){
