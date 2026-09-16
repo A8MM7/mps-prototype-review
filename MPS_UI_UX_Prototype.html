@@ -4117,6 +4117,107 @@ renderBilling=function(){
 // part-043 renders once before this final refinement is loaded. Render again so the
 // first visible frame uses the compact header rather than waiting for another action.
 render();
+// BQ-092 applied to BQ-094 account/profile/settings contact inputs.
+// Existing cross-cutting rule: validate and normalise at every input boundary.
+
+function mpsPhoneCountrySelect(id,selected,label='Phone country'){
+  const country=selected||mpsDefaultPhoneCountry();
+  return `<div class="field"><label>${esc(label)}</label><select id="${id}">${mpsPhoneCountryOptions().map(x=>`<option value="${x.code}" ${x.code===country?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
+}
+function mpsOptionalNormalisePhone(raw,countryCode){
+  if(!String(raw||'').trim()) return {ok:true,value:''};
+  return mpsNormalisePhone(raw,countryCode);
+}
+
+mpsProfileRecoveryModal=function(){
+  const a=mpsCurrentAccount();
+  const country=a?.recoveryMobileCountry||mpsDefaultPhoneCountry();
+  const phoneField=`<div class="field"><label>Recovery mobile (optional)</label><input id="profile_recovery_mobile" type="tel" inputmode="tel" autocomplete="tel" value="${esc(a?.recoveryMobile||'')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
+  return modal('Password & recovery','Keep a recovery method you can access if you forget your password.',`<div class="form-grid">${mpsPhoneCountrySelect('profile_recovery_country',country,'Mobile country')}${phoneField}</div>${a?.recoveryMobileVerified?notice(`Verified mobile: ${mpsMaskMobile(a.recoveryMobile)}`,'ok'):notice('A mobile number becomes a recovery method only after you verify it.','info')}${field('Work email (optional)',a?.workEmail||'','email',false,'profile_work_email')}${notice('A work email is optional. MPS does not require staff to have corporate email addresses.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save work email','mpsSaveWorkEmail()','secondary')}${btn('Send verification code','mpsSendRecoveryMobileCode()','primary')}`);
+};
+
+mpsSaveWorkEmail=function(){
+  const a=mpsCurrentAccount();if(!a)return;
+  const email=mpsNormaliseEmail(val('profile_work_email'));
+  if(!email.ok){alert(email.error);return}
+  a.workEmail=email.value;
+  db.staff.history.push({at:new Date().toISOString(),text:`${a.username} updated own recovery profile`});
+  save();openModal('my-profile');
+};
+
+mpsSendRecoveryMobileCode=function(){
+  const a=mpsCurrentAccount();if(!a)return;
+  const country=val('profile_recovery_country')||mpsDefaultPhoneCountry();
+  const phone=mpsNormalisePhone(val('profile_recovery_mobile'),country);
+  if(!phone.ok){alert(phone.error);return}
+  const email=mpsNormaliseEmail(val('profile_work_email'));
+  if(!email.ok){alert(email.error);return}
+  a.pendingRecoveryMobile=phone.value;
+  a.pendingRecoveryMobileCountry=country;
+  a.workEmail=email.value;
+  save();openModal('verify-recovery-mobile');
+};
+
+mpsVerifyRecoveryMobile=function(){
+  const a=mpsCurrentAccount();if(!a)return;
+  if(!/^\d{6}$/.test(val('recovery_mobile_code').trim())){alert('Enter the 6-digit verification code.');return}
+  a.recoveryMobile=a.pendingRecoveryMobile||a.recoveryMobile;
+  a.recoveryMobileCountry=a.pendingRecoveryMobileCountry||a.recoveryMobileCountry||mpsDefaultPhoneCountry();
+  a.recoveryMobileVerified=true;
+  delete a.pendingRecoveryMobile;
+  delete a.pendingRecoveryMobileCountry;
+  db.staff.history.push({at:new Date().toISOString(),text:`${a.username} verified recovery mobile ending ${mpsSafeDigits(a.recoveryMobile).slice(-4)}`});
+  save();openModal('my-profile');
+};
+
+mpsPreschoolSettingsModal=function(){
+  if(!mpsCurrentIsAccountAdmin()) return modal('Preschool settings','Account Admin access is required.',notice('Ask an Account Admin if these account-level settings need to change.','info'),btn('Close','closeOverlay()','secondary'));
+  const o=db.organization;
+  const country=o.contactPhoneCountry||mpsDefaultPhoneCountry();
+  const phoneField=`<div class="field"><label>Preschool contact phone</label><input id="org_phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(o.contactPhone||'')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
+  return modal('Preschool settings','Basic settings for this preschool workspace.',`${field('Preschool name',o.name||ORG,'text',false,'org_name')}<div class="form-grid">${mpsPhoneCountrySelect('org_phone_country',country,'Phone country')}${phoneField}</div><div class="field"><label>Preschool timezone</label><select id="org_timezone">${mpsTimezoneOptions(o.timezone)}</select><small>Use the timezone where this preschool operates.</small></div>${notice('Operational settings stay in their own workspaces. Calendar opening changes, Billing work and teaching settings do not belong here.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save settings','mpsSavePreschoolSettings()','primary')}`);
+};
+
+mpsSavePreschoolSettings=function(){
+  if(!mpsCurrentIsAccountAdmin()){alert('Account Admin access is required.');return}
+  const o=db.organization;
+  const nextName=val('org_name').trim();
+  const nextPhoneCountry=val('org_phone_country')||mpsDefaultPhoneCountry();
+  const nextPhone=mpsOptionalNormalisePhone(val('org_phone'),nextPhoneCountry);
+  const nextTimezone=val('org_timezone');
+  if(!nextName){alert('Enter the preschool name.');return}
+  if(!nextPhone.ok){alert(nextPhone.error);return}
+  if(nextTimezone!==o.timezone&&!confirm(`Change the preschool timezone from ${mpsTimezoneLabel(o.timezone)} to ${mpsTimezoneLabel(nextTimezone)}? This changes how the preschool interprets and displays operational times.`)) return;
+  const changes=[];
+  if(nextName!==o.name) changes.push(`name: ${o.name} → ${nextName}`);
+  if(nextPhone.value!==o.contactPhone) changes.push('contact phone updated');
+  if(nextTimezone!==o.timezone) changes.push(`timezone: ${o.timezone} → ${nextTimezone}`);
+  o.name=nextName;o.contactPhone=nextPhone.value;o.contactPhoneCountry=nextPhoneCountry;o.timezone=nextTimezone;
+  if(changes.length)o.settingsHistory.push({at:new Date().toISOString(),by:currentPersona().name,changes});
+  save();closeOverlay();
+};
+
+mpsCreateStaffModal=function(){
+  const country=mpsDefaultPhoneCountry();
+  const phoneField='<div class="field"><label>Recovery mobile (optional)</label><input id="staff_recovery_mobile" type="tel" inputmode="tel" autocomplete="tel" value="" oninput="this.value=mpsPhoneInput(this.value)" /></div>';
+  return modal('Create staff account','One person, one MPS account. Add only the access this person actually needs.',`${field('Full name','New Teacher','text',false,'staff_name')}${field('MPS username','new.teacher','text',false,'staff_username')}${selectField('Initial access',mpsBundleOptions(),'Class Teacher','staff_bundle')}${field('Class / area','Baby Class','text',false,'staff_scope')}<div class="form-grid">${mpsPhoneCountrySelect('staff_recovery_country',country,'Mobile country')}${phoneField}</div>${notice('The staff member verifies their recovery mobile from My profile. Work email is not required.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create account','createStaff()','primary')}`);
+};
+
+createStaff=function(){
+  const name=val('staff_name').trim(),username=val('staff_username').trim(),bundle=val('staff_bundle'),id='staff_'+Date.now();
+  if(!name||!username){alert('Enter the staff member name and MPS username.');return}
+  const country=val('staff_recovery_country')||mpsDefaultPhoneCountry();
+  const recovery=mpsOptionalNormalisePhone(val('staff_recovery_mobile'),country);
+  if(!recovery.ok){alert(recovery.error);return}
+  db.staff.accounts[id]={id,name,username,bundles:[bundle],scope:val('staff_scope').trim()||'All',status:'active',recoveryMobile:recovery.value,recoveryMobileCountry:country,recoveryMobileVerified:false,workEmail:''};
+  mpsEnsurePersonaForAccount(db.staff.accounts[id]);
+  db.staff.history.push({at:new Date().toISOString(),text:`Account ${username} created with ${bundle}`});
+  mpsEnsureLastAdminRecovery();
+  closeOverlay();
+};
+
+// Keep the first visible frame on the newest overrides.
+render();
 
 </script>
 </body>
