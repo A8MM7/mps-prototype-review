@@ -4785,24 +4785,25 @@ mpsPlainLanguageHtml = function(html){
 render();
 // Owner review — compact rare record-management action.
 // Marking an established Admissions record as a duplicate is a rare case-level action.
-// Keep the action accessible, but do not give one secondary button an entire full-width card.
+// Keep the action accessible, but place it after the case information rather than beside the section heading.
 
 function mpsCompactEstablishedDuplicateAction(html){
   if(!html || !html.includes('Record management') || !html.includes('Mark as duplicate')) return html;
 
   const managementCard=/<div class="card" style="margin-top:12px"><div class="card-header"><div class="grow"><h3>Record management<\/h3>(?:<p>[\s\S]*?<\/p>)?<\/div>(<button[^>]*>Mark as duplicate<\/button>)<\/div><\/div>/;
   const match=html.match(managementCard);
-  if(!match) return html;
+  if(!match || match.index===undefined) return html;
 
   const duplicateButton=match[1];
-  let out=html.replace(match[0],'');
-  const admissionDetailsHeading='<h3>Admission details</h3>';
+  const before=html.slice(0,match.index);
+  const after=html.slice(match.index+match[0].length);
+  const detailsHeadingIndex=before.lastIndexOf('<h3>Admission details</h3>');
+  const detailsCloseIndex=before.lastIndexOf('</div>');
 
-  if(out.includes(admissionDetailsHeading)){
-    out=out.replace(admissionDetailsHeading,`<div class="card-header"><h3>Admission details</h3>${duplicateButton}</div>`);
-  }
+  if(detailsHeadingIndex<0 || detailsCloseIndex<detailsHeadingIndex) return html;
 
-  return out;
+  const footer=`<div class="admission-record-actions" style="display:flex;justify-content:flex-end;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">${duplicateButton}</div>`;
+  return `${before.slice(0,detailsCloseIndex)}${footer}${before.slice(detailsCloseIndex)}${after}`;
 }
 
 const _mpsCompactRecordManagementOverview=admissionOverview;
