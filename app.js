@@ -3057,3 +3057,217 @@ recordEnquiryContactOutcome=function(id){
 // part-038 performs an early final render for refresh correctness; this module is
 // later in the build order, so render once more to install the completed context view.
 render();
+// BQ-093 — Calendar operational simplicity and audience-aware staff entries.
+// Staff see ordinary calendar language; source ownership, operating status and
+// permission boundaries remain enforced underneath.
+
+function calendarConfiguredClassNames(){
+  const names=new Set();
+  Object.values(db.attendance||{}).forEach(x=>{if(x?.className) names.add(String(x.className).trim())});
+  Object.values(db.admissions||{}).forEach(c=>{if(c?.enrolment?.className) names.add(String(c.enrolment.className).trim())});
+  Object.values(db.staff?.accounts||{}).forEach(a=>{
+    if(Array.isArray(a?.classNames)) a.classNames.forEach(x=>{if(x) names.add(String(x).trim())});
+  });
+  return Array.from(names).filter(Boolean).sort((a,b)=>a.localeCompare(b));
+}
+
+function calendarViewerClassNames(){
+  const configured=new Set(calendarConfiguredClassNames());
+  const p=currentPersona();
+  const a=db.staff?.accounts?.[p.id];
+  const values=[];
+  if(Array.isArray(p?.classNames)) values.push(...p.classNames);
+  if(Array.isArray(a?.classNames)) values.push(...a.classNames);
+  if(p?.scope) values.push(p.scope);
+  if(a?.scope) values.push(a.scope);
+  return [...new Set(values.filter(x=>configured.has(x)))];
+}
+
+function calendarEntryVisibilityLabel(e){
+  if(!e?.visibility){
+    if(e?.scope==='Whole preschool') return 'All staff';
+    return e?.scope||'Calendar entry';
+  }
+  if(e.visibility==='only_me') return 'Only me';
+  if(e.visibility==='head_teacher') return 'Head Teacher + me';
+  if(e.visibility==='all_staff') return 'All staff';
+  if(e.visibility==='classes'){
+    const xs=Array.isArray(e.classNames)?e.classNames:[];
+    return xs.length?`Classes · ${xs.join(' · ')}`:'Classes';
+  }
+  return 'Calendar entry';
+}
+
+calendarEventVisibleToViewer=function(e){
+  if(!e?.visibility){
+    if(e?.scope==='Whole preschool') return true;
+    if(has('Head Teacher')||has('System Administration')) return true;
+    return currentPersona().scope===e?.scope;
+  }
+  if(e.visibility==='all_staff') return true;
+  if(currentPersona().id===e.createdById) return true;
+  if(e.visibility==='head_teacher') return has('Head Teacher');
+  if(e.visibility==='classes'){
+    if(has('Head Teacher')) return true;
+    const selected=new Set(Array.isArray(e.classNames)?e.classNames:[]);
+    return calendarViewerClassNames().some(x=>selected.has(x));
+  }
+  return false;
+};
+
+calendarEventsOn=function(date){
+  return Object.values(db.calendar?.events||{})
+    .filter(e=>e.date===date&&calendarEventVisibleToViewer(e))
+    .sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')||String(a.title||'').localeCompare(String(b.title||'')));
+};
+
+calendarUpcomingVisibleEvents=function(monthKey){
+  return Object.values(db.calendar?.events||{})
+    .filter(calendarEventVisibleToViewer)
+    .filter(e=>e.date?.slice(0,7)===monthKey)
+    .sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'99:99').localeCompare(b.time||'99:99')||String(a.title||'').localeCompare(String(b.title||'')));
+};
+
+function calendarEntryClassesPanel(){
+  const classes=calendarConfiguredClassNames();
+  if(!classes.length) return notice('No configured classes are available for class visibility. Choose another audience or configure classes first.','warn');
+  return `<div id="evt_classes_panel" style="display:none;margin-top:8px"><div class="field"><label>Classes</label><label class="check-row"><input id="evt_all_classes" type="checkbox" onchange="calendarSelectAllEntryClasses(this.checked)"> Select all classes</label>${classes.map(c=>`<label class="check-row"><input data-calendar-entry-class type="checkbox" value="${esc(c)}" onchange="calendarSyncAllEntryClasses()"> ${esc(c)}</label>`).join('')}</div><div class="sub">The Head Teacher and the person creating the entry are included automatically.</div></div>`;
+}
+
+function calendarEntryVisibilityChanged(){
+  const panel=byId('evt_classes_panel');
+  if(panel) panel.style.display=val('evt_visibility')==='Classes…'?'block':'none';
+}
+function calendarSelectAllEntryClasses(checkedValue){
+  document.querySelectorAll('[data-calendar-entry-class]').forEach(x=>{x.checked=!!checkedValue});
+}
+function calendarSyncAllEntryClasses(){
+  const boxes=Array.from(document.querySelectorAll('[data-calendar-entry-class]'));
+  const all=byId('evt_all_classes');
+  if(all) all.checked=!!boxes.length&&boxes.every(x=>x.checked);
+}
+function calendarEntryModal(data={}){
+  const date=data.date||TODAY;
+  return modal('Add calendar entry','Add the appointment or item people need to know about.',`${field('Title','','text',false,'evt_title')}<div class="form-grid">${field('Date',date,'date',false,'evt_date')}${field('Time (optional)','','time',false,'evt_time')}</div>${selectField('Who should see this?',['Only me','Head Teacher + me','Classes…','All staff'],'Classes…','evt_visibility','calendarEntryVisibilityChanged()')}${calendarEntryClassesPanel()}${textArea('Optional note','','evt_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save calendar entry','saveCalendarEntry()','primary')}`);
+}
+
+const _mpsCalendarEntryModalView=modalView;
+modalView=function(m){
+  if(m?.name==='calendar-event') return calendarEntryModal(m.data||{});
+  return _mpsCalendarEntryModalView(m);
+};
+
+function saveCalendarEntry(){
+  const title=val('evt_title').trim();
+  const date=val('evt_date');
+  if(!title){alert('Enter a title for this calendar entry.');return}
+  if(!date){alert('Choose a date for this calendar entry.');return}
+  const choice=val('evt_visibility');
+  const map={'Only me':'only_me','Head Teacher + me':'head_teacher','Classes…':'classes','All staff':'all_staff'};
+  const visibility=map[choice]||'only_me';
+  const classNames=visibility==='classes'?Array.from(document.querySelectorAll('[data-calendar-entry-class]:checked')).map(x=>x.value):[];
+  if(visibility==='classes'&&!classNames.length){alert('Select at least one class, or choose another audience.');return}
+  const p=currentPersona();
+  const id=`evt_${Date.now()}`;
+  const e={
+    id,
+    title,
+    date,
+    time:val('evt_time'),
+    note:val('evt_note').trim(),
+    visibility,
+    classNames,
+    createdById:p.id,
+    createdByName:p.name,
+    createdAt:new Date().toISOString()
+  };
+  e.scope=calendarEntryVisibilityLabel(e);
+  db.calendar.events[id]=e;
+  closeOverlay();
+}
+saveCalendarEvent=saveCalendarEntry;
+
+function calendarTimedRowsForDay(events,tours){
+  const rows=[];
+  events.forEach(e=>rows.push({
+    time:e.time||'',
+    sortTime:e.time||'99:99',
+    sortTitle:e.title||'',
+    html:`<div class="calendar-detail-row"><span>${badge('Calendar entry','blue')}</span><div><strong>${e.time?`${esc(e.time)} · `:''}${esc(e.title)}</strong><div class="sub">${esc(calendarEntryVisibilityLabel(e))}${e.note?` · ${esc(e.note)}`:''}</div></div></div>`
+  }));
+  tours.forEach(t=>rows.push({
+    time:t.time||'',
+    sortTime:t.time||'99:99',
+    sortTitle:t.childName||'',
+    html:`<div class="calendar-detail-row"><span>${badge('Admissions visit','blue')}</span><div><strong>${t.time?`${esc(t.time)} · `:''}${esc(t.childName)}</strong><div class="sub">${esc(t.guardian)}</div><div style="margin-top:6px">${btn('Open Admissions',`openAdmissionsCaseFromCalendar('${t.caseId}')`,'secondary','sm')}</div></div></div>`
+  }));
+  return rows.sort((a,b)=>a.sortTime.localeCompare(b.sortTime)||a.sortTitle.localeCompare(b.sortTitle)).map(x=>x.html).join('');
+}
+
+calendarDayModal=function(date){
+  const op=operatingStatusForDate(date);
+  const events=calendarEventsOn(date);
+  const holidays=holidayReferencesOn(date);
+  const tours=calendarAdmissionsToursOn(date);
+  const birthdays=birthdaysOn(date);
+  const guardianBirthdays=calendarGuardianBirthdaysOn(date);
+  const record=calendarRecordForDate(date);
+  const active=calendarActiveExceptionOn(date);
+  const canManage=calendarCanManage();
+  const scheduled=calendarTimedRowsForDay(events,tours);
+  const other=[
+    ...holidays.map(h=>`<div class="calendar-detail-row"><span>${badge('Holiday','purple')}</span><div><strong>${esc(h.name)}</strong><div class="sub">${esc(h.category||'Public holiday')}</div></div></div>`),
+    ...birthdays.map(c=>`<div class="calendar-detail-row"><span>${badge('Child birthday','green')}</span><div><strong>🎂 ${esc(c.name)}</strong></div></div>`),
+    ...guardianBirthdays.map(g=>`<div class="calendar-detail-row"><span>${badge('Guardian birthday','green')}</span><div><strong>🎂 ${esc(g.name)}</strong><div class="sub">${esc(g.childName)} · ${esc(g.relationship)}</div></div></div>`)
+  ].join('');
+  const context=scheduled+other;
+  let history='';
+  if(canManage&&record?.history?.length){
+    history=`<div class="section-title" style="margin-top:16px">Operating amendment history</div>${record.history.slice().reverse().map(h=>`<div class="calendar-history"><strong>${esc(calendarNormaliseType(h.type))}</strong><span>${esc(h.reason||'No reason recorded')} · ${esc(h.by||'Staff')}</span></div>`).join('')}`;
+  }
+  const body=`${kv('Date',calendarDateLabel(date))}<div class="calendar-operating-summary">${badge(op.text,op.tone)}</div>${canManage&&active?.reason?`<div class="notice info"><strong>Current change reason:</strong> ${esc(active.reason)}</div>`:''}<div class="section-title" style="margin-top:16px">On this day</div>${context||'<div class="empty">No other calendar items for this date.</div>'}${history}`;
+  const editData=record?`{id:'${record.id}',date:'${date}'}`:`{date:'${date}'}`;
+  const foot=`${btn('Close','closeOverlay()','secondary')}${btn('Add calendar entry',`openModal('calendar-event',{date:'${date}'})`,'secondary')}${canManage?btn('Change operating status',`openModal('calendar-exception',${editData})`,'primary'):''}`;
+  return modal(calendarDateLabel(date),'',body,foot);
+};
+
+const _mpsCalendarEntryRenderCalendar=renderCalendar;
+renderCalendar=function(){
+  let html=_mpsCalendarEntryRenderCalendar();
+  html=html
+    .replaceAll('Add event','Add calendar entry')
+    .replaceAll('Staff-created events','Calendar entries')
+    .replaceAll('No visible staff-created events this month.','No calendar entries this month.')
+    .replaceAll('Events remain separate from operating status.','Calendar entries do not change operating status.')
+    .replace('<span><i class="legend-dot event"></i> Event</span>','<span><i class="legend-dot event"></i> Calendar entry</span>');
+
+  if(!html.includes('Add calendar entry')){
+    const noActions='<div class="page-head"><div class="left"><div class="eyebrow">Organisation calendar</div><h2>Calendar</h2><p>A familiar month calendar for operating days and important preschool context. What you can see still follows your existing permissions.</p></div></div>';
+    const withActions=`<div class="page-head"><div class="left"><div class="eyebrow">Organisation calendar</div><h2>Calendar</h2><p>A familiar month calendar for operating days and important preschool context. What you can see still follows your existing permissions.</p></div><div class="page-actions">${btn('Add calendar entry',`openModal('calendar-event',{date:'${TODAY}'})`,'primary')}</div></div>`;
+    html=html.replace(noActions,withActions);
+  }
+  return html;
+};
+
+calendarPlanningContext=function(){
+  const start=ui().lessonWeek;
+  const end=isoAddDays(start,4);
+  const lessonClass=className();
+  const items=[];
+  Object.values(db.calendar?.events||{}).forEach(e=>{
+    if(!e?.date||e.date<start||e.date>end) return;
+    let relevant=false;
+    if(!e.visibility) relevant=e.scope==='Whole preschool'||e.scope===lessonClass;
+    else if(e.visibility==='all_staff') relevant=true;
+    else if(e.visibility==='classes') relevant=(e.classNames||[]).includes(lessonClass);
+    if(!relevant||!calendarEventVisibleToViewer(e)) return;
+    items.push({date:e.date,title:e.title,detail:`${e.time?`${e.time} · `:''}${calendarEntryVisibilityLabel(e)}${e.note?` · ${e.note}`:''}`,kind:'Event'});
+  });
+  calendarChildren().filter(c=>!c.className||c.className===lessonClass).forEach(c=>{const d=`${start.slice(0,4)}-${c.dob.slice(5)}`;if(d>=start&&d<=end)items.push({date:d,title:`${c.name} birthday`,detail:'Birthday',kind:'Birthday'})});
+  holidayReferencesOnRange(start,end).forEach(h=>items.push({date:h.date,title:h.name,detail:'Sri Lankan holiday reference',kind:'Holiday reference'}));
+  return items.sort((a,b)=>a.date.localeCompare(b.date)||String(a.detail||'').localeCompare(String(b.detail||'')));
+};
+
+// Re-render after the final Calendar module is installed so refresh and Reset use
+// the same audience-aware Calendar behaviour.
+render();
