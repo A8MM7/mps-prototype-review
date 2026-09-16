@@ -3103,6 +3103,95 @@ recordEnquiryContactOutcome=function(id){
 // showed the old ones. Re-render once after the final module is installed so
 // the initial page always uses the complete current implementation.
 render();
+// Operational Simplicity — reuse the factual note already captured during Enquiry follow-up.
+// This is presentation/data-reuse only: the Timeline remains the complete contact history,
+// while Admission details shows the latest non-blank staff factual note for quick context.
+
+function mpsLatestContactNoteFromEvents(c){
+  const events=[...(c?.events||[])].reverse();
+  for(const e of events){
+    const parts=String(e?.detail||'').split(' · ').map(x=>x.trim()).filter(Boolean);
+    if(e?.type==='contact_attempt' && parts[1]==='Wants to continue' && parts.length>2){
+      return parts.slice(2).join(' · ');
+    }
+    if(e?.type==='contact_attempt' && parts[1]==='Could not reach parent' && parts.length>3){
+      return parts.slice(3).join(' · ');
+    }
+    if(e?.type==='non_conversion' && parts.length>2){
+      return parts.slice(2).join(' · ');
+    }
+    if(e?.type==='qualified' && /^Real positive signal received via /.test(parts[0]||'') && parts.length>1){
+      return parts.slice(1).join(' · ');
+    }
+  }
+  return '';
+}
+
+function mpsLatestContactNoteText(c){
+  return String(c?.latestContactNote?.text||'').trim() || mpsLatestContactNoteFromEvents(c);
+}
+
+function mpsLatestContactNoteRow(c){
+  const note=mpsLatestContactNoteText(c);
+  if(!note) return '';
+  return kv('Latest contact note',`<span data-latest-contact-note style="white-space:pre-wrap">${esc(note)}</span> ${prov('Staff recorded','staff')}`);
+}
+
+const _mpsLatestNoteAdmissionOverview=admissionOverview;
+admissionOverview=function(c){
+  const html=_mpsLatestNoteAdmissionOverview(c);
+  const noteRow=mpsLatestContactNoteRow(c);
+  if(!noteRow || html.includes('data-latest-contact-note')) return html;
+
+  const messageRow=typeof mpsEnquiryMessageRow==='function' ? mpsEnquiryMessageRow(c) : '';
+  if(messageRow && html.includes(messageRow)) return html.replace(messageRow,`${messageRow}${noteRow}`);
+
+  const leadSourceRow=kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`);
+  if(html.includes(leadSourceRow)) return html.replace(leadSourceRow,`${leadSourceRow}${noteRow}`);
+
+  const detailsHeading='<h3>Admission details</h3>';
+  if(html.includes(detailsHeading)) return html.replace(detailsHeading,`${detailsHeading}${noteRow}`);
+
+  return html;
+};
+
+const _mpsLatestNoteRecordEnquiryContactOutcome=recordEnquiryContactOutcome;
+recordEnquiryContactOutcome=function(id){
+  const c=db.admissions[id];
+  if(!c) return _mpsLatestNoteRecordEnquiryContactOutcome(id);
+
+  const note=val('enq_contact_note').trim();
+  const method=val('enq_contact_method');
+  const outcome=val('enq_contact_outcome');
+  const beforeEvents=c.events?.length||0;
+  const previous=Object.prototype.hasOwnProperty.call(c,'latestContactNote') ? c.latestContactNote : undefined;
+  const hadPrevious=Object.prototype.hasOwnProperty.call(c,'latestContactNote');
+
+  // Put the note on the case before the established save/render path runs, so
+  // the same render that shows Confirmed Interest / Visit also shows the note.
+  if(note){
+    c.latestContactNote={
+      text:note,
+      method,
+      outcome,
+      recordedAt:new Date().toISOString(),
+      recordedBy:mpsAdmissionActor()
+    };
+  }
+
+  _mpsLatestNoteRecordEnquiryContactOutcome(id);
+
+  // Validation can stop the underlying action before anything is saved. Roll
+  // back the provisional note in memory in that case; no localStorage write occurred.
+  if(note && (c.events?.length||0)<=beforeEvents){
+    if(hadPrevious) c.latestContactNote=previous;
+    else delete c.latestContactNote;
+  }
+};
+
+// part-038 performs an early final render for refresh correctness; this module is
+// later in the build order, so render once more to install the completed context view.
+render();
 
 </script>
 </body>
