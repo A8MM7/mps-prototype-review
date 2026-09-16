@@ -1900,6 +1900,923 @@ duplicateCandidateRecords=function(){
   });
 };
 
+// Owner Issue 020 / Admissions integrity audit — derive visible Admissions state from real records.
+// This patch implements only already-approved business rules and straightforward data/UX corrections.
+
+// ---- Shared prototype configuration / helpers ----
+const MPS_ADMISSIONS_PROTOTYPE_CONFIG = {
+  currency: 'LKR',
+  admissionFeeByClass: {'Baby Class':15000,'Upper Class':15000},
+  admissionFeeDeadlineDays: 7
+};
+
+function mpsAdmissionDatePlusDays(iso,days){
+  const d = new Date(`${iso}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate()+Number(days||0));
+  return d.toISOString().slice(0,10);
+}
+function mpsAdmissionToday(){ return typeof TODAY==='string' && TODAY ? TODAY : new Date().toISOString().slice(0,10); }
+function mpsNormPhone(v){
+  let s=String(v||'').replace(/\D/g,'');
+  if(s.startsWith('0094')) s=s.slice(4);
+  else if(s.startsWith('94') && s.length>9) s=s.slice(2);
+  if(s.length===9) s='0'+s;
+  return s;
+}
+function mpsNormName(v){
+  return String(v||'').toLowerCase().normalize('NFKD').replace(/[^\p{L}\p{N}\s]/gu,' ').replace(/\s+/g,' ').trim();
+}
+function mpsAdmissionActor(){ try{return currentPersona()?.name||'Authorised staff'}catch(e){return 'Authorised staff'} }
+function mpsAdmissionFeeGateSatisfied(f){ return !!f && (!!f.waived || Number(f.verified||0)>=Number(f.amount||0)); }
+function mpsAdmissionEffectiveFeeStatus(f){
+  if(!f) return '';
+  if(mpsAdmissionFeeGateSatisfied(f)) return 'satisfied';
+  if(f.due && f.due < mpsAdmissionToday()) return 'overdue';
+  return f.status==='overdue'?'overdue':'pending';
+}
+
+// ---- Duplicate detection: candidates and reasons come from actual records ----
+function mpsDuplicateSignals(p,c){
+  const signals=[];
+  const pPhone=mpsNormPhone(p.phone), cPhone=mpsNormPhone(c.phone);
+  const pChild=mpsNormName(p.childName), cChild=mpsNormName(c.childName);
+  const pGuardian=mpsNormName(p.guardian), cGuardian=mpsNormName(c.guardian);
+  const phone=!!pPhone && pPhone===cPhone;
+  const child=!!pChild && pChild===cChild;
+  const guardian=!!pGuardian && pGuardian===cGuardian;
+  const dob=!!p.dob && !!c.dob && p.dob===c.dob;
+  if(child && dob) signals.push('same child name + date of birth');
+  if(guardian && phone) signals.push('same guardian name + registered phone');
+  else if(phone) signals.push('same registered guardian phone');
+  if(child && guardian && !dob) signals.push('same child name + guardian name');
+  return signals;
+}
+function mpsDuplicateScore(p,c){
+  const reasons=mpsDuplicateSignals(p,c);
+  if(!reasons.length) return 0;
+  let score=0;
+  if(reasons.includes('same child name + date of birth')) score+=100;
+  if(reasons.includes('same guardian name + registered phone')) score+=80;
+  if(reasons.includes('same registered guardian phone')) score+=50;
+  if(reasons.includes('same child name + guardian name')) score+=60;
+  return score;
+}
+duplicateCandidateRecords = function(){
+  const p=ui().pendingEnquiry||{};
+  return Object.values(db.admissions)
+    .filter(c=>c && c.id && c.closed?.type!=='Duplicate')
+    .map(c=>({c,reasons:mpsDuplicateSignals(p,c),score:mpsDuplicateScore(p,c)}))
+    .filter(x=>x.reasons.length>0)
+    .sort((a,b)=>b.score-a.score || String(a.c.childName).localeCompare(String(b.c.childName)))
+    .map(({c,reasons,score})=>{
+      const stage=admissionDisplayStage(c);
+      const status=stage==='Enrolled'?'Enrolled · active family':stage==='Application'?'Application · under review':stage;
+      const className=c.enrolment?.className||c.application?.acceptedPlacement?.className||(c.service?.includes('Upper Class')?'Upper Class':'Baby Class');
+      return {...c,status,className,matchReason:reasons.join('; '),matchStrength:score>=100?'Very strong identity match':score>=80?'Strong family/contact match':'Possible family/contact match'};
+    });
+};
+duplicateCandidateRecord = function(id){
+  const xs=duplicateCandidateRecords();
+  return xs.find(c=>c.id===id)||null;
+};
+
+function mpsCreatePendingEnquiryRecord(p,reviewedCandidates=[]){
+  const id='case_'+Date.now();
+  const detail=[p.source||'Other'];
+  if(reviewedCandidates.length) detail.push(`${reviewedCandidates.length} possible match${reviewedCandidates.length===1?'':'es'} reviewed and cleared`);
+  db.admissions[id]={
+    id,
+    childName:p.childName,
+    dob:p.dob,
+    guardian:p.guardian,
+    phone:p.phone,
+    start:p.start,
+    service:p.service,
+    source:p.source,
+    reason:p.reason||'',
+    message:p.message||'',
+    events:[ev('enquiry','Enquiry created',detail.join(' · '))],
+    tour:null,
+    application:{status:'not_sent',draft:null,snapshot:null},
+    fee:null,enrolment:null,onboarding:null,closed:null
+  };
+  ui().admissionsCase=id;
+  ui().admissionsTab='overview';
+  ui().admissionsStageFilter='Enquiry';
+  ui().pendingEnquiry=null;
+  ui().modal=null;
+  ui().drawer=null;
+  save();
+  render();
+  return id;
+}
+
+saveNewEnquiry = function(){
+  const p={
+    guardian:val('ne_guardian').trim(),
+    phone:val('ne_phone').trim(),
+    childName:val('ne_child').trim(),
+    dob:val('ne_dob'),
+    start:val('ne_start'),
+    service:val('ne_service'),
+    source:val('ne_source'),
+    message:val('ne_message').trim(),
+    reason:val('ne_reason')||'',
+    duplicateReviews:{}
+  };
+  if(!p.guardian||!p.phone||!p.childName||!p.dob){alert('Enter the parent/contact, phone, child name and date of birth.');return}
+  ui().pendingEnquiry=p;
+  const candidates=duplicateCandidateRecords();
+  if(!candidates.length){
+    mpsCreatePendingEnquiryRecord(p,[]);
+    return;
+  }
+  ui().modal={name:'duplicate-candidate',data:null};
+  ui().drawer=null;
+  save();
+  render();
+};
+
+commitNewEnquiry = function(){
+  const p=ui().pendingEnquiry;
+  if(!p) return closeOverlay();
+  const candidates=duplicateCandidateRecords();
+  if(candidates.length && !duplicateAllCandidatesCleared()){
+    alert('Review and clear every possible match before proceeding as a new record.');
+    return;
+  }
+  mpsCreatePendingEnquiryRecord(p,candidates.map(c=>c.id));
+};
+
+closePendingAsDuplicate = function(candidateId){
+  const p=ui().pendingEnquiry;
+  if(!p) return closeOverlay();
+  const c=duplicateCandidateRecord(candidateId);
+  if(!c){alert('That candidate is no longer available. Review the matches again.');return}
+  if(!confirm(`Close the incoming enquiry for ${p.childName} as a duplicate of ${c.childName}?`)) return;
+  const actor=mpsAdmissionActor(), at=new Date().toISOString();
+  c.duplicateEnquiries=c.duplicateEnquiries||[];
+  c.duplicateEnquiries.push({
+    childName:p.childName,dob:p.dob,guardian:p.guardian,phone:p.phone,start:p.start,
+    service:p.service,source:p.source,message:p.message||'',resolvedAt:at,resolvedBy:actor
+  });
+  c.events.push(ev('duplicate_enquiry_retained','Duplicate enquiry retained',`${p.childName} · ${p.guardian} · ${p.phone} · source ${p.source}`));
+  c.events.push(ev('duplicate_resolved','Duplicate enquiry resolved',`DUPLICATE_RESOLVED · incoming enquiry linked to this record · ${actor}`));
+  ui().pendingEnquiry=null;ui().modal=null;ui().drawer=null;
+  save();render();
+};
+
+// ---- Later-discovered established duplicate records (approved BQ-025) ----
+function mpsEstablishedDuplicateEligible(c){
+  return !!c && !c.closed && !c.enrolment && !c.fee;
+}
+function mpsEstablishedDuplicateOptions(duplicateId){
+  return Object.values(db.admissions).filter(c=>c.id!==duplicateId && c.closed?.type!=='Duplicate');
+}
+function mpsOpenEstablishedDuplicate(id){openModal('mark-established-duplicate',{caseId:id})}
+function mpsResolveEstablishedDuplicate(duplicateId){
+  const duplicate=db.admissions[duplicateId];
+  const survivorId=val('est_dup_survivor');
+  const survivor=db.admissions[survivorId];
+  if(!duplicate||!survivor||duplicate.id===survivor.id){alert('Choose the surviving Admissions record.');return}
+  const actor=mpsAdmissionActor(), at=new Date().toISOString();
+  duplicate.duplicateOf=survivor.id;
+  duplicate.duplicateResolution={survivorId:survivor.id,resolvedAt:at,resolvedBy:actor};
+  duplicate.closed={type:'Duplicate',reason:'Duplicate record',duplicateOf:survivor.id};
+  survivor.duplicateRecords=survivor.duplicateRecords||[];
+  if(!survivor.duplicateRecords.includes(duplicate.id)) survivor.duplicateRecords.push(duplicate.id);
+  duplicate.events.push(ev('duplicate_resolved','Duplicate resolved',`DUPLICATE_RESOLVED · survivor ${survivor.childName} · ${actor}`));
+  survivor.events.push(ev('duplicate_resolved','Duplicate record linked',`DUPLICATE_RESOLVED · duplicate ${duplicate.childName} preserved · ${actor}`));
+  ui().admissionsCase=survivor.id;
+  ui().admissionsStageFilter='All';
+  ui().admissionsTab='timeline';
+  closeOverlay();
+}
+
+// Add the approved established-duplicate action without changing stage semantics.
+const _mpsAuditAdmissionOverview=admissionOverview;
+admissionOverview=function(c){
+  const html=_mpsAuditAdmissionOverview(c);
+  if(!mpsEstablishedDuplicateEligible(c)) return html;
+  const management=`<div class="card" style="margin-top:12px"><div class="card-header"><div class="grow"><h3>Record management</h3><p>Use only when staff later confirms that this established Admissions record is a duplicate of another record.</p></div>${btn('Mark as duplicate',`mpsOpenEstablishedDuplicate('${c.id}')`,'secondary','sm')}</div></div>`;
+  return `${html}${management}`;
+};
+// ---- Application secure-link artefact: persistent, inspectable, Sent-only semantics ----
+function mpsEnsureApplicationLink(c){
+  if(!c.application.link){
+    const created=mpsAdmissionToday();
+    const token=`${String(c.id).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+    c.application.link={
+      token,url:`https://apply.mps.example/a/${token}`,
+      recipientName:c.guardian,recipientPhone:c.phone,
+      createdAt:created,expiresAt:mpsAdmissionDatePlusDays(created,7),status:'Generated',sentAt:null,submittedAt:null
+    };
+    save();
+  }
+  return c.application.link;
+}
+sendApplication=function(id){
+  const c=db.admissions[id];
+  if(!c) return;
+  if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start,note:''};
+  const link=mpsEnsureApplicationLink(c);
+  link.status='Sent';
+  link.sentAt=new Date().toISOString();
+  c.application.status='sent';
+  addEvent(id,'application_sent','Application link sent',`Registered WhatsApp · expires ${fmtDate(link.expiresAt)} · Sent`);
+  closeOverlay();
+};
+const _mpsAuditSubmitApplication=submitApplication;
+submitApplication=function(caseId){
+  _mpsAuditSubmitApplication(caseId);
+  const c=db.admissions[caseId];
+  if(c?.application?.status==='submitted' && c.application.link){
+    c.application.link.status='Submitted';
+    c.application.link.submittedAt=c.application.snapshot?.submittedAt||new Date().toISOString();
+    save();render();
+  }
+};
+
+// Replace the Application review with the existing whole-story design plus a real link artefact.
+admissionApplication=function(c){
+  const a=c.application;
+  if(!a || a.status==='not_sent') return `<div class="card"><h3>Application</h3><p>This family has not been sent an Application yet.</p><div style="margin-top:12px">${btn('Generate secure Application',`openModal('send-application',{caseId:'${c.id}'})`,'primary')}</div></div>`;
+  const snap=a.snapshot?.data||a.draft||{};
+  const contact=latestAdmissionEvent(c,['contact_attempt','qualified']);
+  const visitNote=issue012VisitNote(c);
+  const additionalInfo=c.tour?.additionalInfo||'';
+  const decision=a.status==='submitted'
+    ? `<div class="section-title">Decision</div><div style="display:flex;gap:8px;flex-wrap:wrap">${btn('Decline',`openModal('decline-application',{caseId:'${c.id}'})`,'danger')}${btn(MPS_UI_COPY.applicationFamilyWithdrawalAction,`openModal('withdraw-application',{caseId:'${c.id}'})`,'secondary')}${btn('Waitlist',`openModal('waitlist-application',{caseId:'${c.id}'})`,'secondary')}${btn('Accept',`openModal('accept-application',{caseId:'${c.id}'})`,'primary')}</div>`
+    : '';
+  const contactValue=contact?`${esc(String(contact.title||'Admissions follow-up').replace(/Qualified Lead/g,'Confirmed Interest'))}${contact.detail?`<div class="sub">${esc(String(contact.detail).replace(/Qualified Lead/g,'Confirmed Interest').replace(/\bTour\b/g,'Visit'))}</div>`:''}`:'No separate contact detail recorded in this prototype case';
+  const visitValue=c.tour?`${fmtDate(c.tour.date)}${c.tour.time?` · ${esc(c.tour.time)}`:''}<div class="sub">${esc(c.tour.outcome||c.tour.status||'Visit recorded')}</div>`:'No visit recorded';
+  const link=a.link;
+  const linkCard=link
+    ? `${kv('Status',esc(link.status))}${kv('Recipient',`${esc(link.recipientName)} · ${esc(link.recipientPhone)}`)}${kv('Created',fmtDate(link.createdAt))}${kv('Expires',fmtDate(link.expiresAt))}${kv('Secure link',`<span style="word-break:break-all">${esc(link.url)}</span>`)}${kv('Parent account','Not required')}${kv('Channel','Registered WhatsApp')}${a.status==='sent'?btn('Open parent preview',`openParentApplication('${c.id}')`,'secondary','sm'):''}`
+    : `${kv('Status',a.status==='submitted'?'Submitted':'Closed after decision')}${kv('Parent account','Not required')}${kv('Channel','Registered WhatsApp')}`;
+  return `<div class="grid"><div class="span-8 card">
+    <div class="card-header"><div class="grow"><h3>Application review</h3><p>Use the whole Admissions history for the decision — not only the parent form.</p></div>${badge(applicationSummary(c),a.status==='submitted'?'purple':a.status==='accepted'?'green':'blue')}</div>
+    <div class="section-title">Child & requested place</div>
+    ${kv('Child',`${esc(snap.childName||c.childName)} ${prov(a.snapshot?'Parent submitted':'MPS reused',a.snapshot?'parent':'reused')}`)}
+    ${kv('DOB',esc(snap.dob||c.dob))}${kv('Guardian',esc(snap.guardian||c.guardian))}${kv('Phone',esc(snap.phone||c.phone))}
+    ${kv('Requested service',esc(snap.service||c.service))}${kv('Desired start',fmtDate(snap.start||c.start))}
+    ${snap.note?kv('Application note',`${esc(snap.note)} ${prov('Parent submitted','parent')}`):''}
+    <div class="section-title">Admissions context</div>
+    ${kv('Lead source',`${esc(c.source||'—')} ${prov('Admissions history','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}
+    ${kv('Confirmed Interest / follow-up',contactValue)}${kv('Visit',visitValue)}
+    ${visitNote?kv('Visit note',`${esc(visitNote)} ${prov('Staff recorded','staff')}`):''}
+    ${additionalInfo?kv('Additional information',`${esc(additionalInfo)} ${prov('Staff recorded at Visit','staff')}`):kv('Additional information','None recorded — this is optional and case-specific.')}
+    ${a.acceptedPlacement?`${kv('Accepted class',esc(a.acceptedPlacement.className))}${kv('Accepted start',fmtDate(a.acceptedPlacement.startDate))}`:''}
+    ${notice('Detailed guardian, pickup, Health, documents, consents and other pre-start information remains in New Family Onboarding unless a particular fact is genuinely needed for this admissions decision.','info')}
+    ${decision}
+  </div><div class="span-4 card"><h3>Secure Application link</h3>${linkCard}</div></div>`;
+};
+
+// ---- Accepted placement + configurable/snapshotted admission-fee policy ----
+acceptApplication=function(id){
+  const c=db.admissions[id];
+  if(!c) return;
+  const className=val('accept_class');
+  const startDate=val('accept_start')||c.start;
+  if(!className||!startDate){alert('Choose the accepted class and start date.');return}
+  c.application.status='accepted';
+  c.application.acceptedPlacement={className,startDate,acceptedAt:mpsAdmissionToday(),acceptedBy:mpsAdmissionActor()};
+  c.acceptedClass=className;
+  c.start=startDate;
+  addEvent(id,'accepted','Application accepted',`${className} · ${fmtDate(startDate)}`);
+  ui().admissionsStageFilter='Accepted';
+  ui().admissionsTab='overview';
+  closeOverlay();
+};
+function mpsAdmissionFeeQuote(c){
+  const className=c.application?.acceptedPlacement?.className||c.acceptedClass||(c.service?.includes('Upper Class')?'Upper Class':'Baby Class');
+  const acceptedAt=c.application?.acceptedPlacement?.acceptedAt||mpsAdmissionToday();
+  const amount=MPS_ADMISSIONS_PROTOTYPE_CONFIG.admissionFeeByClass[className];
+  return {className,acceptedAt,amount,currency:MPS_ADMISSIONS_PROTOTYPE_CONFIG.currency,deadlineDays:MPS_ADMISSIONS_PROTOTYPE_CONFIG.admissionFeeDeadlineDays,due:mpsAdmissionDatePlusDays(acceptedAt,MPS_ADMISSIONS_PROTOTYPE_CONFIG.admissionFeeDeadlineDays)};
+}
+issueAdmissionFee=function(id){
+  const c=db.admissions[id];
+  if(!c||c.application.status!=='accepted'||c.fee) return closeOverlay();
+  const q=mpsAdmissionFeeQuote(c);
+  c.fee={amount:q.amount,currency:q.currency,due:q.due,verified:0,pending:[],status:'pending',waived:false,policySnapshot:{className:q.className,amount:q.amount,currency:q.currency,deadlineDays:q.deadlineDays,acceptedAt:q.acceptedAt}};
+  addEvent(id,'fee_invoice','Admission-fee invoice issued',`${q.currency} ${Number(q.amount).toLocaleString('en-LK')} · due ${fmtDate(q.due)}`);
+  ui().admissionsStageFilter='Admission Fee';ui().admissionsTab='payments';
+  closeOverlay();
+};
+
+// Fee overdue is derived from due date; expiry never auto-releases the place.
+const _mpsAuditAdmissionDerived=admissionDerived;
+admissionDerived=function(c){
+  if(c?.fee && !c.closed && !c.enrolment && c.application?.status==='accepted' && mpsAdmissionEffectiveFeeStatus(c.fee)==='overdue'){
+    return {stage:'Accepted',status:'Fee overdue',statusTone:'red',next:'Decide overdue fee action'};
+  }
+  return _mpsAuditAdmissionDerived(c);
+};
+
+feeOutstanding=function(f){return !f?0:(f.waived?0:Math.max(0,Number(f.amount||0)-Number(f.verified||0)))};
+
+// ---- Payment audit integrity ----
+recordAdmissionPayment=function(caseId){
+  const c=db.admissions[caseId];
+  if(!c?.fee)return;
+  const amount=Math.max(0,Number(val('adm_record_amount')||0));
+  if(!amount){alert('Enter the payment amount.');return}
+  const max=feeOutstanding(c.fee);
+  if(amount>max){alert('The recorded amount cannot exceed the current admission-fee outstanding balance.');return}
+  const file=byId('adm_record_evidence')?.files?.[0]||null;
+  const evidence=file?{name:file.name,type:file.type||'',size:file.size||0}:null;
+  const paymentDate=val('adm_record_date')||mpsAdmissionToday();
+  const p={id:'admp_'+Date.now(),amount,paymentDate,method:val('adm_record_method'),reference:val('adm_record_reference')||'No reference',evidence,status:'pending',recordedBy:mpsAdmissionActor(),recordedAt:new Date().toISOString()};
+  c.fee.pending=c.fee.pending||[];
+  c.fee.pending.push(p);
+  addEvent(caseId,'fee_payment_recorded','Admission-fee payment recorded',`${money(amount)} · ${fmtDate(paymentDate)} · Pending Verification${evidence?` · Evidence attached: ${evidence.name}`:''}`);
+  closeOverlay();
+};
+verifyAdmissionPayment=function(caseId,paymentId){
+  const c=db.admissions[caseId],p=c?.fee?.pending?.find(x=>x.id===paymentId);
+  if(!p||p.status==='verified')return closeOverlay();
+  p.status='verified';
+  p.verification=val('adm_verification');
+  p.verifiedBy=mpsAdmissionActor();
+  p.verifiedAt=new Date().toISOString();
+  c.fee.verified=Number(c.fee.verified||0)+Number(p.amount||0);
+  c.fee.status=mpsAdmissionFeeGateSatisfied(c.fee)?'satisfied':'pending';
+  addEvent(caseId,'fee_verified','Admission-fee payment verified',`${money(p.amount)} · ${p.verification} · ${p.verifiedBy}`);
+  closeOverlay();
+};
+recordOverdueDecision=function(id){
+  const c=db.admissions[id];
+  if(!c?.fee)return;
+  const action=val('overdue_action'),reason=val('overdue_reason').trim();
+  if(!reason){alert('Enter the reason for this authorised decision.');return}
+  const actor=mpsAdmissionActor(),at=new Date().toISOString();
+  if(action==='Extend deadline'){
+    const newDue=val('overdue_date');
+    if(!newDue){alert('Choose the new deadline.');return}
+    c.fee.due=newDue;c.fee.status='pending';
+    addEvent(id,'fee_extended','Admission-fee deadline extended',`${fmtDate(newDue)} · ${reason} · ${actor}`);
+  }else if(action==='Waive fee with reason'){
+    c.fee.waived=true;c.fee.status='satisfied';c.fee.waiver={reason,by:actor,at};
+    addEvent(id,'fee_waived','Admission fee waived',`${reason} · ${actor}`);
+  }else{
+    c.closed={type:'Released',reason,releasedAt:at,releasedBy:actor};
+    addEvent(id,'released','Accepted place released',`${reason} · ${actor}`);
+  }
+  closeOverlay();
+};
+createEnrolment=function(id){
+  const c=db.admissions[id];
+  if(!c?.fee||!mpsAdmissionFeeGateSatisfied(c.fee)){alert('Fee gate is not satisfied.');return}
+  const placement=c.application?.acceptedPlacement||{};
+  const className=placement.className||c.acceptedClass||(c.service.includes('Upper')?'Upper Class':'Baby Class');
+  const start=placement.startDate||c.start;
+  c.enrolment={status:'active',className,service:c.service,start};
+  c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});
+  addEvent(id,'enrolled','Enrolment created',`${className} · ${fmtDate(start)}`);
+  ui().admissionsTab='prestart';closeOverlay();
+};
+
+admissionPayments=function(c){
+  if(!c.fee)return `<div class="card"><h3>Admission fee</h3><p>No fee gate exists yet for this case. It is created only after Acceptance.</p></div>`;
+  const f=c.fee,payments=f.pending||[],outstanding=feeOutstanding(f),effective=mpsAdmissionEffectiveFeeStatus(f);
+  const satisfied=mpsAdmissionFeeGateSatisfied(f);
+  const rows=payments.length?payments.map(p=>{
+    const audit=p.status==='verified'
+      ? `${fmtDate(p.paymentDate)} · ${esc(p.reference||'No reference')} · ${esc(p.verification||'Verified')} · ${esc(p.verifiedBy||'Authorised staff')}${p.verifiedAt?` · ${new Date(p.verifiedAt).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}`
+      : `${fmtDate(p.paymentDate)} · ${esc(p.reference||'No reference')}`;
+    return `<div class="child-row"><strong>${money(p.amount)} · ${esc(p.method)}</strong><span>${badge(p.status,p.status==='pending'?'amber':'green')}</span><span class="hide-mobile">${audit}</span><span>${p.status==='pending'?btn('Verify',`openModal('verify-admission-payment',{caseId:'${c.id}',paymentId:'${p.id}'})`,'primary','sm'):'✓'}</span></div>`;
+  }).join(''):'<div class="empty">No payment recorded yet.</div>';
+  return `<div class="grid"><div class="span-8 card"><div class="card-header"><div class="grow"><h3>Admission fee</h3><p>Verified money and authorised waiver are separate facts.</p></div>${badge(effective==='overdue'?'Overdue':satisfied?'Satisfied':'In progress',effective==='overdue'?'red':satisfied?'green':'amber')}</div><div class="money">${money(f.amount)}</div>${kv('Due date',fmtDate(f.due))}${kv('Verified payment',money(f.verified||0))}${f.waived?kv('Waiver',`${badge('Authorised','green')} ${esc(f.waiver?.reason||'Reason recorded')}`):''}${kv('Outstanding',money(outstanding))}<div class="section-title">Payment activity</div>${rows}</div><div class="span-4 card"><h3>Controls</h3><p>Accepted is not Enrolled. Full verified settlement or an authorised waiver is required before conversion.</p>${!satisfied?`<div style="margin-top:10px">${btn('Record payment',`openModal('record-admission-payment',{caseId:'${c.id}'})`,'primary')}</div>`:''}${effective==='overdue'?`<div style="margin-top:8px">${btn('Overdue action',`openModal('overdue-fee',{caseId:'${c.id}'})`,'secondary')}</div>`:''}</div></div>`;
+};
+// ---- Current vocabulary in historical timelines ----
+function mpsAdmissionTimelineText(v){
+  return String(v||'').replace(/Marked Qualified Lead/g,'Confirmed Interest').replace(/\bQualified Lead\b/g,'Confirmed Interest').replace(/\bTour scheduled\b/g,'Visit scheduled').replace(/\bTour completed\b/g,'Visit completed').replace(/\bTour\b/g,'Visit');
+}
+admissionTimeline=function(c){
+  const events=[...(c.events||[])].sort((a,b)=>String(a.at).localeCompare(String(b.at)));
+  return `<div class="card"><h3>Case timeline</h3><p>Derived only from this family’s actual recorded events.</p><div class="timeline">${events.map(e=>`<div class="timeline-item"><b>${esc(mpsAdmissionTimelineText(e.title))}</b><div>${esc(mpsAdmissionTimelineText(e.detail||''))}${e.at?` · ${new Date(e.at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}</div></div>`).join('')}</div></div>`;
+};
+
+// ---- Secure onboarding link artefact ----
+function mpsEnsureOnboardingLink(c){
+  const o=ensureOnboarding(c.id);
+  if(!o.link){
+    const created=mpsAdmissionToday();
+    const token=`ONB-${String(c.id).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+    o.link={token,url:`https://onboard.mps.example/n/${token}`,recipientName:c.guardian,recipientPhone:c.phone,createdAt:created,expiresAt:mpsAdmissionDatePlusDays(created,7),status:'Generated',sentAt:null,submittedAt:null};
+    save();
+  }
+  return o.link;
+}
+sendOnboarding=function(caseId){
+  const c=db.admissions[caseId];if(!c)return;
+  const o=ensureOnboarding(caseId),link=mpsEnsureOnboardingLink(c);
+  o.status='sent';o.sentAt=new Date().toISOString();link.status='Sent';link.sentAt=o.sentAt;
+  addEvent(caseId,'onboarding_sent','New Family Onboarding link sent',`Registered WhatsApp · time-limited prototype link · Sent`);
+  save();render();
+};
+const _mpsAuditSubmitOnboarding=submitOnboarding;
+submitOnboarding=function(caseId){
+  _mpsAuditSubmitOnboarding(caseId);
+  const c=db.admissions[caseId],o=c?.onboarding;
+  if(o?.status==='submitted'&&o.link){o.link.status='Submitted';o.link.submittedAt=o.submittedAt;save();render()}
+};
+const _mpsAuditAdmissionPrestart=admissionPrestart;
+admissionPrestart=function(c){
+  const html=_mpsAuditAdmissionPrestart(c);
+  if(!c.enrolment||!c.onboarding?.link)return html;
+  const l=c.onboarding.link;
+  const artifact=`<div class="card" style="margin-top:12px"><h3>New Family Onboarding link</h3>${kv('Status',esc(l.status))}${kv('Recipient',`${esc(l.recipientName)} · ${esc(l.recipientPhone)}`)}${kv('Created',fmtDate(l.createdAt))}${kv('Expires',fmtDate(l.expiresAt))}${kv('Secure link',`<span style="word-break:break-all">${esc(l.url)}</span>`)}${notice('This prototype uses an illustrative expiry to prove that the link is time-limited; exact production expiry is a later security/technical setting.','info')}</div>`;
+  return `${html}${artifact}`;
+};
+
+// ---- Modal corrections / persistent artefacts ----
+const _mpsAuditModalView=modalView;
+modalView=function(m){
+  const n=m?.name,d=m?.data||{};
+  if(n==='new-enquiry'){
+    const p=ui().pendingEnquiry||{};
+    const reasonOptions=['',...reasons].map(x=>`<option value="${esc(x)}" ${x===(p.reason||'')?'selected':''}>${x?esc(x):'Not recorded yet'}</option>`).join('');
+    return modal('New enquiry','Capture the minimum needed to start the family history.',`${selectField('How did you hear about us?',sources,p.source||'Facebook','ne_source')}<div class="form-grid">${field('Parent / contact name',p.guardian||'New Parent','text',false,'ne_guardian')}${field('Phone',p.phone||'070 000 0000','text',false,'ne_phone')}${field('Child name',p.childName||'New Child','text',false,'ne_child')}${field('Child DOB',p.dob||'2024-06-01','date',false,'ne_dob')}${field('Desired start',p.start||'2027-01-19','date',false,'ne_start')}${selectField('Interested service',['Baby Class','Upper Class'],p.service||'Baby Class','ne_service')}</div><div class="field"><label>Reason for choosing us (optional)</label><select id="ne_reason">${reasonOptions}</select></div>${textArea('Message',p.message||'Interested in 2027 admissions.','ne_message')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save enquiry',"saveNewEnquiry()",'primary')}`);
+  }
+  if(n==='send-application'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView(m);
+    const link=mpsEnsureApplicationLink(c);
+    return modal('Send secure application','No parent account required.',`${kv('Recipient',`${esc(link.recipientName)} · ${esc(link.recipientPhone)}`)}${kv('Created',fmtDate(link.createdAt))}${kv('Expires',fmtDate(link.expiresAt))}${kv('Prefill','Enquiry + Visit information')}${field('Secure link',link.url,'text',true)}${textArea('Prepared WhatsApp message',`Hi ${c.guardian.split(' ')[0]}, thank you for visiting ${ORG}. Please use this secure link to review the details we already have and submit ${c.childName.split(' ')[0]}’s application.`,'app_message')}${notice('Manual WhatsApp records Sent only — not Delivered or Read. The displayed prototype expiry demonstrates that the link is time-limited; the exact production expiry is a later security/technical setting.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Copy & mark Sent',`sendApplication('${c.id}')`,'primary')}`);
+  }
+  if(n==='issue-admission-fee'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView(m);
+    const q=mpsAdmissionFeeQuote(c);
+    return modal('Create admission-fee invoice','Acceptance is already recorded. The fee policy is snapshotted for this accepted application.',`${kv('Family',esc(c.childName))}${kv('Accepted class',esc(q.className))}${kv('Amount',`${q.currency} ${Number(q.amount).toLocaleString('en-LK')}`)}${kv('Accepted',fmtDate(q.acceptedAt))}${kv('Due date',`${fmtDate(q.due)} · ${q.deadlineDays} days from acceptance`)}${notice('This is tenant-configured prototype data, not a universal MPS fee amount.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create invoice',`issueAdmissionFee('${c.id}')`,'primary')}`);
+  }
+  if(n==='record-admission-payment'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView(m);
+    const out=feeOutstanding(c.fee);
+    return modal('Record admission-fee payment','Record what the family says was paid. It remains Pending Verification until an authorised real-source check.',`${kv('Family',esc(c.childName))}${kv('Outstanding',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method')}${field('Payment date',mpsAdmissionToday(),'date',false,'adm_record_date')}${field('Amount',String(out),'number',false,'adm_record_amount')}${field('Reference','','text',false,'adm_record_reference')}<div class="field"><label>Optional payment evidence</label><input id="adm_record_evidence" type="file"><small>Attach a screenshot, receipt, deposit slip or other supporting file.</small></div>${notice('Attachment is optional. Verification against the real bank/cash source is still required.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record payment',`recordAdmissionPayment('${c.id}')`,'primary')}`);
+  }
+  if(n==='verify-admission-payment'){
+    const c=db.admissions[d.caseId],p=c?.fee?.pending?.find(x=>x.id===d.paymentId);if(!c||!p)return _mpsAuditModalView(m);
+    return modal('Verify admission-fee payment','Check the real source before marking Verified.',`${kv('Family',esc(c.childName))}${kv('Payment date',fmtDate(p.paymentDate))}${kv('Method',esc(p.method))}${kv('Amount',money(p.amount))}${kv('Reference',esc(p.reference||'No reference'))}${selectField('Verification method',['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'],'Bank app/account checked','adm_verification')}${notice('The optional attachment is supporting evidence, not the control. The authorised real-source check is.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Verify payment',`verifyAdmissionPayment('${c.id}','${p.id}')`,'primary')}`);
+  }
+  if(n==='create-enrolment'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView(m);
+    const placement=c.application?.acceptedPlacement||{};
+    const className=placement.className||c.acceptedClass||(c.service?.includes('Upper')?'Upper Class':'Baby Class');
+    const startDate=placement.startDate||c.start;
+    return modal('Create enrolment','Reuse the accepted Application; do not create the family again.',`${kv('Child',esc(c.childName))}${kv('Accepted class',esc(className))}${kv('Start date',fmtDate(startDate))}${kv('Admission-fee gate',mpsAdmissionFeeGateSatisfied(c.fee)?'Satisfied':'Not satisfied')}${notice('Enrolment reuses the accepted placement and the existing Admissions history.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create enrolment',`createEnrolment('${c.id}')`,'primary')}`);
+  }
+  if(n==='overdue-fee'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView(m);
+    return modal('Admission fee overdue','The place is not released automatically.',`${kv('Application',`${esc(c.childName)} · Accepted`)}${kv('Fee',money(c.fee.amount))}${kv('Due date',fmtDate(c.fee.due))}${selectField('Authorised action',['Extend deadline','Waive fee with reason','Release / close place with reason'],'Extend deadline','overdue_action')}${field('New deadline',mpsAdmissionDatePlusDays(mpsAdmissionToday(),7),'date',false,'overdue_date')}${textArea('Reason','','overdue_reason')}${notice('Every extension, waiver or release requires an explicit reason and is retained in the case history.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record decision',`recordOverdueDecision('${c.id}')`,'primary')}`);
+  }
+  if(n==='mark-established-duplicate'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView(m);
+    const options=mpsEstablishedDuplicateOptions(c.id);
+    const opts=options.map(x=>`<option value="${esc(x.id)}">${esc(x.childName)} · ${esc(x.guardian)} · ${esc(x.phone)}</option>`).join('');
+    return modal('Mark Admissions record as duplicate','Choose the surviving record. MPS preserves this record and its history, removes it from the active pipeline, and links it durably to the survivor.',`${kv('Duplicate record',`${esc(c.childName)} · ${esc(c.guardian)}`)}<div class="field"><label>Surviving record</label><select id="est_dup_survivor"><option value="">Select record…</option>${opts}</select></div>${notice('This is not an ordinary lost lead and does not delete either history.','warn')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Mark as duplicate',`mpsResolveEstablishedDuplicate('${c.id}')`,'danger')}`);
+  }
+  return _mpsAuditModalView(m);
+};
+// Owner Issues 020–021 / BQ-091 — Admissions audit completion and approved waitlist re-entry.
+
+// Application / Under review is a distinct view: waitlisted cases do not also appear as under review.
+const _mpsAuditAdmissionMatchesFilter = admissionMatchesFilter;
+admissionMatchesFilter = function(c,filter){
+  if(filter === 'Application') return !c?.closed && ['sent','submitted'].includes(c?.application?.status);
+  return _mpsAuditAdmissionMatchesFilter(c,filter);
+};
+
+// Malithi values are tenant prototype configuration, not reusable MPS constants.
+function mpsAdmissionsTenantPolicy(){
+  db.productConfig=db.productConfig||{};
+  db.productConfig.admissions=db.productConfig.admissions||{
+    currency:'LKR',
+    admissionFeeDeadlineDays:7,
+    admissionFeeByProgramme:{'Baby Class':15000,'Upper Class':15000},
+    programmes:{
+      'Baby Class':{classrooms:['Baby Class']},
+      'Upper Class':{classrooms:['Upper Class']}
+    }
+  };
+  return db.productConfig.admissions;
+}
+
+// BQ-091 — a waitlisted Application may return to the same Application review; history is preserved.
+function returnWaitlistedApplication(id){
+  const c=db.admissions[id];
+  if(!c || c.application?.status!=='waitlisted') return;
+  c.application.status='submitted';
+  addEvent(id,'waitlist_returned','Application returned to review',`Waitlist paused; same Application reopened for decision · ${mpsAdmissionActor()}`);
+  ui().admissionsStageFilter='Application';
+  ui().admissionsCase=id;
+  ui().admissionsTab='application';
+  closeOverlay();
+}
+
+const _mpsAudit021AdmissionApplication = admissionApplication;
+admissionApplication = function(c){
+  let html=_mpsAudit021AdmissionApplication(c);
+  if(c?.application?.status==='waitlisted' && !c.closed){
+    const action=actionCard(
+      'Waitlisted · return to active review',
+      'This reopens the same Application for a decision. The parent submission and complete waitlist history stay on this family record.',
+      btn('Return to review',`returnWaitlistedApplication('${c.id}')`,'primary','sm')
+    );
+    html=`${action}${html}`;
+  }
+  const link=c?.application?.link;
+  if(link){
+    const exactExpiry=kv('Expires',fmtDate(link.expiresAt));
+    html=html.replace(exactExpiry,kv('Expiry','Time-limited · production duration not yet specified'));
+  }
+  return html;
+};
+
+const _mpsAuditAdmissionCondition2 = admissionCondition;
+admissionCondition = function(c){
+  if(!c?.closed && c?.tour?.status==='completed' && c?.tour?.outcome==='Follow-up needed' && c?.application?.status==='not_sent') return 'Visit follow-up needed';
+  return _mpsAuditAdmissionCondition2(c);
+};
+
+const _mpsAuditAdmissionOverview2 = admissionOverview;
+admissionOverview = function(c){
+  if(!c?.closed && c?.tour?.status==='completed' && c?.tour?.outcome==='Follow-up needed' && c?.application?.status==='not_sent'){
+    const action=actionCard(
+      'Next action · Follow up after visit',
+      'The Visit is complete but the family is not yet recorded as ready for Application. Update the factual Visit outcome when the follow-up is resolved.',
+      btn('Update visit outcome',`openModal('complete-tour',{caseId:'${c.id}'})`,'primary','sm')
+    );
+    return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}${kv('Visit',`${fmtDate(c.tour.date)} · ${esc(c.tour.time||'')} · ${esc(c.tour.outcome)}`)}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`;
+  }
+  return _mpsAuditAdmissionOverview2(c);
+};
+
+const _mpsAuditSendApplication2 = sendApplication;
+sendApplication = function(id){
+  const c=db.admissions[id];
+  if(c?.tour?.status==='completed' && c.tour.outcome!=='Family wants to proceed'){
+    alert('Resolve the Visit follow-up before sending the Application.');
+    return;
+  }
+  return _mpsAuditSendApplication2(id);
+};
+
+acceptApplication = function(id){
+  const c=db.admissions[id];
+  if(!c) return;
+  const programme=val('accept_programme');
+  const classroom=val('accept_classroom');
+  const startDate=val('accept_start')||c.start;
+  if(!programme||!classroom||!startDate){alert('Choose the accepted programme, classroom and start date.');return}
+  c.application.status='accepted';
+  c.application.acceptedPlacement={programme,classroom,className:classroom,startDate,acceptedAt:mpsAdmissionToday(),acceptedBy:mpsAdmissionActor()};
+  c.acceptedProgramme=programme;
+  c.acceptedClassroom=classroom;
+  c.acceptedClass=classroom;
+  c.start=startDate;
+  addEvent(id,'accepted','Application accepted',`${programme} · ${classroom} · ${fmtDate(startDate)}`);
+  ui().admissionsStageFilter='Accepted';
+  ui().admissionsTab='overview';
+  closeOverlay();
+};
+
+mpsAdmissionFeeQuote = function(c){
+  const placement=c.application?.acceptedPlacement||{};
+  const policy=mpsAdmissionsTenantPolicy();
+  const programme=placement.programme||c.acceptedProgramme||(c.service?.includes('Upper Class')?'Upper Class':'Baby Class');
+  const classroom=placement.classroom||placement.className||c.acceptedClassroom||c.acceptedClass||programme;
+  const acceptedAt=placement.acceptedAt||mpsAdmissionToday();
+  const amount=Number(policy.admissionFeeByProgramme?.[programme]||0);
+  const days=Number(policy.admissionFeeDeadlineDays||7);
+  return {programme,classroom,acceptedAt,amount,currency:policy.currency||'LKR',deadlineDays:days,due:mpsAdmissionDatePlusDays(acceptedAt,days)};
+};
+
+function mpsAdmissionFeeInvoice(c){return c?.fee?.invoiceId?db.billing?.invoices?.[c.fee.invoiceId]||null:null}
+function mpsAdmissionFeePayments(c){
+  if(!c)return [];
+  return Object.values(db.billing?.payments||{}).filter(p=>p.admissionsCaseId===c.id);
+}
+function mpsAdmissionVerifiedAmount(c){
+  const inv=mpsAdmissionFeeInvoice(c);
+  return inv?invoicePaid(inv):0;
+}
+mpsAdmissionFeeGateSatisfied=function(f){
+  if(!f)return false;
+  if(f.waived)return true;
+  const c=Object.values(db.admissions).find(x=>x.fee===f||x.fee?.invoiceId===f.invoiceId);
+  const inv=c?mpsAdmissionFeeInvoice(c):null;
+  return !!inv && invoiceOutstanding(inv)===0;
+};
+mpsAdmissionEffectiveFeeStatus=function(f){
+  if(!f)return '';
+  if(mpsAdmissionFeeGateSatisfied(f))return 'satisfied';
+  if(f.due && f.due<mpsAdmissionToday())return 'overdue';
+  return 'pending';
+};
+feeOutstanding=function(f){
+  if(!f||f.waived)return 0;
+  const c=Object.values(db.admissions).find(x=>x.fee===f||x.fee?.invoiceId===f.invoiceId);
+  const inv=c?mpsAdmissionFeeInvoice(c):null;
+  return inv?invoiceOutstanding(inv):Math.max(0,Number(f.amount||0)-Number(f.verified||0));
+};
+
+function mpsEnsureAcceptedPlacementSeedFacts(){
+  Object.values(db.admissions).forEach(c=>{
+    if(c?.application?.status!=='accepted'||c.application.acceptedPlacement)return;
+    const event=[...(c.events||[])].reverse().find(e=>e.type==='accepted');
+    const eventClass=String(event?.detail||'').split(' · ')[0].trim();
+    const knownClass=c.enrolment?.className||(/^(Baby Class|Upper Class)$/.test(eventClass)?eventClass:'')||(c.service?.includes('Upper Class')?'Upper Class':'Baby Class');
+    const acceptedAt=c.fee?.due?mpsAdmissionDatePlusDays(c.fee.due,-7):mpsAdmissionToday();
+    c.application.acceptedPlacement={programme:knownClass,classroom:knownClass,className:knownClass,startDate:c.enrolment?.start||c.start,acceptedAt,acceptedBy:'Prototype seed'};
+    c.acceptedProgramme=knownClass;c.acceptedClassroom=knownClass;c.acceptedClass=knownClass;
+  });
+}
+mpsEnsureAcceptedPlacementSeedFacts();
+
+function mpsEnsureAdmissionFeeBillingTruth(){
+  db.billing=db.billing||{invoices:{},payments:{},pendingCharges:{}};
+  db.billing.invoices=db.billing.invoices||{};db.billing.payments=db.billing.payments||{};
+  Object.values(db.admissions).forEach(c=>{
+    if(!c?.fee)return;
+    if(c.fee.invoiceId&&db.billing.invoices[c.fee.invoiceId])return;
+    const iid=`admfee_${c.id}`;
+    const issued=c.application?.acceptedPlacement?.acceptedAt||c.fee.policySnapshot?.acceptedAt||null;
+    const inv={id:iid,number:`ADM-${String(c.id).toUpperCase()}`,childId:c.id,childName:c.childName,status:'issued',issued,due:c.fee.due,lines:[{id:`line_${iid}`,description:'Admission fee',amount:Number(c.fee.amount||0)}],allocations:[],history:[{at:'Prototype seed',text:'Admission-fee financial truth migrated into Billing for audit integrity'}],evidence:{},category:'admission_fee',admissionsCaseId:c.id};
+    db.billing.invoices[iid]=inv;c.fee.invoiceId=iid;c.fee.currency=c.fee.currency||'LKR';
+    const oldPending=Array.isArray(c.fee.pending)?[...c.fee.pending]:[];
+    oldPending.forEach((p,i)=>{
+      const pid=p.id||`admp_seed_${c.id}_${i}`;
+      db.billing.payments[pid]={...p,id:pid,childId:c.id,childName:c.childName,admissionsCaseId:c.id,invoiceId:iid,paymentDate:p.paymentDate||'',recordedBy:p.recordedBy||'Prototype seed',recordedAt:p.recordedAt||null};
+      if(p.status==='verified')inv.allocations.push({paymentId:pid,amount:Number(p.amount||0)});
+    });
+    const already=inv.allocations.reduce((sum,a)=>sum+Number(a.amount||0),0);
+    const legacyVerified=Math.max(0,Number(c.fee.verified||0)-already);
+    if(legacyVerified){
+      const pid=`admp_seed_verified_${c.id}`;
+      db.billing.payments[pid]={id:pid,childId:c.id,childName:c.childName,admissionsCaseId:c.id,invoiceId:iid,amount:legacyVerified,paymentDate:'',method:'Recorded payment',reference:'Legacy prototype seed',status:'verified',verification:'Legacy prototype seed',verifiedBy:'Prototype seed',verifiedAt:null};
+      inv.allocations.push({paymentId:pid,amount:legacyVerified});
+    }
+    c.fee.pending=undefined;c.fee.verified=undefined;
+    if(c.fee.waived){inv.admissionFeeWaived=true;inv.waiver=c.fee.waiver||{reason:'Legacy prototype waiver'}}
+  });
+  save();
+}
+mpsEnsureAdmissionFeeBillingTruth();
+
+const _mpsAuditAdmissionDerivedFinal=admissionDerived;
+admissionDerived=function(c){
+  if(c?.fee&&!c.closed&&!c.enrolment&&c.application?.status==='accepted'){
+    const st=mpsAdmissionEffectiveFeeStatus(c.fee);
+    if(st==='overdue')return {stage:'Accepted',status:'Fee overdue',statusTone:'red',next:'Decide overdue fee action'};
+    if(st==='satisfied')return {stage:'Accepted',status:'Fee satisfied',statusTone:'green',next:'Create enrolment'};
+    return {stage:'Accepted',status:'Admission fee',statusTone:'amber',next:'Billing verification / settlement'};
+  }
+  return _mpsAuditAdmissionDerivedFinal(c);
+};
+
+issueAdmissionFee=function(id){
+  if(!has('Accounts')){alert('Admission-fee invoicing is handled in Billing by authorised finance staff.');return}
+  const c=db.admissions[id];
+  if(!c||c.application?.status!=='accepted'||c.fee)return closeOverlay();
+  const q=mpsAdmissionFeeQuote(c);
+  if(!q.amount){alert('No admission-fee policy is configured for the accepted programme.');return}
+  const iid=`admfee_${c.id}_${Date.now()}`;
+  db.billing.invoices[iid]={id:iid,number:`ADM-${String(Date.now()).slice(-6)}`,childId:c.id,childName:c.childName,status:'issued',issued:mpsAdmissionToday(),due:q.due,lines:[{id:`line_${iid}`,description:'Admission fee',amount:q.amount}],allocations:[],history:[{at:mpsAdmissionToday(),text:'Admission-fee invoice issued from accepted application'}],evidence:{},category:'admission_fee',admissionsCaseId:c.id};
+  c.fee={invoiceId:iid,amount:q.amount,currency:q.currency,due:q.due,status:'pending',waived:false,policySnapshot:{programme:q.programme,classroom:q.classroom,amount:q.amount,currency:q.currency,deadlineDays:q.deadlineDays,acceptedAt:q.acceptedAt}};
+  addEvent(id,'fee_invoice','Admission-fee invoice issued',`${q.currency} ${Number(q.amount).toLocaleString('en-LK')} · due ${fmtDate(q.due)} · Billing`);
+  closeOverlay();
+};
+
+createEnrolment = function(id){
+  const c=db.admissions[id];
+  if(!c?.fee||!mpsAdmissionFeeGateSatisfied(c.fee)){alert('Fee gate is not satisfied.');return}
+  const placement=c.application?.acceptedPlacement||{};
+  const programme=placement.programme||c.acceptedProgramme||(c.service?.includes('Upper')?'Upper Class':'Baby Class');
+  const classroom=placement.classroom||placement.className||c.acceptedClassroom||c.acceptedClass||programme;
+  const start=placement.startDate||c.start;
+  c.enrolment={status:'active',programme,className:classroom,service:c.service,start};
+  c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});
+  addEvent(id,'enrolled','Enrolment created',`${programme} · ${classroom} · ${fmtDate(start)}`);
+  ui().admissionsTab='prestart';
+  closeOverlay();
+};
+// Finance ownership: Billing owns the admission-fee invoice, payment entry, verification and allocation.
+recordAdmissionPayment=function(caseId){
+  if(!has('Accounts')){alert('Admission-fee payment entry is handled in Billing by authorised finance staff.');return}
+  const c=db.admissions[caseId],inv=mpsAdmissionFeeInvoice(c);if(!c?.fee||!inv)return;
+  const amount=Math.max(0,Number(val('adm_record_amount')||0));if(!amount){alert('Enter the payment amount.');return}
+  const max=invoiceOutstanding(inv);if(amount>max){alert('The recorded amount cannot exceed the current admission-fee outstanding balance.');return}
+  const file=byId('adm_record_evidence')?.files?.[0]||null;
+  const evidence=file?{name:file.name,type:file.type||'',size:file.size||0}:null;
+  const pid='admp_'+Date.now();
+  db.billing.payments[pid]={id:pid,childId:c.id,childName:c.childName,admissionsCaseId:c.id,invoiceId:inv.id,amount,paymentDate:val('adm_record_date')||mpsAdmissionToday(),method:val('adm_record_method'),reference:val('adm_record_reference')||'No reference',evidence,status:'pending',recordedBy:mpsAdmissionActor(),recordedAt:new Date().toISOString()};
+  addEvent(caseId,'fee_payment_recorded','Admission-fee payment recorded',`${money(amount)} · Pending Verification${evidence?` · Evidence attached: ${evidence.name}`:''}`);
+  closeOverlay();
+};
+verifyAdmissionPayment=function(caseId,paymentId){
+  if(!has('Accounts')){alert('Admission-fee payment verification is handled in Billing by authorised finance staff.');return}
+  const c=db.admissions[caseId],inv=mpsAdmissionFeeInvoice(c),p=db.billing?.payments?.[paymentId];
+  if(!c||!inv||!p||p.admissionsCaseId!==caseId||p.status==='verified')return closeOverlay();
+  const alloc=Math.min(Number(p.amount||0),invoiceOutstanding(inv));
+  if(!alloc){alert('This admission-fee invoice has no outstanding balance.');return}
+  p.status='verified';p.verification=val('adm_verification');p.verifiedBy=mpsAdmissionActor();p.verifiedAt=new Date().toISOString();p.allocationInvoiceId=inv.id;
+  inv.allocations.push({paymentId:p.id,amount:alloc});
+  p.receipt=`REC-${inv.number}-${p.id}.pdf`;
+  inv.history.push({at:mpsAdmissionToday(),text:`Payment verified and allocated · ${money(alloc)} · ${p.verification} · ${p.verifiedBy}`});
+  addEvent(caseId,'fee_verified','Admission-fee payment verified',`${money(alloc)} · ${p.verification} · ${p.verifiedBy}`);
+  closeOverlay();
+};
+recordOverdueDecision=function(id){
+  const c=db.admissions[id];if(!c?.fee)return;
+  const action=val('overdue_action'),reason=val('overdue_reason').trim();if(!reason){alert('Enter the reason for this authorised decision.');return}
+  const actor=mpsAdmissionActor(),at=new Date().toISOString(),inv=mpsAdmissionFeeInvoice(c);
+  if(action==='Extend deadline'){
+    const newDue=val('overdue_date');if(!newDue){alert('Choose the new deadline.');return}
+    c.fee.due=newDue;if(inv)inv.due=newDue;addEvent(id,'fee_extended','Admission-fee deadline extended',`${fmtDate(newDue)} · ${reason} · ${actor}`);
+  }else if(action==='Waive fee with reason'){
+    if(!has('Head Teacher')){alert('Only the Head Teacher/Owner waiver authority may waive the admission fee.');return}
+    c.fee.waived=true;c.fee.waiver={reason,by:actor,at};if(inv){inv.admissionFeeWaived=true;inv.waiver={reason,by:actor,at};inv.history.push({at:mpsAdmissionToday(),text:`Admission fee waived for enrolment gate · ${reason} · ${actor}`})}
+    addEvent(id,'fee_waived','Admission fee waived',`${reason} · ${actor}`);
+  }else{
+    c.closed={type:'Released',reason,releasedAt:at,releasedBy:actor};addEvent(id,'released','Accepted place released',`${reason} · ${actor}`);
+  }
+  closeOverlay();
+};
+
+const _mpsAuditInvoiceOutstanding=invoiceOutstanding;
+invoiceOutstanding=function(inv){
+  if(inv?.category==='admission_fee'&&inv?.admissionFeeWaived)return 0;
+  return _mpsAuditInvoiceOutstanding(inv);
+};
+const _mpsAuditInvoiceStatus=invoiceStatus;
+invoiceStatus=function(inv){
+  if(inv?.category==='admission_fee'&&inv?.admissionFeeWaived)return {text:'Waived',tone:'green'};
+  return _mpsAuditInvoiceStatus(inv);
+};
+
+admissionPayments = function(c){
+  if(!c.fee)return `<div class="card"><h3>Admission fee</h3><p>No fee invoice exists yet. Billing creates the admission-fee invoice after Acceptance.</p></div>`;
+  const f=c.fee,inv=mpsAdmissionFeeInvoice(c),payments=mpsAdmissionFeePayments(c),outstanding=feeOutstanding(f),effective=mpsAdmissionEffectiveFeeStatus(f),satisfied=mpsAdmissionFeeGateSatisfied(f),verified=mpsAdmissionVerifiedAmount(c);
+  const rows=payments.length?payments.map(p=>{
+    const audit=p.status==='verified'?`${fmtDate(p.paymentDate)} · ${esc(p.reference||'No reference')} · ${esc(p.verification||'Verified')} · ${esc(p.verifiedBy||'Authorised finance')}`:`${fmtDate(p.paymentDate)} · ${esc(p.reference||'No reference')} · awaiting Finance verification`;
+    return `<div class="child-row"><strong>${money(p.amount)} · ${esc(p.method)}</strong><span>${badge(p.status,p.status==='pending'?'amber':'green')}</span><span class="hide-mobile">${audit}</span><span>${p.status==='pending'?badge('Billing action','blue'):'✓'}</span></div>`;
+  }).join(''):'<div class="empty">No payment recorded yet.</div>';
+  return `<div class="grid"><div class="span-8 card"><div class="card-header"><div class="grow"><h3>Admission fee</h3><p>Billing owns the invoice, payment verification and allocation. Admissions consumes the gate result.</p></div>${badge(effective==='overdue'?'Overdue':satisfied?'Satisfied':'In progress',effective==='overdue'?'red':satisfied?'green':'amber')}</div>${inv?kv('Invoice',esc(inv.number)):''}<div class="money">${money(f.amount)}</div>${kv('Due date',fmtDate(f.due))}${kv('Verified payment',money(verified))}${f.waived?kv('Waiver',`${badge('Authorised','green')} ${esc(f.waiver?.reason||'Reason recorded')}`):''}${kv('Outstanding',money(outstanding))}<div class="section-title">Payment activity</div>${rows}</div><div class="span-4 card"><h3>Controls</h3><p>Accepted is not Enrolled. Full verified settlement or an authorised waiver is required before conversion.</p>${notice('Cash/bank-transfer payment entry and real-source verification are Finance actions in Billing. Admissions does not verify money.','info')}${effective==='overdue'?`<div style="margin-top:8px">${btn('Overdue action',`openModal('overdue-fee',{caseId:'${c.id}'})`,'secondary')}</div>`:''}</div></div>`;
+};
+
+function mpsAdmissionFeeBillingRows(){
+  return Object.values(db.admissions).filter(c=>c?.application?.status==='accepted'&&!c?.enrolment&&!c?.closed).map(c=>{
+    if(!c.fee){
+      const q=mpsAdmissionFeeQuote(c);
+      return `<div class="card flat" style="margin-bottom:10px" data-admission-fee-case="${esc(c.id)}"><div class="card-header"><div class="grow"><h3>${esc(c.childName)} · admission fee</h3><p>Accepted · ${esc(q.programme)} · ${esc(q.classroom)} · due ${fmtDate(q.due)} once issued under the accepted fee policy</p></div>${badge('Invoice required','blue')}</div>${btn('Create admission-fee invoice',`openModal('issue-admission-fee',{caseId:'${c.id}'})`,'primary','sm')}</div>`;
+    }
+    const f=c.fee,inv=mpsAdmissionFeeInvoice(c),payments=mpsAdmissionFeePayments(c),effective=mpsAdmissionEffectiveFeeStatus(f),out=feeOutstanding(f);
+    const paymentRows=payments.map(p=>`<div class="child-row"><strong>${money(p.amount)} · ${esc(p.method)}</strong><span>${badge(p.status,p.status==='pending'?'amber':'green')}</span><span class="hide-mobile">${fmtDate(p.paymentDate)} · ${esc(p.reference||'No reference')}</span><span>${p.status==='pending'?btn('Verify',`openModal('verify-admission-payment',{caseId:'${c.id}',paymentId:'${p.id}'})`,'primary','sm'):'✓'}</span></div>`).join('');
+    return `<div class="card flat" style="margin-bottom:10px" data-admission-fee-case="${esc(c.id)}"><div class="card-header"><div class="grow"><h3>${esc(c.childName)} · admission fee</h3><p>${inv?esc(inv.number)+' · ':''}${money(f.amount)} · due ${fmtDate(f.due)} · ${money(out)} outstanding</p></div>${badge(effective==='overdue'?'Overdue':mpsAdmissionFeeGateSatisfied(f)?'Satisfied':'In progress',effective==='overdue'?'red':mpsAdmissionFeeGateSatisfied(f)?'green':'amber')}</div>${paymentRows||'<div class="empty">No payment recorded yet.</div>'}${!mpsAdmissionFeeGateSatisfied(f)?`<div style="margin-top:10px">${btn('Record payment',`openModal('record-admission-payment',{caseId:'${c.id}'})`,'primary','sm')}</div>`:''}</div>`;
+  }).join('')||'<div class="empty">No active admission-fee finance work.</div>';
+}
+
+const _mpsAuditAcceptedOverview=admissionOverview;
+admissionOverview=function(c){
+  if(admissionDisplayStage(c)==='Accepted'&&!c.fee){
+    const p=c.application?.acceptedPlacement||{};
+    const action=actionCard('Accepted · awaiting Billing invoice','The accepted placement is frozen. Authorised Finance creates the admission-fee invoice in Billing before this family enters the Admission Fee stage.',badge('Billing action required','blue'));
+    const details=`<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}${kv('Application',applicationSummary(c))}${kv('Accepted programme',esc(p.programme||c.acceptedProgramme||'—'))}${kv('Accepted classroom',esc(p.classroom||p.className||c.acceptedClassroom||'—'))}${kv('Accepted start',fmtDate(p.startDate||c.start))}</div>`;
+    const management=mpsEstablishedDuplicateEligible(c)?`<div class="card" style="margin-top:12px"><div class="card-header"><div class="grow"><h3>Record management</h3><p>Use only when staff later confirms this Admissions record is a duplicate of another record.</p></div>${btn('Mark as duplicate',`mpsOpenEstablishedDuplicate('${c.id}')`,'secondary','sm')}</div></div>`:'';
+    return `${action}${details}${management}`;
+  }
+  return _mpsAuditAcceptedOverview(c);
+};
+
+const _mpsAuditRenderBilling=renderBilling;
+renderBilling=function(){
+  const original=_mpsAuditRenderBilling();
+  const marker='</div></main>';
+  const section=`<div class="section-title">Admission-fee finance</div><div data-admission-fee-finance>${mpsAdmissionFeeBillingRows()}</div>`;
+  return original.includes(marker)?original.replace(marker,`${section}</div></main>`):original;
+};
+
+const _mpsAuditTodayActions2=todayActions;
+todayActions=function(){
+  const a=_mpsAuditTodayActions2();
+  if(has('Accounts')){
+    const pending=Object.values(db.billing?.payments||{}).find(p=>p.admissionsCaseId&&p.status==='pending');
+    if(pending)a.unshift({sev:'amber',icon:'₨',title:`${pending.childName||db.admissions[pending.admissionsCaseId]?.childName||'Admission'} · admission-fee payment awaiting verification`,sub:'Billing real-source verification required',go:"setRoute('billing')"});
+    else {
+      const accepted=Object.values(db.admissions).find(c=>c.application?.status==='accepted'&&!c.fee&&!c.enrolment&&!c.closed);
+      if(accepted)a.unshift({sev:'blue',icon:'₨',title:`${accepted.childName} · admission-fee invoice required`,sub:'Billing invoice action required after Acceptance',go:"setRoute('billing')"});
+    }
+  }
+  return a;
+};
+
+// Duplicate comparison highlights only fields that actually match the current enquiry.
+const _mpsAuditDrawerViewFinal=drawerView;
+drawerView=function(d){
+  if(d?.name!=='duplicate-existing-record')return _mpsAuditDrawerViewFinal(d);
+  const p=ui().pendingEnquiry||{},c=duplicateCandidateRecord(d.data?.id),candidates=duplicateCandidateRecords();
+  if(!c)return drawer('Compare possible match','The candidate is no longer available.',notice('Return to the possible-match overview and review the current candidates.','warn'),btn('Back to all matches','returnToDuplicateReview()','secondary'));
+  const index=Math.max(0,candidates.findIndex(x=>x.id===c.id)),clearedCount=duplicateClearedCount(),cleared=duplicateCandidateCleared(c.id);
+  const childMatch=mpsNormName(p.childName)&&mpsNormName(p.childName)===mpsNormName(c.childName);
+  const dobMatch=!!p.dob&&p.dob===c.dob;
+  const guardianMatch=mpsNormName(p.guardian)&&mpsNormName(p.guardian)===mpsNormName(c.guardian);
+  const phoneMatch=mpsNormPhone(p.phone)&&mpsNormPhone(p.phone)===mpsNormPhone(c.phone);
+  const mark=x=>x?` ${badge('Match','amber')}`:'';
+  return drawer('Compare possible match',`Match ${index+1} of ${candidates.length} · ${clearedCount} cleared${cleared?' · already cleared as different':''}`,`${notice(`MPS flagged this candidate because of ${esc(c.matchReason)}. Only actual matching fields are marked below; a family-contact match may still belong to a sibling or another child. Staff makes the identity decision.`,'info')}<div class="grid" style="margin-top:14px"><div class="span-6 card flat"><div class="eyebrow">New enquiry</div><h3>${esc(p.childName||'New child')}</h3>${kv('Date of birth',fmtDate(p.dob))}${kv('Guardian',esc(p.guardian||'—'))}${kv('Phone',esc(p.phone||'—'))}${kv('Interested service',esc(p.service||'—'))}</div><div class="span-6 card flat"><div class="eyebrow">Selected existing record</div><h3>${esc(c.childName)}${mark(childMatch)}</h3>${kv('Date of birth',`${fmtDate(c.dob)}${mark(dobMatch)}`)}${kv('Guardian',`${esc(c.guardian)}${mark(guardianMatch)}`)}${kv('Phone',`${esc(c.phone)}${mark(phoneMatch)}`)}${kv('Current status',esc(c.status))}${kv('Programme / class',esc(c.className))}</div></div>${notice('If this is the same child/person, close the incoming enquiry as a duplicate against this record. If it is not the same child/person, clear this candidate; MPS then moves to the next unresolved match.','warn')}`,`${btn('Back to all matches','returnToDuplicateReview()','secondary')}${btn('Not the same child/person',`clearDuplicateCandidate('${c.id}')`,'secondary')}${btn('Close new enquiry as duplicate',`closePendingAsDuplicate('${c.id}')`,'danger')}`);
+};
+
+mpsEnsureApplicationLink=function(c){
+  if(!c.application.link){
+    const created=mpsAdmissionToday();
+    const token=`${String(c.id).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+    c.application.link={token,url:`https://apply.mps.example/a/${token}`,recipientName:c.guardian,recipientPhone:c.phone,createdAt:created,expiresAt:null,expiryPolicy:'Time-limited; production duration not yet specified',status:'Generated',sentAt:null,submittedAt:null};
+    save();
+  }
+  return c.application.link;
+};
+
+sendApplication=function(id){
+  const c=db.admissions[id];if(!c)return;
+  if(c?.tour?.status==='completed'&&c.tour.outcome!=='Family wants to proceed'){
+    alert('Resolve the Visit follow-up before sending the Application.');return;
+  }
+  if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start,note:''};
+  const link=mpsEnsureApplicationLink(c);link.status='Sent';link.sentAt=new Date().toISOString();c.application.status='sent';
+  addEvent(id,'application_sent','Application link sent','Registered WhatsApp · time-limited secure link · Sent');
+  closeOverlay();
+};
+
+mpsEnsureOnboardingLink=function(c){
+  const o=ensureOnboarding(c.id);
+  if(!o.link){
+    const created=mpsAdmissionToday();
+    const token=`ONB-${String(c.id).toUpperCase()}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+    o.link={token,url:`https://onboard.mps.example/n/${token}`,recipientName:c.guardian,recipientPhone:c.phone,createdAt:created,expiresAt:null,expiryPolicy:'Time-limited; production duration not yet specified',status:'Generated',sentAt:null,submittedAt:null};
+    save();
+  }
+  return o.link;
+};
+
+const _mpsAuditPrestart2=admissionPrestart;
+admissionPrestart=function(c){
+  let html=_mpsAuditPrestart2(c);
+  const l=c?.onboarding?.link;
+  if(l){
+    const exactExpiry=kv('Expires',fmtDate(l.expiresAt));
+    html=html.replace(exactExpiry,kv('Expiry','Time-limited · production duration not yet specified'));
+  }
+  return html;
+};
+
+const _mpsAuditModalView2=modalView;
+modalView=function(m){
+  const n=m?.name,d=m?.data||{};
+  if(n==='accept-application'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
+    const policy=mpsAdmissionsTenantPolicy();
+    const programmes=Object.keys(policy.programmes||{});const current=c.service?.includes('Upper')?'Upper Class':'Baby Class';
+    const classrooms=[...new Set(programmes.flatMap(x=>policy.programmes?.[x]?.classrooms||[]))];
+    return modal('Accept application','Acceptance freezes the approved placement facts for conversion.',`${selectField('Accepted programme',programmes,current,'accept_programme')}${selectField('Accepted classroom',classrooms,current,'accept_classroom')}${field('Accepted start date',c.start,'date',false,'accept_start')}${notice('Programme, classroom and start date are stored as separate placement facts. These labels come from tenant prototype configuration; MPS does not treat them as universal product rules.','info')}${notice('Accepted is not Enrolled. The admission-fee gate must be satisfied or waived before conversion.','warn')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Accept',`acceptApplication('${c.id}')`,'primary')}`);
+  }
+  if(n==='send-application'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
+    const link=mpsEnsureApplicationLink(c);
+    return modal('Send secure application','No parent account required.',`${kv('Recipient',`${esc(link.recipientName)} · ${esc(link.recipientPhone)}`)}${kv('Expiry','Time-limited · production duration not yet specified')}${kv('Prefill','Enquiry + Visit information')}${field('Secure link',link.url,'text',true)}${textArea('Prepared WhatsApp message',`Hi ${c.guardian.split(' ')[0]}, thank you for visiting ${ORG}. Please use this secure link to review the details we already have and submit ${c.childName.split(' ')[0]}’s application.`,'app_message')}${notice('Manual WhatsApp records Sent only — not Delivered or Read.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Copy & mark Sent',`sendApplication('${c.id}')`,'primary')}`);
+  }
+  if(n==='issue-admission-fee'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
+    const q=mpsAdmissionFeeQuote(c);
+    return modal('Create admission-fee invoice','Acceptance is already recorded. Billing policy is snapshotted for this accepted application.',`${kv('Family',esc(c.childName))}${kv('Accepted programme',esc(q.programme))}${kv('Accepted classroom',esc(q.classroom))}${kv('Amount',`${q.currency} ${Number(q.amount).toLocaleString('en-LK')}`)}${kv('Accepted',fmtDate(q.acceptedAt))}${kv('Due date',`${fmtDate(q.due)} · ${q.deadlineDays} days from acceptance`)}${notice('The amount shown is tenant-configured prototype data, not a universal MPS fee.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create invoice',`issueAdmissionFee('${c.id}')`,'primary')}`);
+  }
+  if(n==='create-enrolment'){
+    const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
+    const p=c.application?.acceptedPlacement||{};
+    return modal('Create enrolment','Reuse the accepted Application; do not create the family again.',`${kv('Child',esc(c.childName))}${kv('Accepted programme',esc(p.programme||c.acceptedProgramme||'—'))}${kv('Accepted classroom',esc(p.classroom||p.className||c.acceptedClassroom||'—'))}${kv('Start date',fmtDate(p.startDate||c.start))}${kv('Admission-fee gate',mpsAdmissionFeeGateSatisfied(c.fee)?'Satisfied':'Not satisfied')}${notice('Enrolment reuses the accepted placement and the existing Admissions history.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create enrolment',`createEnrolment('${c.id}')`,'primary')}`);
+  }
+  return _mpsAuditModalView2(m);
+};
+// Admissions audit QA correction — Billing-owned admission-fee verification reads the Billing payment record.
+// This keeps the finance ownership introduced by the audit and removes the stale Admissions fee.pending lookup.
+const _mpsAuditModalViewFinanceVerification = modalView;
+modalView = function(m){
+  const n=m?.name,d=m?.data||{};
+  if(n==='verify-admission-payment'){
+    const c=db.admissions[d.caseId];
+    const p=db.billing?.payments?.[d.paymentId];
+    const inv=c?mpsAdmissionFeeInvoice(c):null;
+    if(!c||!p||!inv||p.admissionsCaseId!==c.id||p.invoiceId!==inv.id){
+      return _mpsAuditModalViewFinanceVerification(m);
+    }
+    return modal(
+      'Verify admission-fee payment',
+      'Check the real finance source before marking Verified.',
+      `${kv('Family',esc(c.childName))}${kv('Payment date',fmtDate(p.paymentDate))}${kv('Method',esc(p.method))}${kv('Amount',money(p.amount))}${kv('Reference',esc(p.reference||'No reference'))}${selectField('Verification method',['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'],'Bank app/account checked','adm_verification')}${notice('The optional attachment is supporting evidence, not the control. The authorised real-source check is.','info')}`,
+      `${btn('Cancel','closeOverlay()','secondary')}${btn('Verify payment',`verifyAdmissionPayment('${c.id}','${p.id}')`,'primary')}`
+    );
+  }
+  return _mpsAuditModalViewFinanceVerification(m);
+};
+
 </script>
 </body>
 </html>
