@@ -4482,6 +4482,61 @@ render=function(){
 
 // Apply fixture retirement and stale-state cleanup immediately after all modules load.
 render();
+// BQ-097 — Visit notes should stay useful without making staff think about MPS policy.
+// Keep the normal Complete visit task small, and reuse what staff record in the same
+// Admission details card as the family moves forward.
+
+function mpsVisitNotes(c){
+  return {
+    visitNote:String(c?.tour?.note||'').trim(),
+    decisionNote:String(c?.tour?.additionalInfo||'').trim()
+  };
+}
+
+const _mpsVisitNotesBaseOverview=admissionOverview;
+admissionOverview=function(c){
+  let html=_mpsVisitNotesBaseOverview(c);
+  if(c?.tour?.status!=='completed') return html;
+  const {visitNote,decisionNote}=mpsVisitNotes(c);
+  if(!visitNote&&!decisionNote) return html;
+  const applicationRow=kv('Application',applicationSummary(c));
+  let notes='';
+  if(visitNote) notes+=kv('Visit note',esc(visitNote));
+  if(decisionNote) notes+=kv('Decision note',esc(decisionNote));
+  return html.replace(applicationRow,`${notes}${applicationRow}`);
+};
+
+const _mpsVisitNotesBaseApplication=admissionApplication;
+admissionApplication=function(c){
+  let html=_mpsVisitNotesBaseApplication(c);
+  const {decisionNote}=mpsVisitNotes(c);
+  if(decisionNote){
+    const oldRow=kv('Additional information',`${esc(decisionNote)} ${prov('Staff recorded at Visit','staff')}`);
+    const newRow=kv('Decision note',`${esc(decisionNote)} ${prov('Staff recorded at Visit','staff')}`);
+    html=html.replace(oldRow,newRow);
+    html=html.replace(kv('Case-specific information','Recorded'),kv('Decision note','Recorded'));
+  }else{
+    html=html.replace(kv('Additional information','None recorded — this is optional and case-specific.'),'');
+    html=html.replace(kv('Case-specific information','Not required by default'),'');
+  }
+  return html;
+};
+
+const _mpsVisitNotesBaseModalView=modalView;
+modalView=function(m){
+  const n=m?.name,d=m?.data||{};
+  if(n==='complete-tour'){
+    const c=db.admissions[d.caseId];
+    if(!c) return _mpsVisitNotesBaseModalView(m);
+    return modal('Complete visit','Record the visit outcome.',
+      `${selectField('Outcome',['Family wants to proceed','Follow-up needed','Family not proceeding'],c.tour?.outcome||'Family wants to proceed','tour_outcome')}${textArea('Visit note (optional)',c.tour?.note||'','tour_note')}${textArea('Decision note (optional)',c.tour?.additionalInfo||'','tour_additional_info')}`,
+      `${btn('Cancel','closeOverlay()','secondary')}${btn('Save outcome',`completeTour('${c.id}')`,'primary')}`);
+  }
+  return _mpsVisitNotesBaseModalView(m);
+};
+
+// The latest module changes already-rendered Admissions UI too, so refresh once.
+render();
 
 </script>
 </body>
