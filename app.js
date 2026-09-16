@@ -2710,3 +2710,84 @@ admissionOverview=function(c){
 
   return html;
 };
+
+// Owner Issue 021 / BQ-088 refinement — staff-managed Visit scheduling may happen in the same contact interaction.
+function toggleEnquiryVisitFields(){
+  const outcome = val('enq_contact_outcome');
+  const scheduleNow = val('enq_schedule_visit') === 'Yes';
+  const visit = byId('enq_visit_wrap');
+  if(visit) visit.style.display = outcome === 'Wants to continue' && scheduleNow ? '' : 'none';
+}
+
+const _mpsIssue021ToggleEnquiryContactFields = toggleEnquiryContactFields;
+toggleEnquiryContactFields = function(){
+  _mpsIssue021ToggleEnquiryContactFields();
+  const outcome = val('enq_contact_outcome');
+  const schedule = byId('enq_schedule_wrap');
+  if(schedule) schedule.style.display = outcome === 'Wants to continue' ? '' : 'none';
+  toggleEnquiryVisitFields();
+};
+
+recordEnquiryContactOutcome = function(id){
+  const c = db.admissions[id];
+  if(!c) return;
+  const method = val('enq_contact_method');
+  const outcome = val('enq_contact_outcome');
+  const note = val('enq_contact_note').trim();
+  const detailNote = note ? ` · ${note}` : '';
+
+  if(outcome === 'Wants to continue'){
+    const scheduleNow = val('enq_schedule_visit') === 'Yes';
+    let visitDate = '', visitTime = '', visitContact = '';
+    if(scheduleNow){
+      visitDate = val('enq_visit_date');
+      visitTime = val('enq_visit_time');
+      visitContact = val('enq_visit_contact').trim() || c.guardian;
+      if(!visitDate || !visitTime){ alert('Choose the Visit date and time.'); return; }
+    }
+
+    c.followUp = null;
+    c.events.push(ev('contact_attempt','Parent contact',`${method} · Wants to continue${detailNote}`));
+    c.events.push(ev('qualified','Confirmed Interest',`Real positive signal received via ${method}${detailNote}`));
+    if(scheduleNow){
+      c.tour = {status:'scheduled',date:visitDate,time:visitTime,outcome:null,contact:visitContact};
+      c.events.push(ev('tour_scheduled','Visit scheduled',`${fmtDate(visitDate)} · ${visitTime} · ${visitContact}`));
+    }
+    save();
+    closeOverlay();
+    return;
+  }
+
+  if(outcome === 'Could not reach parent'){
+    const followUpDate = val('enq_followup_date');
+    if(!followUpDate){ alert('Choose the next follow-up date.'); return; }
+    c.followUp = {date:followUpDate,reason:'Could not contact',method,note};
+    c.events.push(ev('contact_attempt','Parent contact attempt',`${method} · Could not reach parent · follow up ${fmtDate(followUpDate)}${detailNote}`));
+    save();
+    closeOverlay();
+    return;
+  }
+
+  if(outcome === 'Not proceeding'){
+    const reason = val('enq_lost_reason') || 'No longer interested';
+    c.followUp = null;
+    c.closed = {type:'Closed',reason};
+    c.events.push(ev('non_conversion','Admissions journey closed',`${reason} · ${method}${detailNote}`));
+    save();
+    closeOverlay();
+  }
+};
+
+const _mpsIssue021ModalView = modalView;
+modalView = function(m){
+  const n = m?.name, d = m?.data || {};
+  if(n === 'qualify-lead'){
+    const c = db.admissions[d.caseId];
+    if(!c) return _mpsIssue021ModalView(m);
+    const existingMethod = ['Phone call','WhatsApp','Email','In person'].includes(c.followUp?.method) ? c.followUp.method : 'Phone call';
+    const existingNote = c.followUp?.note || '';
+    const body = `${kv('Family',`${c.guardian} / ${c.childName}`)}${notice('Record what actually happened. Confirmed Interest requires a real positive signal; the enquiry itself is not enough.','info')}${selectField('Contact method',['Phone call','WhatsApp','Email','In person'],existingMethod,'enq_contact_method')}${selectField('Outcome',['Wants to continue','Could not reach parent','Not proceeding'],'Wants to continue','enq_contact_outcome','toggleEnquiryContactFields()')}${textArea('Factual note',existingNote,'enq_contact_note')}<div id="enq_schedule_wrap">${selectField('Schedule visit now?',['No','Yes'],'No','enq_schedule_visit','toggleEnquiryVisitFields()')}</div><div id="enq_visit_wrap" style="display:none">${field('Visit date','','date',false,'enq_visit_date')}${field('Visit time','','time',false,'enq_visit_time')}${field('Attending contact',c.guardian,'text',false,'enq_visit_contact')}</div><div id="enq_followup_wrap" style="display:none">${field('Next follow-up date',c.followUp?.date||'','date',false,'enq_followup_date')}</div><div id="enq_lost_wrap" style="display:none">${selectField('Non-conversion reason',lostReasons,'No longer interested','enq_lost_reason')}</div>${notice('A visit and ability to pay are not required to confirm interest. If a convenient Visit time is agreed during this conversation, staff can schedule it here now. Otherwise, schedule it later from Confirmed Interest.','info')}`;
+    return modal(c.followUp?.date ? 'Record follow-up outcome' : 'Record contact outcome','Keep the Admissions record aligned with the real conversation.',body,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save outcome',`recordEnquiryContactOutcome('${c.id}')`,'primary')}`);
+  }
+  return _mpsIssue021ModalView(m);
+};
