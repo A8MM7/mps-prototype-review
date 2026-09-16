@@ -2791,3 +2791,103 @@ modalView = function(m){
   }
   return _mpsIssue021ModalView(m);
 };
+
+// Owner Issue 024 / BQ-092 — validate and normalise contact data at the input boundary.
+// Prototype tenant configuration seam. Production resolves this from tenant/site configuration.
+const MPS_TENANT_CONFIG = Object.freeze({ phoneCountryDefault: 'LK' });
+
+function mpsPhoneCountryOptions(){
+  return [
+    {code:'LK',label:'Sri Lanka (+94)',dial:'+94'},
+    {code:'IN',label:'India (+91)',dial:'+91'},
+    {code:'GB',label:'United Kingdom (+44)',dial:'+44'},
+    {code:'AU',label:'Australia (+61)',dial:'+61'},
+    {code:'AE',label:'United Arab Emirates (+971)',dial:'+971'},
+    {code:'US',label:'United States (+1)',dial:'+1'}
+  ];
+}
+function mpsDefaultPhoneCountry(){
+  const configured=String(MPS_TENANT_CONFIG.phoneCountryDefault||'').toUpperCase();
+  return mpsPhoneCountryOptions().some(x=>x.code===configured) ? configured : 'LK';
+}
+function mpsNormalisePhone(raw,countryCode=mpsDefaultPhoneCountry()){
+  const country=mpsPhoneCountryOptions().find(x=>x.code===countryCode)||mpsPhoneCountryOptions().find(x=>x.code===mpsDefaultPhoneCountry());
+  const trimmed=String(raw||'').trim();
+  if(!trimmed) return {ok:false,error:'Enter a phone number.'};
+  if(!/^[+()\-\s0-9]+$/.test(trimmed)) return {ok:false,error:'Use only numbers, spaces, +, parentheses or hyphens.'};
+  let digits=trimmed.replace(/\D/g,'');
+  if(trimmed.startsWith('+')){
+    if(digits.length<8 || digits.length>15) return {ok:false,error:'Enter a valid international phone number.'};
+    return {ok:true,value:`+${digits}`};
+  }
+  const dialDigits=country.dial.replace(/\D/g,'');
+  if(country.code==='LK'){
+    if(digits.startsWith('94')) digits=digits.slice(2);
+    if(digits.startsWith('0')) digits=digits.slice(1);
+    if(digits.length!==9) return {ok:false,error:'Enter a valid Sri Lankan phone number, for example 077 123 4567.'};
+  } else {
+    if(digits.startsWith('0')) digits=digits.slice(1);
+    if(digits.length<6 || digits.length>12) return {ok:false,error:'Enter a valid phone number for the selected country.'};
+  }
+  return {ok:true,value:`+${dialDigits}${digits}`};
+}
+function mpsNormaliseEmail(raw){
+  const email=String(raw||'').trim().toLowerCase();
+  if(!email) return {ok:true,value:''};
+  if(email.length>254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return {ok:false,error:'Enter a valid email address or leave it blank.'};
+  return {ok:true,value:email};
+}
+
+const _mpsBq092ModalView=modalView;
+modalView=function(m){
+  const n=m?.name;
+  if(n==='new-enquiry'){
+    const p=ui().pendingEnquiry||{};
+    const countries=mpsPhoneCountryOptions();
+    const defaultCountry=p.phoneCountry||mpsDefaultPhoneCountry();
+    const countrySelect=`<div class="field"><label>Phone country</label><select id="ne_phone_country">${countries.map(x=>`<option value="${x.code}" ${x.code===defaultCountry?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
+    const serviceOptions=['Baby Class','Upper Class','Baby Class + Standard Daycare','Baby Class + Extended Daycare','Upper Class + Standard Daycare','Upper Class + Extended Daycare'];
+    const body=`${selectField('How did you hear about us?',sources,p.source||'Facebook','ne_source')}<div class="form-grid">${field('Parent / contact name',p.guardian||'New Parent','text',false,'ne_guardian')}${countrySelect}${field('Phone',p.phone||'070 000 0000','tel',false,'ne_phone')}${field('Email (optional)',p.email||'','email',false,'ne_email')}${field('Child name',p.childName||'New Child','text',false,'ne_child')}${field('Child DOB',p.dob||'2024-06-01','date',false,'ne_dob')}${field('Desired start',p.start||'2027-01-19','date',false,'ne_start')}${selectField('Interested service',serviceOptions,p.service||'Baby Class','ne_service')}</div>${textArea('Message',p.message||'Interested in 2027 admissions.','ne_message')}${notice('Phone is checked for reliable matching. Email is optional.','info')}`;
+    return modal('New enquiry','Capture the minimum useful information.',body,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save enquiry','mpsSaveValidatedEnquiry()','primary')}`);
+  }
+  return _mpsBq092ModalView(m);
+};
+
+function mpsSaveValidatedEnquiry(){
+  const childName=val('ne_child').trim(), guardian=val('ne_guardian').trim(), dob=val('ne_dob'), start=val('ne_start');
+  if(!childName){ alert('Enter the child name.'); return; }
+  if(!guardian){ alert('Enter the parent / guardian name.'); return; }
+  if(!dob){ alert('Enter the child date of birth.'); return; }
+  if(!start){ alert('Enter the desired start date.'); return; }
+  const phone=mpsNormalisePhone(val('ne_phone'),val('ne_phone_country'));
+  if(!phone.ok){ alert(phone.error); return; }
+  const email=mpsNormaliseEmail(val('ne_email'));
+  if(!email.ok){ alert(email.error); return; }
+  const p={childName,dob,guardian,phone:phone.value,phoneCountry:val('ne_phone_country')||mpsDefaultPhoneCountry(),email:email.value,start,service:val('ne_service'),source:val('ne_source'),message:val('ne_message').trim(),duplicateReviews:{}};
+  ui().pendingEnquiry=p;
+  const candidates=(typeof duplicateCandidateRecords==='function')?duplicateCandidateRecords():[];
+  if(candidates.length){ ui().modal={name:'duplicate-candidate',data:null}; save(); render(); return; }
+  mpsCommitValidatedEnquiry(p);
+}
+function mpsCommitValidatedEnquiry(p){
+  const id='case_'+Date.now();
+  db.admissions[id]={id,childName:p.childName,dob:p.dob,guardian:p.guardian,phone:p.phone,phoneCountry:p.phoneCountry||mpsDefaultPhoneCountry(),email:p.email||'',start:p.start,service:p.service,source:p.source,reason:'Other',message:p.message||'',events:[ev('enquiry','Enquiry created',p.source)],tour:null,application:{status:'not_sent',draft:null,snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null};
+  ui().admissionsCase=id; ui().admissionsTab='overview'; ui().pendingEnquiry=null; ui().modal=null; ui().drawer=null; save(); render();
+}
+commitNewEnquiry=function(mode){
+  const p=ui().pendingEnquiry;
+  if(!p) return closeOverlay();
+  const candidates=(typeof duplicateCandidateRecords==='function')?duplicateCandidateRecords():[];
+  if(candidates.length && typeof duplicateAllCandidatesCleared==='function' && !duplicateAllCandidatesCleared()){
+    alert('Review and clear every possible match before proceeding as a new record.'); return;
+  }
+  mpsCommitValidatedEnquiry(p);
+};
+const _mpsBq092AdmissionOverview=admissionOverview;
+admissionOverview=function(c){
+  const html=_mpsBq092AdmissionOverview(c);
+  if(!c.email) return html;
+  const leadSourceRow=kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`);
+  const emailRow=kv('Email',`${esc(c.email)} ${prov(c.source==='Website'?'Parent submitted':'Staff recorded',c.source==='Website'?'parent':'staff')}`);
+  return html.includes(leadSourceRow) ? html.replace(leadSourceRow,`${leadSourceRow}${emailRow}`) : html;
+};
