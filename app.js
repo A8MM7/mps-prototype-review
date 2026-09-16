@@ -3911,3 +3911,63 @@ render=function(){
 };
 
 render();
+// Owner-review header/profile/search simplicity refinement.
+// Keep the top bar about identity and finding people, not permission inventory or database references.
+
+function mpsHeaderSearchPlaceholder(){
+  return (has('Admissions')||has('Head Teacher'))?'Search child or parent…':'Search child…';
+}
+
+mpsAccountMenuHtml=function(){
+  const p=currentPersona();
+  const admin=mpsCurrentIsAccountAdmin();
+  return `<div class="account-area"><button class="account-trigger" aria-label="Account menu for ${esc(p.name)}" aria-expanded="${ui().accountMenuOpen?'true':'false'}" onclick="mpsToggleAccountMenu()"><span class="user-meta"><b>${esc(p.name)}</b></span><span class="avatar">${esc(p.initials||'')}</span><span class="account-caret">▾</span></button>${ui().accountMenuOpen?`<div class="account-menu" role="menu"><button role="menuitem" onclick="mpsOpenAccountModal('my-profile')"><strong>My profile</strong></button>${admin?`<button role="menuitem" onclick="mpsOpenAccountModal('preschool-settings')"><strong>Preschool settings</strong></button>`:''}<button role="menuitem" onclick="mpsPrototypeSignOut()"><strong>Sign out</strong></button></div>`:''}</div>`;
+};
+
+const _mpsHeaderProfileBaseShell=shell;
+shell=function(content){
+  let html=_mpsHeaderProfileBaseShell(content);
+  html=html.replace('placeholder="Search child, family, invoice…"',`placeholder="${mpsHeaderSearchPlaceholder()}"`);
+  return html;
+};
+
+globalSearch=function(q){
+  q=(q||'').trim().toLowerCase();
+  if(!q)return;
+  const qDigits=mpsSafeDigits(q);
+  if(allowed('admissions')){
+    const a=Object.values(db.admissions).find(c=>
+      String(c.childName||'').toLowerCase().includes(q)||
+      String(c.guardian||'').toLowerCase().includes(q)||
+      (qDigits.length>=4&&mpsSafeDigits(c.phone).includes(qDigits))
+    );
+    if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}
+  }
+  if(allowed('billing')){
+    const inv=Object.values(db.billing.invoices).find(i=>String(i.childName||'').toLowerCase().includes(q));
+    if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}
+  }
+  alert('No child or parent in your authorised MPS access matched that search.');
+};
+
+function mpsBillingInvoiceSearch(q){
+  q=(q||'').trim().toLowerCase();
+  if(!q)return;
+  const inv=Object.values(db.billing.invoices).find(i=>
+    String(i.number||'').toLowerCase().includes(q)||
+    String(i.childName||'').toLowerCase().includes(q)
+  );
+  if(!inv){alert('No invoice matched that child or invoice number.');return}
+  openModal('invoice-detail',{id:inv.id});
+}
+
+const _mpsHeaderProfileBaseRenderBilling=renderBilling;
+renderBilling=function(){
+  let html=_mpsHeaderProfileBaseRenderBilling();
+  const lookup='<div class="billing-lookup"><input aria-label="Find invoice" placeholder="Find by child or invoice number…" onkeydown="if(event.key===\'Enter\')mpsBillingInvoiceSearch(this.value)"/><button class="btn secondary sm" onclick="mpsBillingInvoiceSearch(this.previousElementSibling.value)">Find</button></div>';
+  return html.replace('<div class="section-title">Invoices</div>',`<div class="section-title">Invoices</div>${lookup}`);
+};
+
+// part-043 renders once before this final refinement is loaded. Render again so the
+// first visible frame uses the compact header rather than waiting for another action.
+render();
