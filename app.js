@@ -4072,3 +4072,183 @@ createStaff=function(){
 
 // Keep the first visible frame on the newest overrides.
 render();
+// BQ-092 follow-through — apply the approved country-aware contact validation
+// to existing secure parent forms as well as newer account/admin surfaces.
+// This does not add new mandatory fields; it enforces the contact fields those
+// workflows already collect and keeps stored phone values dependable.
+
+function mpsParentApplicationPhoneCountry(caseId){
+  const c=db.admissions?.[caseId];
+  const d=c?.application?.draft||{};
+  return d.phoneCountry||c?.phoneCountry||mpsDefaultPhoneCountry();
+}
+
+const _mpsBq092ContactBaseRenderParentApplication=renderParentApplication;
+renderParentApplication=function(){
+  let html=_mpsBq092ContactBaseRenderParentApplication();
+  const caseId=ui().parentApplicationCase;
+  const c=db.admissions?.[caseId];
+  const d=c?.application?.draft;
+  if(!c||!d||ui().parentApplicationStep!==1) return html;
+  const country=mpsParentApplicationPhoneCountry(caseId);
+  const oldPhone=field('Registered phone',d.phone||c.phone||'','text',false,'pa_phone');
+  const phoneField=`<div class="field"><label>Registered phone</label><input id="pa_phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(d.phone||c.phone||'')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
+  return html.replace(oldPhone,`${mpsPhoneCountrySelect('pa_phone_country',country,'Phone country')}${phoneField}`);
+};
+
+function mpsValidateParentApplicationPhone(caseId){
+  const input=byId('pa_phone');
+  if(!input) return true;
+  const country=val('pa_phone_country')||mpsParentApplicationPhoneCountry(caseId);
+  const phone=mpsNormalisePhone(input.value,country);
+  if(!phone.ok){alert(phone.error);return false}
+  input.value=phone.value;
+  return true;
+}
+
+const _mpsBq092ContactBaseSyncApplicationDraft=syncApplicationDraft;
+syncApplicationDraft=function(caseId){
+  _mpsBq092ContactBaseSyncApplicationDraft(caseId);
+  const c=db.admissions?.[caseId];
+  const d=c?.application?.draft;
+  const input=byId('pa_phone');
+  if(!c||!d||!input) return;
+  const country=val('pa_phone_country')||mpsParentApplicationPhoneCountry(caseId);
+  const phone=mpsNormalisePhone(input.value,country);
+  if(phone.ok){
+    d.phone=phone.value;
+    d.phoneCountry=country;
+    save();
+  }
+};
+
+const _mpsBq092ContactBaseAppContinue=appContinue;
+appContinue=function(caseId){
+  if(!mpsValidateParentApplicationPhone(caseId)) return;
+  return _mpsBq092ContactBaseAppContinue(caseId);
+};
+
+const _mpsBq092ContactBaseSubmitApplication=submitApplication;
+submitApplication=function(caseId){
+  if(!mpsValidateParentApplicationPhone(caseId)) return;
+  const result=_mpsBq092ContactBaseSubmitApplication(caseId);
+  const c=db.admissions?.[caseId];
+  if(c?.application?.status==='submitted'&&c.application.draft?.phoneCountry){
+    c.phoneCountry=c.application.draft.phoneCountry;
+    save();
+  }
+  return result;
+};
+
+function mpsOnboardingPhoneCountry(caseId,record){
+  return record?.phoneCountry||db.admissions?.[caseId]?.phoneCountry||mpsDefaultPhoneCountry();
+}
+
+const _mpsBq092ContactBaseGuardianCard=guardianCard;
+guardianCard=function(g,i){
+  let html=_mpsBq092ContactBaseGuardianCard(g,i);
+  const caseId=ui().parentOnboardingCase;
+  const country=mpsOnboardingPhoneCountry(caseId,g);
+  const oldPhone=field('Registered WhatsApp / mobile',g.phone||'','text',false,`po_g${i}_phone`);
+  const phoneField=`<div class="field"><label>Registered WhatsApp / mobile</label><input id="po_g${i}_phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(g.phone||'')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
+  return html.replace(oldPhone,`${mpsPhoneCountrySelect(`po_g${i}_phone_country`,country,'Phone country')}${phoneField}`);
+};
+
+const _mpsBq092ContactBaseRenderParentOnboarding=renderParentOnboarding;
+renderParentOnboarding=function(){
+  let html=_mpsBq092ContactBaseRenderParentOnboarding();
+  const caseId=ui().parentOnboardingCase;
+  const c=db.admissions?.[caseId];
+  const o=c?.onboarding;
+  if(!c||!o||ui().parentOnboardingStep!==3) return html;
+  const e=o.draft?.emergency||{};
+  const country=mpsOnboardingPhoneCountry(caseId,e);
+  const oldPhone=field('Phone',e.phone||'','text',false,'po_em_phone');
+  const phoneField=`<div class="field"><label>Phone</label><input id="po_em_phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(e.phone||'')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
+  return html.replace(oldPhone,`${mpsPhoneCountrySelect('po_em_phone_country',country,'Phone country')}${phoneField}`);
+};
+
+function mpsValidateOnboardingContactStep(caseId,step){
+  const o=ensureOnboarding(caseId);
+  if(step===2){
+    for(let i=0;i<(o.draft.guardians||[]).length;i++){
+      const input=byId(`po_g${i}_phone`);
+      if(!input) continue;
+      const country=val(`po_g${i}_phone_country`)||mpsOnboardingPhoneCountry(caseId,o.draft.guardians[i]);
+      const phone=mpsOptionalNormalisePhone(input.value,country);
+      if(!phone.ok){alert(`Guardian ${i+1}: ${phone.error}`);return false}
+      if(phone.value) input.value=phone.value;
+    }
+  }
+  if(step===3){
+    const input=byId('po_em_phone');
+    if(input){
+      const country=val('po_em_phone_country')||mpsOnboardingPhoneCountry(caseId,o.draft.emergency);
+      const phone=mpsNormalisePhone(input.value,country);
+      if(!phone.ok){alert(`Emergency contact: ${phone.error}`);return false}
+      input.value=phone.value;
+    }
+  }
+  return true;
+}
+
+const _mpsBq092ContactBaseSyncOnboarding=syncOnboarding;
+syncOnboarding=function(caseId,step){
+  _mpsBq092ContactBaseSyncOnboarding(caseId,step);
+  const o=ensureOnboarding(caseId);
+  const d=o.draft;
+  if(step===2){
+    (d.guardians||[]).forEach((g,i)=>{
+      const country=val(`po_g${i}_phone_country`)||mpsOnboardingPhoneCountry(caseId,g);
+      const phone=mpsOptionalNormalisePhone(g.phone,country);
+      if(phone.ok){g.phone=phone.value;g.phoneCountry=country}
+    });
+    save();
+  }
+  if(step===3){
+    const country=val('po_em_phone_country')||mpsOnboardingPhoneCountry(caseId,d.emergency);
+    const phone=mpsOptionalNormalisePhone(d.emergency?.phone,country);
+    if(phone.ok&&d.emergency){d.emergency.phone=phone.value;d.emergency.phoneCountry=country;save()}
+  }
+};
+
+const _mpsBq092ContactBaseOnboardingNext=onboardingNext;
+onboardingNext=function(caseId){
+  const step=ui().parentOnboardingStep;
+  if(!mpsValidateOnboardingContactStep(caseId,step)) return;
+  return _mpsBq092ContactBaseOnboardingNext(caseId);
+};
+
+function mpsNormaliseStoredOnboardingContacts(caseId){
+  const c=db.admissions?.[caseId];
+  const d=c?.onboarding?.draft;
+  if(!c||!d) return false;
+  let authorisedPhone=false;
+  for(let i=0;i<(d.guardians||[]).length;i++){
+    const g=d.guardians[i];
+    const country=mpsOnboardingPhoneCountry(caseId,g);
+    const phone=mpsOptionalNormalisePhone(g.phone,country);
+    if(!phone.ok){alert(`Guardian ${i+1}: ${phone.error}`);return false}
+    g.phone=phone.value;
+    g.phoneCountry=country;
+    if(g.legalAuthority==='Yes'&&!!phone.value) authorisedPhone=true;
+  }
+  if(!authorisedPhone){alert('At least one authorised guardian must have the registered WhatsApp/mobile number.');return false}
+  const emergencyCountry=mpsOnboardingPhoneCountry(caseId,d.emergency);
+  const emergency=mpsNormalisePhone(d.emergency?.phone,emergencyCountry);
+  if(!emergency.ok){alert(`Emergency contact: ${emergency.error}`);return false}
+  d.emergency.phone=emergency.value;
+  d.emergency.phoneCountry=emergencyCountry;
+  if(d.guardians[0]?.phoneCountry) c.phoneCountry=d.guardians[0].phoneCountry;
+  save();
+  return true;
+}
+
+const _mpsBq092ContactBaseSubmitOnboarding=submitOnboarding;
+submitOnboarding=function(caseId){
+  if(!mpsNormaliseStoredOnboardingContacts(caseId)) return;
+  return _mpsBq092ContactBaseSubmitOnboarding(caseId);
+};
+
+// Re-render so direct refresh uses the validated parent-form controls immediately.
+render();
