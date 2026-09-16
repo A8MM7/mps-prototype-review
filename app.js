@@ -4802,7 +4802,7 @@ function mpsCompactEstablishedDuplicateAction(html){
 
   if(detailsHeadingIndex<0 || detailsCloseIndex<detailsHeadingIndex) return html;
 
-  const footer=`<div class="admission-record-actions" style="display:flex;justify-content:flex-end;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)">${duplicateButton}</div>`;
+  const footer=`<div class="admission-record-actions" style="display:flex;justify-content:flex-start;margin-top:12px">${duplicateButton}</div>`;
   return `${before.slice(0,detailsCloseIndex)}${footer}${before.slice(detailsCloseIndex)}${after}`;
 }
 
