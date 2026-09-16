@@ -4553,6 +4553,95 @@ completeTour=function(id){
 
 mpsMigrateSingleVisitNote();
 render();
+// Operational Simplicity — remove explanatory copy that does not help staff finish a task.
+// Keep safety warnings, validation guidance, irreversible-action consequences and genuine
+// decision guidance. Remove commentary that explains the product, the prototype, or the
+// absence of features instead of helping with the work in front of the user.
+
+const MPS_UNNECESSARY_EXPLAINER_TEXTS = Object.freeze([
+  'No parent account required.',
+  'Manual WhatsApp records Sent only — not Delivered or Read.',
+  "This application only confirms the basic details needed to review your child's application. If your child is enrolled, we'll send a separate secure New Family Onboarding form before their first day for family, emergency, pickup and Health information.",
+  'If your child is enrolled, the separate New Family Onboarding form will collect the remaining family, emergency, authorised pickup, Health, communication and consent information.',
+  'This application only asks for the information needed for the admissions decision. Pickup, Health, documents and consent will be collected later if the child enrols.',
+  'We have filled in information already provided during admissions. Complete or confirm the remaining family details.',
+  'The parent application is shown together with information already recorded during admissions.',
+  'A history of what has happened with this family.',
+  'Phone is checked for reliable matching. Email is optional.',
+  'This is the preschool’s configured admission fee.',
+  'The family details are already here.',
+  'MPS will use the accepted class, start date and family details already recorded.',
+  'Every extension, waiver or release requires an explicit reason and is retained in the case history.',
+  'There is nothing for staff to load. Holiday labels are reference context only and never change the operating status by themselves.',
+  'Production source/provider selection remains a later technical decision. This prototype proves the review-and-confirm workflow only.',
+  'This prototype uses an illustrative expiry to prove that the link is time-limited; exact production expiry is a later security/technical setting.',
+  'Your preschool’s own notes stay separate from the curriculum wording.',
+  'Your changes are saved as your preschool’s notes, separate from the curriculum wording.',
+  'MPS suggests relevant observations from teaching records.',
+  'When sent manually, MPS records only “Sent”.',
+  'Use your MPS username and password to sign in. Your verified recovery mobile is used only when you need to recover access.',
+  'A work email is optional. MPS does not require staff to have corporate email addresses.',
+  'The staff member verifies their recovery mobile from My profile. Work email is not required.',
+  'Operational settings stay in their own workspaces. Calendar opening changes, Billing work and teaching settings do not belong here.',
+  'You have Account Admin access only. Operational child, teaching, Admissions, Billing and Health information is not included automatically.',
+  'Your role cannot review parent Health updates or change Health records.',
+  'This calendar entry does not change opening hours or create a lesson plan.',
+  'No business rule is being invented here.',
+  'This interaction has no specific view.',
+  'The displayed prototype expiry demonstrates that the link is time-limited; the exact production expiry is a later security/technical setting.',
+  'Secure Application · no MPS account required',
+  'New Family Onboarding · secure link · no parent account'
+]);
+
+const MPS_UNNECESSARY_EXPLAINER_KV_LABELS = Object.freeze([
+  'Parent account',
+  'Account required',
+  'Prototype reference',
+  'Prototype dataset'
+]);
+
+const MPS_UNNECESSARY_COPY_AUDIT_COUNT =
+  MPS_UNNECESSARY_EXPLAINER_TEXTS.length + MPS_UNNECESSARY_EXPLAINER_KV_LABELS.length;
+
+const MPS_OPERATIONAL_COPY_REPLACEMENTS = Object.freeze([
+  ['No administrations recorded in this prototype state.','No administrations recorded.'],
+  ['No incidents recorded in this prototype state.','No incidents recorded.'],
+  ['No DOB-derived birthdays are available in this prototype state.','No birthdays available.'],
+  ['No separate contact detail recorded in this prototype case','No contact note recorded'],
+  ['time-limited prototype link','time-limited link']
+]);
+
+const _mpsExplainerBasePlainLanguageHtml = mpsPlainLanguageHtml;
+mpsPlainLanguageHtml = function(html){
+  let out = _mpsExplainerBasePlainLanguageHtml(html);
+  MPS_OPERATIONAL_COPY_REPLACEMENTS.forEach(([from,to])=>{out=out.split(from).join(to)});
+  return out;
+};
+
+function mpsNormaliseUiText(text){
+  return String(text||'').replace(/\s+/g,' ').trim();
+}
+
+function mpsPruneUnnecessaryExplainers(root){
+  if(!root) return;
+  const removeTexts = new Set(MPS_UNNECESSARY_EXPLAINER_TEXTS.map(mpsNormaliseUiText));
+  root.querySelectorAll('p,.notice,.sub,small').forEach(el=>{
+    if(removeTexts.has(mpsNormaliseUiText(el.textContent))) el.remove();
+  });
+  root.querySelectorAll('.kv').forEach(row=>{
+    const key=row.querySelector('.k');
+    if(key && MPS_UNNECESSARY_EXPLAINER_KV_LABELS.includes(mpsNormaliseUiText(key.textContent))) row.remove();
+  });
+}
+
+const _mpsExplainerAuditRender = render;
+render = function(){
+  _mpsExplainerAuditRender();
+  mpsPruneUnnecessaryExplainers(document.getElementById('root'));
+  mpsPruneUnnecessaryExplainers(document.getElementById('overlay'));
+};
+
+render();
 
 </script>
 </body>
