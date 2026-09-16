@@ -3555,3 +3555,359 @@ render = function(){
 };
 
 render();
+// BQ-094 — Account Admin, profile/settings and password recovery.
+// One real person keeps one account. Account Admin is an access capability, not a
+// separate identity and not an automatic grant of operational/business authority.
+
+const MPS_ACCOUNT_ADMIN = 'Account Admin';
+const MPS_RECOVERY_SMS_CODE_LENGTH = 6;
+
+function mpsUnique(values){return [...new Set((values||[]).filter(Boolean))]}
+function mpsSafeDigits(value){return String(value||'').replace(/\D/g,'')}
+function mpsMaskMobile(value){
+  const raw=String(value||'').trim();
+  if(!raw) return 'Not set';
+  const digits=mpsSafeDigits(raw);
+  if(digits.length<4) return '••••';
+  return `••• ••• ${digits.slice(-4)}`;
+}
+function mpsRandomCode(prefix='RECOVERY'){
+  return `${prefix}-${Math.random().toString(36).slice(2,8).toUpperCase()}`;
+}
+function mpsAccount(id){return db.staff?.accounts?.[id]||null}
+function mpsCurrentAccount(){return mpsAccount(currentPersona().id)}
+function mpsIsAccountAdminAccount(account){return !!account&&account.status==='active'&&(account.bundles||[]).includes(MPS_ACCOUNT_ADMIN)}
+function mpsActiveAccountAdmins(){return Object.values(db.staff?.accounts||{}).filter(mpsIsAccountAdminAccount)}
+function mpsAccountAdminCount(){return mpsActiveAccountAdmins().length}
+function mpsCurrentIsAccountAdmin(){return mpsIsAccountAdminAccount(mpsCurrentAccount())||has(MPS_ACCOUNT_ADMIN)}
+function mpsEnsurePersonaForAccount(account){
+  if(!account) return;
+  if(!db.personas[account.id]){
+    db.personas[account.id]={id:account.id,name:account.name,initials:String(account.name||'Staff').split(/\s+/).filter(Boolean).map(x=>x[0]).slice(0,2).join('').toUpperCase(),bundles:[...(account.bundles||[])],scope:account.scope||'All'};
+  }else{
+    db.personas[account.id].name=account.name;
+    db.personas[account.id].bundles=[...(account.bundles||[])];
+    db.personas[account.id].scope=account.scope||db.personas[account.id].scope||'All';
+  }
+}
+function mpsEnsureLastAdminRecovery(){
+  const admins=mpsActiveAccountAdmins();
+  if(admins.length===1&&!admins[0].recoveryCode){
+    admins[0].recoveryCode=mpsRandomCode('MPS');
+    admins[0].recoveryCodeCreatedAt=new Date().toISOString();
+    return true;
+  }
+  return false;
+}
+function mpsMigrateAccountAdminModel(){
+  let changed=false;
+  db.organization=db.organization||{name:ORG,contactPhone:'',timezone:'Asia/Colombo',settingsHistory:[]};
+  if(!db.organization.name){db.organization.name=ORG;changed=true}
+  if(!db.organization.timezone){db.organization.timezone='Asia/Colombo';changed=true}
+  db.organization.settingsHistory=db.organization.settingsHistory||[];
+
+  Object.values(db.staff?.accounts||{}).forEach(a=>{
+    const before=(a.bundles||[]).join('|');
+    a.bundles=mpsUnique((a.bundles||[]).map(b=>b==='System Administration'?MPS_ACCOUNT_ADMIN:b));
+    if(before!==a.bundles.join('|')) changed=true;
+    if(typeof a.recoveryMobile==='undefined'){
+      const sample={anjali:'077 000 0101',rashmi:'077 000 0102',maya:'077 000 0103',sajana:'077 000 0104'}[a.id]||'';
+      a.recoveryMobile=sample;
+      a.recoveryMobileVerified=!!sample;
+      changed=true;
+    }
+    if(typeof a.workEmail==='undefined'){a.workEmail='';changed=true}
+    mpsEnsurePersonaForAccount(a);
+  });
+
+  // Current tenant prototype starts with the Head Teacher as the first authorised
+  // workspace user, while retaining the former admin sample as a second Account Admin.
+  const initial=mpsAccount('anjali')||Object.values(db.staff?.accounts||{}).find(a=>a.status==='active');
+  if(initial&&!initial.bundles.includes(MPS_ACCOUNT_ADMIN)){
+    initial.bundles.push(MPS_ACCOUNT_ADMIN);
+    initial.bundles=mpsUnique(initial.bundles);
+    mpsEnsurePersonaForAccount(initial);
+    changed=true;
+  }
+
+  Object.values(db.personas||{}).forEach(p=>{
+    const account=mpsAccount(p.id);
+    if(account){
+      const next=[...(account.bundles||[])];
+      if(JSON.stringify(p.bundles)!==JSON.stringify(next)){p.bundles=next;changed=true}
+    }else if((p.bundles||[]).includes('System Administration')){
+      p.bundles=mpsUnique(p.bundles.map(b=>b==='System Administration'?MPS_ACCOUNT_ADMIN:b));
+      changed=true;
+    }
+  });
+
+  if(mpsEnsureLastAdminRecovery()) changed=true;
+  routes.staff.bundles=[MPS_ACCOUNT_ADMIN];
+  if(changed) save();
+}
+
+function mpsOrganisationName(){return db.organization?.name||ORG}
+function mpsTimezoneLabel(value){
+  const map={
+    'Asia/Colombo':'Sri Lanka — Colombo (UTC+05:30)',
+    'Asia/Kolkata':'India — Kolkata (UTC+05:30)',
+    'Asia/Dubai':'United Arab Emirates — Dubai (UTC+04:00)',
+    'Europe/London':'United Kingdom — London',
+    'UTC':'UTC'
+  };
+  return map[value]||value||'Not set';
+}
+function mpsTimezoneOptions(selected){
+  const options=[
+    ['Asia/Colombo','Sri Lanka — Colombo (UTC+05:30)'],
+    ['Asia/Kolkata','India — Kolkata (UTC+05:30)'],
+    ['Asia/Dubai','United Arab Emirates — Dubai (UTC+04:00)'],
+    ['Europe/London','United Kingdom — London'],
+    ['UTC','UTC']
+  ];
+  if(selected&&!options.some(x=>x[0]===selected)) options.push([selected,selected]);
+  return options.map(([value,label])=>`<option value="${esc(value)}" ${value===selected?'selected':''}>${esc(label)}</option>`).join('');
+}
+
+function mpsToggleAccountMenu(){ui().accountMenuOpen=!ui().accountMenuOpen;save();render()}
+function mpsCloseAccountMenu(){ui().accountMenuOpen=false;save()}
+function mpsOpenAccountModal(name){ui().accountMenuOpen=false;ui().modal={name,data:null};save();render()}
+function mpsAccountMenuHtml(){
+  const p=currentPersona();
+  const admin=mpsCurrentIsAccountAdmin();
+  return `<div class="account-area"><button class="account-trigger" aria-label="Account menu for ${esc(p.name)}" aria-expanded="${ui().accountMenuOpen?'true':'false'}" onclick="mpsToggleAccountMenu()"><span class="user-meta"><b>${esc(p.name)}</b><span>${esc((p.bundles||[]).join(' · '))}</span></span><span class="avatar">${esc(p.initials||'') }</span><span class="account-caret">▾</span></button>${ui().accountMenuOpen?`<div class="account-menu" role="menu"><button role="menuitem" onclick="mpsOpenAccountModal('my-profile')"><strong>My profile</strong><span>Account and password recovery</span></button>${admin?`<button role="menuitem" onclick="mpsOpenAccountModal('preschool-settings')"><strong>Preschool settings</strong><span>Basic preschool account settings</span></button>`:''}<button role="menuitem" onclick="mpsPrototypeSignOut()"><strong>Sign out</strong></button></div>`:''}</div>`;
+}
+
+const _mpsAccountBaseShell=shell;
+shell=function(content){
+  const p=currentPersona();
+  let html=_mpsAccountBaseShell(content);
+  const old=`<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div>`;
+  html=html.replace(old,mpsAccountMenuHtml());
+  html=html.split(ORG).join(mpsOrganisationName());
+  return html;
+};
+
+const _mpsAccountBaseSetRoute=setRoute;
+setRoute=function(route){ui().accountMenuOpen=false;_mpsAccountBaseSetRoute(route)};
+
+function mpsProfileModal(){
+  const p=currentPersona();
+  const a=mpsCurrentAccount();
+  if(!a) return modal('My profile','Your MPS account.',notice('No staff account is linked to this prototype persona.','warn'),btn('Close','closeOverlay()','secondary'));
+  const recovery=a.recoveryMobileVerified?`${mpsMaskMobile(a.recoveryMobile)} · Verified`:a.recoveryMobile?`${mpsMaskMobile(a.recoveryMobile)} · Not verified`:'Not set';
+  const sole=mpsIsAccountAdminAccount(a)&&mpsAccountAdminCount()===1;
+  return modal('My profile','Your account, access and password recovery.',`${kv('Name',esc(a.name))}${kv('MPS username',esc(a.username))}${kv('Access',esc((a.bundles||[]).join(' · ')))}${kv('Recovery mobile',recovery)}${a.workEmail?kv('Work email',esc(a.workEmail)):''}${sole?kv('Account recovery','Recovery code available'):''}${notice('Use your MPS username and password to sign in. Your verified recovery mobile is used only when you need to recover access.','info')}`,`${btn('Close','closeOverlay()','secondary')}${sole?btn('Recovery code',"openModal('account-recovery-code')",'secondary'):''}${btn('Password & recovery',"openModal('profile-recovery')",'primary')}`);
+}
+function mpsProfileRecoveryModal(){
+  const a=mpsCurrentAccount();
+  return modal('Password & recovery','Keep a recovery method you can access if you forget your password.',`${field('Recovery mobile (optional)',a?.recoveryMobile||'','tel',false,'profile_recovery_mobile')}${a?.recoveryMobileVerified?notice(`Verified mobile: ${mpsMaskMobile(a.recoveryMobile)}`,'ok'):notice('A mobile number becomes a recovery method only after you verify it.','info')}${field('Work email (optional)',a?.workEmail||'','email',false,'profile_work_email')}${notice('A work email is optional. MPS does not require staff to have corporate email addresses.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save work email','mpsSaveWorkEmail()','secondary')}${btn('Send verification code','mpsSendRecoveryMobileCode()','primary')}`);
+}
+function mpsSaveWorkEmail(){
+  const a=mpsCurrentAccount();if(!a)return;
+  a.workEmail=val('profile_work_email').trim();
+  db.staff.history.push({at:new Date().toISOString(),text:`${a.username} updated own recovery profile`});
+  save();openModal('my-profile');
+}
+function mpsSendRecoveryMobileCode(){
+  const a=mpsCurrentAccount();if(!a)return;
+  const mobile=val('profile_recovery_mobile').trim();
+  if(mpsSafeDigits(mobile).length<7){alert('Enter a valid mobile number, or leave recovery mobile unset and use Account Admin-assisted recovery.');return}
+  a.pendingRecoveryMobile=mobile;
+  a.workEmail=val('profile_work_email').trim();
+  save();openModal('verify-recovery-mobile');
+}
+function mpsVerifyRecoveryMobile(){
+  const a=mpsCurrentAccount();if(!a)return;
+  if(!/^\d{6}$/.test(val('recovery_mobile_code').trim())){alert('Enter the 6-digit verification code.');return}
+  a.recoveryMobile=a.pendingRecoveryMobile||a.recoveryMobile;
+  a.recoveryMobileVerified=true;
+  delete a.pendingRecoveryMobile;
+  db.staff.history.push({at:new Date().toISOString(),text:`${a.username} verified recovery mobile ending ${mpsSafeDigits(a.recoveryMobile).slice(-4)}`});
+  save();openModal('my-profile');
+}
+function mpsRecoveryCodeModal(){
+  const a=mpsCurrentAccount();
+  if(!a||!mpsIsAccountAdminAccount(a)||mpsAccountAdminCount()!==1) return modal('Recovery code','Recovery codes are reserved for the sole/last Account Admin.',notice('Another active Account Admin is available, so normal self-service or Account Admin-assisted recovery can be used.','info'),btn('Close','closeOverlay()','secondary'));
+  if(!a.recoveryCode){a.recoveryCode=mpsRandomCode('MPS');a.recoveryCodeCreatedAt=new Date().toISOString();save()}
+  return modal('Account recovery code','Keep this code somewhere safe outside MPS. Use it only if normal mobile recovery is unavailable.',`${kv('Recovery code',`<strong class="mono-code">${esc(a.recoveryCode)}</strong>`)}${notice('Generating a new code invalidates the previous one.','warn')}`,`${btn('Close','closeOverlay()','secondary')}${btn('Generate new code','mpsRegenerateRecoveryCode()','secondary')}`);
+}
+function mpsRegenerateRecoveryCode(){const a=mpsCurrentAccount();if(!a)return;a.recoveryCode=mpsRandomCode('MPS');a.recoveryCodeCreatedAt=new Date().toISOString();db.staff.history.push({at:new Date().toISOString(),text:`${a.username} regenerated sole-admin recovery code`});save();openModal('account-recovery-code')}
+
+function mpsPreschoolSettingsModal(){
+  if(!mpsCurrentIsAccountAdmin()) return modal('Preschool settings','Account Admin access is required.',notice('Ask an Account Admin if these account-level settings need to change.','info'),btn('Close','closeOverlay()','secondary'));
+  const o=db.organization;
+  return modal('Preschool settings','Basic settings for this preschool workspace.',`${field('Preschool name',o.name||ORG,'text',false,'org_name')}${field('Preschool contact phone',o.contactPhone||'','tel',false,'org_phone')}<div class="field"><label>Preschool timezone</label><select id="org_timezone">${mpsTimezoneOptions(o.timezone)}</select><small>Use the timezone where this preschool operates.</small></div>${notice('Operational settings stay in their own workspaces. Calendar opening changes, Billing work and teaching settings do not belong here.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save settings','mpsSavePreschoolSettings()','primary')}`);
+}
+function mpsSavePreschoolSettings(){
+  if(!mpsCurrentIsAccountAdmin()){alert('Account Admin access is required.');return}
+  const o=db.organization;
+  const nextName=val('org_name').trim();
+  const nextPhone=val('org_phone').trim();
+  const nextTimezone=val('org_timezone');
+  if(!nextName){alert('Enter the preschool name.');return}
+  if(nextTimezone!==o.timezone&&!confirm(`Change the preschool timezone from ${mpsTimezoneLabel(o.timezone)} to ${mpsTimezoneLabel(nextTimezone)}? This changes how the preschool interprets and displays operational times.`)) return;
+  const changes=[];
+  if(nextName!==o.name) changes.push(`name: ${o.name} → ${nextName}`);
+  if(nextPhone!==o.contactPhone) changes.push('contact phone updated');
+  if(nextTimezone!==o.timezone) changes.push(`timezone: ${o.timezone} → ${nextTimezone}`);
+  o.name=nextName;o.contactPhone=nextPhone;o.timezone=nextTimezone;
+  if(changes.length)o.settingsHistory.push({at:new Date().toISOString(),by:currentPersona().name,changes});
+  save();closeOverlay();
+}
+
+function mpsBundleOptions(){return ['Head Teacher','Class Teacher','Assistant Teacher','Daycare','Admissions','Accounts','Social Media',MPS_ACCOUNT_ADMIN]}
+function mpsCreateStaffModal(){
+  return modal('Create staff account','One person, one MPS account. Add only the access this person actually needs.',`${field('Full name','New Teacher','text',false,'staff_name')}${field('MPS username','new.teacher','text',false,'staff_username')}${selectField('Initial access',mpsBundleOptions(),'Class Teacher','staff_bundle')}${field('Class / area','Baby Class','text',false,'staff_scope')}${field('Recovery mobile (optional)','','tel',false,'staff_recovery_mobile')}${notice('The staff member verifies their recovery mobile from My profile. Work email is not required.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create account','createStaff()','primary')}`);
+}
+createStaff=function(){
+  const name=val('staff_name').trim(),username=val('staff_username').trim(),bundle=val('staff_bundle'),id='staff_'+Date.now();
+  if(!name||!username){alert('Enter the staff member name and MPS username.');return}
+  const recoveryMobile=val('staff_recovery_mobile').trim();
+  db.staff.accounts[id]={id,name,username,bundles:[bundle],scope:val('staff_scope').trim()||'All',status:'active',recoveryMobile,recoveryMobileVerified:false,workEmail:''};
+  mpsEnsurePersonaForAccount(db.staff.accounts[id]);
+  db.staff.history.push({at:new Date().toISOString(),text:`Account ${username} created with ${bundle}`});
+  mpsEnsureLastAdminRecovery();
+  closeOverlay();
+};
+function mpsManageAccessModal(id){
+  const a=mpsAccount(id);if(!a)return modal('Manage access','',notice('Staff account not found.','warn'),btn('Close','closeOverlay()','secondary'));
+  const isLast=mpsIsAccountAdminAccount(a)&&mpsAccountAdminCount()===1;
+  return modal('Manage access','One account can hold several responsibilities without role switching.',`${mpsBundleOptions().map(b=>`<label class="check-row"><input data-bundle type="checkbox" value="${b}" ${checked((a.bundles||[]).includes(b))}> ${b}</label>`).join('')}${field('Class / area',a.scope,'text',false,'access_scope')}${isLast?notice('This is the last active Account Admin. Give Account Admin access to someone else before removing or deactivating this account.','warn'):''}${notice('Account Admin manages MPS accounts and basic preschool settings. It does not automatically grant access to Admissions, Billing, Health, teaching or other preschool work.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Send password reset',`mpsAdminPasswordReset('${a.id}')`,'secondary')}${btn('Deactivate account',`deactivateStaff('${a.id}')`,'danger')}${btn('Save access',`saveAccess('${a.id}')`,'primary')}`);
+}
+saveAccess=function(id){
+  const a=mpsAccount(id);if(!a)return;
+  const next=mpsUnique(Array.from(document.querySelectorAll('[data-bundle]:checked')).map(x=>x.value));
+  const removingLast=(a.bundles||[]).includes(MPS_ACCOUNT_ADMIN)&&!next.includes(MPS_ACCOUNT_ADMIN)&&mpsAccountAdminCount()===1;
+  if(removingLast){alert('MPS must always have at least one active Account Admin. Give Account Admin access to another active staff member first.');return}
+  a.bundles=next;a.scope=val('access_scope').trim()||'All';
+  mpsEnsurePersonaForAccount(a);
+  db.staff.history.push({at:new Date().toISOString(),text:`${a.username} access updated: ${a.bundles.join(', ')}`});
+  mpsEnsureLastAdminRecovery();
+  closeOverlay();
+};
+deactivateStaff=function(id){
+  const a=mpsAccount(id);if(!a)return;
+  if(mpsIsAccountAdminAccount(a)&&mpsAccountAdminCount()===1){alert('This is the last active Account Admin. Give Account Admin access to another active staff member before deactivating this account.');return}
+  a.status='inactive';
+  db.staff.history.push({at:new Date().toISOString(),text:`${a.username} deactivated; past actions remain linked to this person`});
+  mpsEnsureLastAdminRecovery();
+  closeOverlay();
+};
+function mpsAdminPasswordReset(id){
+  const a=mpsAccount(id);if(!a)return;
+  if(!mpsCurrentIsAccountAdmin()){alert('Account Admin access is required.');return}
+  if(a.recoveryMobileVerified&&a.recoveryMobile){
+    a.adminResetSentAt=new Date().toISOString();
+    db.staff.history.push({at:new Date().toISOString(),text:`${currentPersona().name} initiated password reset for ${a.username}`});
+    save();
+    ui().modal={name:'admin-reset-result',data:{id:a.id,via:'mobile'}};save();render();return;
+  }
+  a.assistedResetCode=mpsRandomCode('RESET');
+  a.assistedResetCreatedAt=new Date().toISOString();
+  db.staff.history.push({at:new Date().toISOString(),text:`${currentPersona().name} created one-time reset route for ${a.username}`});
+  save();ui().modal={name:'admin-reset-result',data:{id:a.id,via:'code'}};save();render();
+}
+function mpsAdminResetResultModal(data){
+  const a=mpsAccount(data.id);
+  if(data.via==='mobile') return modal('Password reset sent','The staff member creates their own new password.',`${kv('Staff member',esc(a.name))}${kv('Sent to',mpsMaskMobile(a.recoveryMobile))}${notice('The Account Admin does not see or choose the staff member’s password.','info')}`,btn('Done','closeOverlay()','primary'));
+  return modal('One-time reset code','Give this code to the staff member privately. They use it to create their own new password.',`${kv('Staff member',esc(a.name))}${kv('Reset code',`<strong class="mono-code">${esc(a.assistedResetCode)}</strong>`)}${notice('The code is for one reset only. The Account Admin never sees the new password.','info')}`,btn('Done','closeOverlay()','primary'));
+}
+
+const _mpsAccountBaseRenderStaff=renderStaff;
+renderStaff=function(){
+  const acc=Object.values(db.staff.accounts);
+  return shell(`${pageHead('Organisation','Staff & access','Each staff member has their own account. Give them only the access they need.',btn('Add staff account',"openModal('staff-account')",'primary'))}<div class="table-wrap"><table class="table"><thead><tr><th>Staff member</th><th>MPS login</th><th>Access</th><th>Class / area</th><th>Status</th><th></th></tr></thead><tbody>${acc.map(a=>`<tr><td><div class="name">${esc(a.name)}</div></td><td>${esc(a.username)}</td><td>${esc((a.bundles||[]).join(' · '))}</td><td>${esc(a.scope||'All')}</td><td>${badge(a.status,a.status==='active'?'green':'grey')}</td><td>${btn(a.status==='active'?'Manage':'History',a.status==='active'?`openModal('manage-access',{id:'${a.id}'})`:`openModal('access-history',{id:'${a.id}'})`,'secondary','sm')}</td></tr>`).join('')}</tbody></table></div><div class="grid" style="margin-top:14px"><div class="span-6 card"><h3>Password recovery</h3><p>Staff normally reset their own password using a verified recovery mobile. Account Admin can help when self-service recovery is unavailable.</p></div><div class="span-6 card"><h3>Account Admin</h3><p>One or more people can be Account Admin. MPS always keeps at least one active Account Admin so the preschool cannot accidentally lock itself out.</p></div></div>`)};
+
+function mpsAccountAdminToday(){
+  const p=currentPersona();
+  const operational=(p.bundles||[]).some(b=>b!==MPS_ACCOUNT_ADMIN);
+  if(operational) return null;
+  return shell(`${pageHead('Today','Today','Manage the preschool account and staff access.')}${notice('You have Account Admin access only. Operational child, teaching, Admissions, Billing and Health information is not included automatically.','info')}<div class="grid" style="margin-top:14px"><div class="span-6 card"><h3>Staff & access</h3><p>Add staff, update access or help someone recover their password.</p>${btn('Open Staff & access',"setRoute('staff')",'primary')}</div><div class="span-6 card"><h3>Preschool settings</h3><p>Update basic preschool account settings such as the preschool timezone.</p>${btn('Open Preschool settings',"mpsOpenAccountModal('preschool-settings')",'secondary')}</div></div>`);
+}
+const _mpsAccountBaseRenderToday=renderToday;
+renderToday=function(){return mpsAccountAdminToday()||_mpsAccountBaseRenderToday()};
+
+function mpsLoginPage(){
+  const mode=ui().authMode||'login';
+  const msg=ui().authMessage?`<div class="notice ok">${esc(ui().authMessage)}</div>`:'';
+  if(mode==='forgot') return mpsAuthShell(`<div class="auth-card"><div class="eyebrow">Password recovery</div><h2>Forgot password?</h2><p>Enter your MPS username. If a verified recovery mobile is available, MPS will send a one-time code.</p>${field('MPS username',ui().authUsername||'','text',false,'auth_username')}${btn('Back','mpsAuthBack()','secondary')}${btn('Continue','mpsStartPasswordRecovery()','primary')}</div>`);
+  if(mode==='code'){
+    const a=mpsAccount(ui().passwordResetAccount);
+    return mpsAuthShell(`<div class="auth-card"><div class="eyebrow">Password recovery</div><h2>Check your mobile</h2><p>Enter the 6-digit code sent to ${esc(mpsMaskMobile(a?.recoveryMobile))}.</p>${field('Verification code','','text',false,'auth_sms_code')}${btn('Back','mpsAuthBack()','secondary')}${btn('Verify code','mpsVerifyPasswordResetCode()','primary')}</div>`);
+  }
+  if(mode==='no-recovery'){
+    const a=mpsAccount(ui().passwordResetAccount);
+    const sole=mpsIsAccountAdminAccount(a)&&mpsAccountAdminCount()===1&&a?.recoveryCode;
+    return mpsAuthShell(`<div class="auth-card"><div class="eyebrow">Password recovery</div><h2>Another recovery method is needed</h2><p>No verified recovery mobile is available for this account.</p>${a?.assistedResetCode?`${field('Reset code from Account Admin','','text',false,'auth_assisted_code')}${btn('Use reset code','mpsUseAssistedResetCode()','primary')}`:notice('Ask an Account Admin to start a password reset for you.','info')}${sole?`${field('Account recovery code','','text',false,'auth_recovery_code')}${btn('Use recovery code','mpsUseSoleAdminRecoveryCode()','secondary')}`:''}<div style="margin-top:12px">${btn('Back to sign in','mpsAuthBack()','secondary')}</div></div>`);
+  }
+  if(mode==='new-password') return mpsAuthShell(`<div class="auth-card"><div class="eyebrow">Password recovery</div><h2>Create a new password</h2>${field('New password','','password',false,'auth_new_password')}${field('Confirm new password','','password',false,'auth_confirm_password')}${btn('Save new password','mpsCompletePasswordReset()','primary')}</div>`);
+  return mpsAuthShell(`<div class="auth-card"><div class="eyebrow">${esc(mpsOrganisationName())}</div><h2>Sign in to MPS</h2>${msg}${field('MPS username',ui().authUsername||'anjali.fernando','text',false,'login_username')}${field('Password','','password',false,'login_password')}<div class="auth-actions">${btn('Forgot password?','mpsShowForgotPassword()','secondary')}${btn('Sign in','mpsPrototypeSignIn()','primary')}</div></div>`);
+}
+function mpsAuthShell(card){return `<div class="auth-screen"><div class="auth-brand"><div class="brandmark">M</div><div><h1>MPS</h1><span>Simple · Practical · Affordable</span></div></div>${card}<div class="auth-foot">Prototype review sign-in flow</div></div>`}
+function mpsPrototypeSignOut(){ui().accountMenuOpen=false;ui().modal=null;ui().drawer=null;ui().signedOut=true;ui().authMode='login';ui().authUsername=currentPersona().username||mpsCurrentAccount()?.username||'';save();render()}
+function mpsPrototypeSignIn(){
+  const username=val('login_username').trim(),password=val('login_password');
+  const a=Object.values(db.staff.accounts).find(x=>x.username===username);
+  if(!a||a.status!=='active'){ui().authMessage='Check your username or ask an Account Admin for help.';save();render();return}
+  if(!password){ui().authMessage='Enter your password.';save();render();return}
+  mpsEnsurePersonaForAccount(a);ui().persona=a.id;ui().signedOut=false;ui().authMode='login';ui().authMessage='';save();render();
+}
+function mpsShowForgotPassword(){ui().authUsername=val('login_username').trim();ui().authMode='forgot';ui().authMessage='';save();render()}
+function mpsAuthBack(){ui().authMode='login';ui().passwordResetAccount=null;ui().authMessage='';save();render()}
+function mpsStartPasswordRecovery(){
+  const username=val('auth_username').trim();
+  const a=Object.values(db.staff.accounts).find(x=>x.username===username&&x.status==='active');
+  if(!a){ui().authUsername=username;ui().authMessage='If this account exists, use its available recovery method or ask an Account Admin.';ui().authMode='login';save();render();return}
+  ui().authUsername=username;ui().passwordResetAccount=a.id;
+  ui().authMode=a.recoveryMobileVerified&&a.recoveryMobile?'code':'no-recovery';save();render();
+}
+function mpsVerifyPasswordResetCode(){if(!/^\d{6}$/.test(val('auth_sms_code').trim())){alert('Enter the 6-digit verification code.');return}ui().authMode='new-password';save();render()}
+function mpsUseAssistedResetCode(){const a=mpsAccount(ui().passwordResetAccount);if(!a||val('auth_assisted_code').trim()!==a.assistedResetCode){alert('That reset code is not valid.');return}delete a.assistedResetCode;ui().authMode='new-password';save();render()}
+function mpsUseSoleAdminRecoveryCode(){const a=mpsAccount(ui().passwordResetAccount);if(!a||val('auth_recovery_code').trim()!==a.recoveryCode){alert('That recovery code is not valid.');return}a.recoveryCode=null;ui().authMode='new-password';save();render()}
+function mpsCompletePasswordReset(){
+  const a=mpsAccount(ui().passwordResetAccount);if(!a)return mpsAuthBack();
+  const p=val('auth_new_password'),c=val('auth_confirm_password');
+  if(p.length<8){alert('Use at least 8 characters for the new password.');return}
+  if(p!==c){alert('The passwords do not match.');return}
+  a.passwordResetAt=new Date().toISOString();
+  db.staff.history.push({at:new Date().toISOString(),text:`${a.username} completed password recovery`});
+  ui().authMode='login';ui().authMessage='Password updated. You can sign in now.';ui().passwordResetAccount=null;save();render();
+}
+
+const _mpsAccountModalView=modalView;
+modalView=function(m){
+  if(m?.name==='my-profile') return mpsProfileModal();
+  if(m?.name==='profile-recovery') return mpsProfileRecoveryModal();
+  if(m?.name==='verify-recovery-mobile'){
+    const a=mpsCurrentAccount();
+    return modal('Verify recovery mobile','Enter the 6-digit code sent to your mobile.',`${kv('Mobile',mpsMaskMobile(a?.pendingRecoveryMobile))}${field('Verification code','','text',false,'recovery_mobile_code')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Verify mobile','mpsVerifyRecoveryMobile()','primary')}`);
+  }
+  if(m?.name==='account-recovery-code') return mpsRecoveryCodeModal();
+  if(m?.name==='preschool-settings') return mpsPreschoolSettingsModal();
+  if(m?.name==='staff-account') return mpsCreateStaffModal();
+  if(m?.name==='manage-access') return mpsManageAccessModal(m.data?.id);
+  if(m?.name==='admin-reset-result') return mpsAdminResetResultModal(m.data||{});
+  return _mpsAccountModalView(m);
+};
+
+// Account Admin does not imply operational Calendar authority.
+calendarCanManage=function(){return has('Head Teacher')};
+
+// Preserve Account Admin as an account capability rather than silently treating it
+// as the retired System Administration business permission.
+const _mpsAccountBaseHas=has;
+has=function(bundle){if(bundle==='System Administration')return false;return _mpsAccountBaseHas(bundle)};
+
+const _mpsAccountBaseRender=render;
+render=function(){
+  mpsMigrateAccountAdminModel();
+  if(ui().signedOut){document.getElementById('root').innerHTML=mpsLoginPage();document.getElementById('overlay').innerHTML='';return}
+  _mpsAccountBaseRender();
+  const root=document.getElementById('root');
+  const overlayRoot=document.getElementById('overlay');
+  if(root&&mpsOrganisationName()!==ORG) root.innerHTML=root.innerHTML.split(ORG).join(mpsOrganisationName());
+  if(overlayRoot&&mpsOrganisationName()!==ORG) overlayRoot.innerHTML=overlayRoot.innerHTML.split(ORG).join(mpsOrganisationName());
+};
+
+render();
