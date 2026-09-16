@@ -3031,7 +3031,7 @@ admissionOverview=function(c){
   return html.includes(leadSourceRow) ? html.replace(leadSourceRow,`${leadSourceRow}${emailRow}`) : html;
 };
 
-// Operational Simplicity — approved wording only; no business-rule change.
+// Operational Simplicity — approved wording and transition feedback; no business-rule change.
 // Apply the wording at the rendered Admissions overview boundary. These exact
 // strings occur only on the Enquiry follow-up card, so no stage helper is
 // needed here (avoids coupling the copy patch to unrelated rendering state).
@@ -3043,6 +3043,57 @@ admissionOverview=function(c){
     .replace('Next action · Follow up parent','Next action · Follow up with parent')
     .replace('Record contact outcome','Update enquiry')
     .replace('Record follow-up outcome','Update enquiry');
+};
+
+// When a positive Enquiry outcome also schedules a Visit, the business history
+// correctly records Confirmed Interest first and Visit second. Make that rapid
+// two-step progression explicit to staff so the UI does not appear to skip a
+// stage. The confirmation is deliberately transient and is not persisted as a
+// business fact; the underlying Admissions events remain the audit history.
+let mpsAdmissionsTransitionNotice=null;
+const _mpsFollowUpRenderAdmissions=renderAdmissions;
+renderAdmissions=function(){
+  const html=_mpsFollowUpRenderAdmissions();
+  const transition=mpsAdmissionsTransitionNotice;
+  if(!transition) return html;
+  mpsAdmissionsTransitionNotice=null;
+  const message=transition.kind==='visit'
+    ? `<strong>Interest confirmed.</strong> Visit scheduled for ${fmtDate(transition.date)} · ${esc(transition.time)}. The case is now in Visit because that is the next active step.`
+    : `<strong>Interest confirmed.</strong> No Visit is scheduled yet. The case is now in Confirmed Interest; arrange the Visit when the family is ready.`;
+  return html.replace('<div class="content">',`<div class="content">${notice(message,'ok')}`);
+};
+
+const _mpsFollowUpRecordEnquiryContactOutcome=recordEnquiryContactOutcome;
+recordEnquiryContactOutcome=function(id){
+  const c=db.admissions[id];
+  if(!c) return _mpsFollowUpRecordEnquiryContactOutcome(id);
+
+  const outcome=val('enq_contact_outcome');
+  const scheduleNow=outcome==='Wants to continue' && val('enq_schedule_visit')==='Yes';
+  const visitDate=scheduleNow?val('enq_visit_date'):'';
+  const visitTime=scheduleNow?val('enq_visit_time'):'';
+  const beforeQualified=(c.events||[]).filter(e=>e.type==='qualified').length;
+
+  _mpsFollowUpRecordEnquiryContactOutcome(id);
+
+  // If validation stopped the underlying save, no Confirmed Interest event was
+  // added and there is no transition to explain.
+  const afterQualified=(c.events||[]).filter(e=>e.type==='qualified').length;
+  if(outcome!=='Wants to continue' || afterQualified<=beforeQualified) return;
+
+  ui().admissionsCase=id;
+  ui().admissionsTab='overview';
+  if(scheduleNow && c.tour?.status==='scheduled' && c.tour.date===visitDate && c.tour.time===visitTime){
+    ui().admissionsStageFilter='Visit';
+    mpsAdmissionsTransitionNotice={kind:'visit',date:c.tour.date,time:c.tour.time};
+  }else if(!scheduleNow && !c.tour){
+    ui().admissionsStageFilter='Confirmed Interest';
+    mpsAdmissionsTransitionNotice={kind:'confirmed'};
+  }else{
+    return;
+  }
+  save();
+  render();
 };
 
 // The modular prototype renders once before later patch modules have finished
