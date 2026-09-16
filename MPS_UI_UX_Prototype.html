@@ -4252,20 +4252,23 @@ function mpsValidateParentApplicationPhone(caseId){
   return true;
 }
 
+// Store the Application draft exactly once after contact validation. The older
+// helper saved raw phone text before later validation; BQ-092 requires the stored
+// draft itself to remain dependable, not merely the final submitted record.
 const _mpsBq092ContactBaseSyncApplicationDraft=syncApplicationDraft;
 syncApplicationDraft=function(caseId){
-  _mpsBq092ContactBaseSyncApplicationDraft(caseId);
   const c=db.admissions?.[caseId];
-  const d=c?.application?.draft;
+  if(!c) return;
+  const d=c.application.draft||(c.application.draft={});
+  ['childName','dob','guardian','service','start'].forEach(k=>{const e=byId('pa_'+k);if(e)d[k]=e.value});
   const input=byId('pa_phone');
-  if(!c||!d||!input) return;
-  const country=val('pa_phone_country')||mpsParentApplicationPhoneCountry(caseId);
-  const phone=mpsNormalisePhone(input.value,country);
-  if(phone.ok){
-    d.phone=phone.value;
-    d.phoneCountry=country;
-    save();
+  if(input){
+    const country=val('pa_phone_country')||mpsParentApplicationPhoneCountry(caseId);
+    const phone=mpsNormalisePhone(input.value,country);
+    if(phone.ok){d.phone=phone.value;d.phoneCountry=country}
   }
+  const n=byId('pa_note');if(n)d.note=n.value;
+  save();
 };
 
 const _mpsBq092ContactBaseAppContinue=appContinue;
@@ -4340,21 +4343,40 @@ function mpsValidateOnboardingContactStep(caseId,step){
 
 const _mpsBq092ContactBaseSyncOnboarding=syncOnboarding;
 syncOnboarding=function(caseId,step){
+  const before=ensureOnboarding(caseId).draft;
+  const guardianBefore=step===2?(before.guardians||[]).map(g=>({phone:g.phone||'',phoneCountry:g.phoneCountry||''})):[];
+  const emergencyBefore=step===3?{phone:before.emergency?.phone||'',phoneCountry:before.emergency?.phoneCountry||''}:null;
+
   _mpsBq092ContactBaseSyncOnboarding(caseId,step);
   const o=ensureOnboarding(caseId);
   const d=o.draft;
+
   if(step===2){
     (d.guardians||[]).forEach((g,i)=>{
       const country=val(`po_g${i}_phone_country`)||mpsOnboardingPhoneCountry(caseId,g);
       const phone=mpsOptionalNormalisePhone(g.phone,country);
-      if(phone.ok){g.phone=phone.value;g.phoneCountry=country}
+      if(phone.ok){
+        g.phone=phone.value;
+        g.phoneCountry=country;
+      }else{
+        g.phone=guardianBefore[i]?.phone||'';
+        g.phoneCountry=guardianBefore[i]?.phoneCountry||mpsOnboardingPhoneCountry(caseId,g);
+      }
     });
     save();
   }
-  if(step===3){
+
+  if(step===3&&d.emergency){
     const country=val('po_em_phone_country')||mpsOnboardingPhoneCountry(caseId,d.emergency);
-    const phone=mpsOptionalNormalisePhone(d.emergency?.phone,country);
-    if(phone.ok&&d.emergency){d.emergency.phone=phone.value;d.emergency.phoneCountry=country;save()}
+    const phone=mpsOptionalNormalisePhone(d.emergency.phone,country);
+    if(phone.ok){
+      d.emergency.phone=phone.value;
+      d.emergency.phoneCountry=country;
+    }else{
+      d.emergency.phone=emergencyBefore?.phone||'';
+      d.emergency.phoneCountry=emergencyBefore?.phoneCountry||mpsOnboardingPhoneCountry(caseId,d.emergency);
+    }
+    save();
   }
 };
 
