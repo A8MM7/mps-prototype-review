@@ -4482,60 +4482,76 @@ render=function(){
 
 // Apply fixture retirement and stale-state cleanup immediately after all modules load.
 render();
-// BQ-097 — Visit notes should stay useful without making staff think about MPS policy.
-// Keep the normal Complete visit task small, and reuse what staff record in the same
-// Admission details card as the family moves forward.
+// BQ-097 — one optional Visit note, reused throughout Admissions.
+// Keep Complete visit small and do not make staff classify the same conversation
+// into separate note types.
 
-function mpsVisitNotes(c){
-  return {
-    visitNote:String(c?.tour?.note||'').trim(),
-    decisionNote:String(c?.tour?.additionalInfo||'').trim()
-  };
+function mpsMigrateSingleVisitNote(){
+  let changed=false;
+  Object.values(db.admissions||{}).forEach(c=>{
+    if(!c?.tour) return;
+    const legacy=String(c.tour.additionalInfo||'').trim();
+    if(!legacy) return;
+    const current=String(c.tour.note||'').trim();
+    if(!current) c.tour.note=legacy;
+    else if(current!==legacy&&!current.includes(legacy)) c.tour.note=`${current} · ${legacy}`;
+    delete c.tour.additionalInfo;
+    changed=true;
+  });
+  if(changed) save();
 }
 
-const _mpsVisitNotesBaseOverview=admissionOverview;
+function mpsVisitNote(c){return String(c?.tour?.note||'').trim()}
+
+const _mpsVisitNoteBaseOverview=admissionOverview;
 admissionOverview=function(c){
-  let html=_mpsVisitNotesBaseOverview(c);
+  let html=_mpsVisitNoteBaseOverview(c);
   if(c?.tour?.status!=='completed') return html;
-  const {visitNote,decisionNote}=mpsVisitNotes(c);
-  if(!visitNote&&!decisionNote) return html;
+  const visitNote=mpsVisitNote(c);
+  if(!visitNote) return html;
   const applicationRow=kv('Application',applicationSummary(c));
-  let notes='';
-  if(visitNote) notes+=kv('Visit note',esc(visitNote));
-  if(decisionNote) notes+=kv('Decision note',esc(decisionNote));
-  return html.replace(applicationRow,`${notes}${applicationRow}`);
+  return html.replace(applicationRow,`${kv('Visit note',esc(visitNote))}${applicationRow}`);
 };
 
-const _mpsVisitNotesBaseApplication=admissionApplication;
+const _mpsVisitNoteBaseApplication=admissionApplication;
 admissionApplication=function(c){
-  let html=_mpsVisitNotesBaseApplication(c);
-  const {decisionNote}=mpsVisitNotes(c);
-  if(decisionNote){
-    const oldRow=kv('Additional information',`${esc(decisionNote)} ${prov('Staff recorded at Visit','staff')}`);
-    const newRow=kv('Decision note',`${esc(decisionNote)} ${prov('Staff recorded at Visit','staff')}`);
-    html=html.replace(oldRow,newRow);
-    html=html.replace(kv('Case-specific information','Recorded'),kv('Decision note','Recorded'));
-  }else{
-    html=html.replace(kv('Additional information','None recorded — this is optional and case-specific.'),'');
-    html=html.replace(kv('Case-specific information','Not required by default'),'');
-  }
+  let html=_mpsVisitNoteBaseApplication(c);
+  // BQ-089's older Application view emitted an empty case-specific row even when
+  // nothing was recorded. The one-note model keeps only useful recorded content.
+  html=html.replace(kv('Additional information','None recorded — this is optional and case-specific.'),'');
+  html=html.replace(kv('Case-specific information','Not required by default'),'');
   return html;
 };
 
-const _mpsVisitNotesBaseModalView=modalView;
+const _mpsVisitNoteBaseModalView=modalView;
 modalView=function(m){
   const n=m?.name,d=m?.data||{};
   if(n==='complete-tour'){
     const c=db.admissions[d.caseId];
-    if(!c) return _mpsVisitNotesBaseModalView(m);
+    if(!c) return _mpsVisitNoteBaseModalView(m);
     return modal('Complete visit','Record the visit outcome.',
-      `${selectField('Outcome',['Family wants to proceed','Follow-up needed','Family not proceeding'],c.tour?.outcome||'Family wants to proceed','tour_outcome')}${textArea('Visit note (optional)',c.tour?.note||'','tour_note')}${textArea('Decision note (optional)',c.tour?.additionalInfo||'','tour_additional_info')}`,
+      `${selectField('Outcome',['Family wants to proceed','Follow-up needed','Family not proceeding'],c.tour?.outcome||'Family wants to proceed','tour_outcome')}${textArea('Visit note (optional)',c.tour?.note||'','tour_note')}`,
       `${btn('Cancel','closeOverlay()','secondary')}${btn('Save outcome',`completeTour('${c.id}')`,'primary')}`);
   }
-  return _mpsVisitNotesBaseModalView(m);
+  return _mpsVisitNoteBaseModalView(m);
 };
 
-// The latest module changes already-rendered Admissions UI too, so refresh once.
+completeTour=function(id){
+  const c=db.admissions[id];
+  if(!c?.tour) return;
+  const outcome=val('tour_outcome');
+  const note=val('tour_note').trim();
+  c.tour.status='completed';
+  c.tour.outcome=outcome;
+  c.tour.note=note;
+  delete c.tour.additionalInfo;
+  if(outcome==='Family not proceeding') c.closed={type:'Withdrawn',reason:'Family not proceeding'};
+  const details=[outcome,note].filter(Boolean).join(' · ');
+  addEvent(id,'tour','Visit completed',details);
+  closeOverlay();
+};
+
+mpsMigrateSingleVisitNote();
 render();
 
 </script>
