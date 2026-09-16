@@ -4929,6 +4929,34 @@ mpsPlainLanguageHtml = function(html){
 };
 
 render();
+// Owner review — compact rare record-management action.
+// Marking an established Admissions record as a duplicate is a rare case-level action.
+// Keep the action accessible, but do not give one secondary button an entire full-width card.
+
+function mpsCompactEstablishedDuplicateAction(html){
+  if(!html || !html.includes('Record management') || !html.includes('Mark as duplicate')) return html;
+
+  const managementCard=/<div class="card" style="margin-top:12px"><div class="card-header"><div class="grow"><h3>Record management<\/h3>(?:<p>[\s\S]*?<\/p>)?<\/div>(<button[^>]*>Mark as duplicate<\/button>)<\/div><\/div>/;
+  const match=html.match(managementCard);
+  if(!match) return html;
+
+  const duplicateButton=match[1];
+  let out=html.replace(match[0],'');
+  const admissionDetailsHeading='<h3>Admission details</h3>';
+
+  if(out.includes(admissionDetailsHeading)){
+    out=out.replace(admissionDetailsHeading,`<div class="card-header"><h3>Admission details</h3>${duplicateButton}</div>`);
+  }
+
+  return out;
+}
+
+const _mpsCompactRecordManagementOverview=admissionOverview;
+admissionOverview=function(c){
+  return mpsCompactEstablishedDuplicateAction(_mpsCompactRecordManagementOverview(c));
+};
+
+render();
 
 </script>
 </body>
