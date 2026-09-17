@@ -189,6 +189,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .stage-selection{display:grid;place-items:center;width:18px;height:18px;border:1px solid #cbd9e0;border-radius:50%;font-size:11px}
   [aria-pressed=true]>.stage-selection{background:#326d87;border-color:#326d87;color:white}
 }
+
+/* BQ-098: retrieval is separate from the lifecycle and closure stays secondary. */
+.admissions-retrieval{display:flex;justify-content:flex-end;margin-top:10px}
+.admissions-retrieval [aria-pressed=true]{background:#eaf4f8;border-color:#91b5c5}
+.admission-close-action{margin-top:12px}
+.closure-context{margin-top:6px;overflow-wrap:anywhere}
+.closure-summary{margin-bottom:12px}
 /* Rendered phone audit: preserve all content and actions within the available width. */
 @media(max-width:820px){
   /* Move the stage scrollbar into existing card padding without growing the card. */
@@ -687,15 +694,16 @@ function closePendingAsDuplicate(){let p=ui().pendingEnquiry;if(!p)return closeO
 function commitNewEnquiry(mode){let p=ui().pendingEnquiry;if(!p)return closeOverlay();if(!p.duplicateReviewed){alert('Inspect the possible existing record before proceeding as a new record.');return}let id='case_'+Date.now();db.admissions[id]={id,childName:p.childName,dob:p.dob,guardian:p.guardian,phone:p.phone,start:p.start,service:p.service,source:p.source,reason:'Other',events:[ev('enquiry','Enquiry created',`${p.source} · possible match reviewed; staff confirmed separate record`)],tour:null,application:{status:'not_sent',draft:null,snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null};ui().admissionsCase=id;ui().admissionsTab='overview';ui().pendingEnquiry=null;ui().modal=null;ui().drawer=null;save();render()}
 function qualifyCase(id){addEvent(id,'qualified','Marked Qualified Lead','Genuine family · relevant age/start · follow-up agreed');closeOverlay()}
 function scheduleTour(id){let c=db.admissions[id];c.tour={status:'scheduled',date:val('tour_date'),time:val('tour_time'),outcome:null};addEvent(id,'tour_scheduled','Tour scheduled',`${fmtDate(c.tour.date)} · ${c.tour.time}`);closeOverlay()}
-function completeTour(id){let c=db.admissions[id];c.tour.status='completed';c.tour.outcome=val('tour_outcome');addEvent(id,'tour','Tour completed',`${c.tour.outcome} · ${val('tour_note')}`);if(c.tour.outcome==='Family not proceeding')c.closed={type:'Withdrawn',reason:'Family not proceeding'};closeOverlay()}
+function completeTour(id){let c=db.admissions[id];if(!admissionCanClose(c))return;c.tour.status='completed';c.tour.outcome=val('tour_outcome');if(c.tour.outcome==='Family not proceeding'){if(!persistAdmissionsClosure(id,'Withdrawn','Family not proceeding',{type:'tour',title:'Tour completed',detail:`${c.tour.outcome} · ${val('tour_note')}`}))return;}else addEvent(id,'tour','Tour completed',`${c.tour.outcome} · ${val('tour_note')}`);closeOverlay()}
 function sendApplication(id){let c=db.admissions[id];if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start,note:''};c.application.status='sent';addEvent(id,'application_sent','Application link sent','Secure WhatsApp link · expires in 7 days');closeOverlay()}
 function acceptApplication(id){let c=db.admissions[id];c.application.status='accepted';c.start=val('accept_start')||c.start;c.fee={amount:15000,due:'2026-09-21',verified:0,pending:[],status:'pending'};addEvent(id,'accepted','Application accepted',`${val('accept_class')} · ${fmtDate(c.start)}`);addEvent(id,'fee_invoice','Admission-fee invoice issued','LKR 15,000');closeOverlay()}
 function waitlistApplication(id){let c=db.admissions[id];c.application.status='waitlisted';addEvent(id,'waitlisted','Application waitlisted',val('wait_note'));closeOverlay()}
-function declineApplication(id){let c=db.admissions[id];c.application.status='declined';c.closed={type:'Declined',reason:val('decline_reason')};addEvent(id,'declined','Application declined',`${val('decline_reason')} · ${val('decline_note')}`);closeOverlay()}
-function withdrawApplication(id){let c=db.admissions[id];c.closed={type:'Withdrawn',reason:val('withdraw_reason')};addEvent(id,'withdrawn','Application withdrawn by family',`${val('withdraw_reason')} · ${val('withdraw_note')}`);closeOverlay()}
+function declineApplication(id){let c=db.admissions[id];if(!persistAdmissionsClosure(id,'Declined',val('decline_reason'),{type:'declined',title:'Application declined',detail:`${val('decline_reason')} · ${val('decline_note')}`}))return;c.application.status='declined';closeOverlay()}
+function withdrawApplication(id){let c=db.admissions[id];if(!persistAdmissionsClosure(id,'Withdrawn',val('withdraw_reason'),{type:'withdrawn',title:'Application withdrawn by family',detail:`${val('withdraw_reason')} · ${val('withdraw_note')}`}))return;closeOverlay()}
 function recordAdmissionPayment(caseId){let c=db.admissions[caseId],amount=Math.max(0,Number(val('adm_record_amount')||0));if(!amount){alert('Enter the payment amount.');return}let max=feeOutstanding(c.fee);if(amount>max){alert('The recorded amount cannot exceed the current admission-fee outstanding balance in this prototype.');return}let p={id:'admp_'+Date.now(),amount,method:val('adm_record_method'),reference:val('adm_record_reference')||'No reference',evidence:val('adm_record_evidence')||null,status:'pending'};c.fee.pending.push(p);addEvent(caseId,'fee_payment_recorded','Admission-fee payment recorded',`${money(amount)} · Pending Verification`);closeOverlay()}
 function verifyAdmissionPayment(caseId,paymentId){let c=db.admissions[caseId],p=c.fee.pending.find(x=>x.id===paymentId);p.status='verified';p.verification=val('adm_verification');c.fee.verified+=p.amount;c.fee.status=c.fee.verified>=c.fee.amount?'satisfied':'pending';addEvent(caseId,'fee_verified','Admission-fee payment verified',`${money(p.amount)} · ${p.verification}`);closeOverlay()}
-function recordOverdueDecision(id){let c=db.admissions[id],a=val('overdue_action'),reason=val('overdue_reason');if(a==='Extend deadline'){c.fee.due=val('overdue_date');c.fee.status='pending';addEvent(id,'fee_extended','Admission-fee deadline extended',`${fmtDate(c.fee.due)} · ${reason}`)}else if(a==='Waive fee with reason'){c.fee.verified=c.fee.amount;c.fee.status='satisfied';c.fee.waived=true;addEvent(id,'fee_waived','Admission fee waived',reason)}else{c.closed={type:'Released',reason};addEvent(id,'released','Accepted place released',reason)}closeOverlay()}
+function recordOverdueDecision(id){
+  if(!admissionCanClose(db.admissions[id]))return;let c=db.admissions[id],a=val('overdue_action'),reason=val('overdue_reason');if(a==='Extend deadline'){c.fee.due=val('overdue_date');c.fee.status='pending';addEvent(id,'fee_extended','Admission-fee deadline extended',`${fmtDate(c.fee.due)} · ${reason}`)}else if(a==='Waive fee with reason'){c.fee.verified=c.fee.amount;c.fee.status='satisfied';c.fee.waived=true;addEvent(id,'fee_waived','Admission fee waived',reason)}else{if(!persistAdmissionsClosure(id,'Released',reason,{type:'released',title:'Accepted place released',detail:reason}))return}closeOverlay()}
 function createEnrolment(id){let c=db.admissions[id];if(!c.fee||c.fee.verified<c.fee.amount){alert('Fee gate is not satisfied.');return}c.enrolment={status:'active',className:c.service.includes('Upper')?'Upper Class':'Baby Class',service:c.service,start:c.start};c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});addEvent(id,'enrolled','Enrolment created',`${c.enrolment.className} · ${fmtDate(c.start)}`);ui().admissionsTab='prestart';closeOverlay()}
 function confirmOnboardingHealth(id){if(!has('Head Teacher')){alert('Authorised Health review is required.');return}let c=db.admissions[id],o=ensureOnboarding(id);if(o.status!=='submitted'){alert('Review the submitted onboarding Health information first.');return}o.healthConfirmed=true;db.health.profiles[id]={allergies:o.draft.health.allergies==='Yes'?o.draft.health.allergyDetails:'None declared',instructions:'Confirmed from New Family Onboarding'};addEvent(id,'health_confirmed','Initial Health confirmed','Authorised staff review completed');closeOverlay()}
 
@@ -789,7 +797,7 @@ admissionsList=function(){let cases=admissionsFilteredCases();return `<div class
 caseListItem=function(c){let stage=admissionDisplayStage(c),condition=admissionCondition(c);return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="${esc(stage)}" data-search="${esc((c.childName+' '+c.guardian+' '+stage+' '+condition).toLowerCase())}" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${c.childName}</strong><span style="margin-left:auto">${badge(stage,admissionStageTone(c))}</span></div><div class="meta">${c.guardian} · ${c.service}${condition?`<br>${esc(condition)}`:''}</div></div>`};
 filterAdmissions=function(q){q=(q||'').toLowerCase();document.querySelectorAll('#admissionsCaseItems .case-item').forEach(el=>el.style.display=el.dataset.search.includes(q)?'block':'none')};
 admissionHero=function(c){let stage=admissionDisplayStage(c);return `<div class="case-hero"><div class="case-hero-row"><div class="case-avatar">${c.childName.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div class="case-title"><h2>${c.childName}</h2><p>${c.guardian} · ${c.phone} · Start ${fmtDate(c.start)}<br>${c.service}</p></div><div class="case-status">${badge(stage,admissionStageTone(c))}</div></div>${journey(c)}</div>`};
-renderAdmissions=function(){let matches=admissionsFilteredCases(),filter=ui().admissionsStageFilter||'All',c=db.admissions[ui().admissionsCase];if(!c||(filter!=='All'&&admissionDisplayStage(c)!==filter))c=matches[0]||null;if(c)ui().admissionsCase=c.id;let workspace=c?`${admissionHero(c)}${admissionTabs()}${renderAdmissionTab(c)}`:'<div class="card"><h3>No families in this stage</h3><p>Choose another admission stage to continue.</p></div>';return shell(`${pageHead('Admissions','Admissions','One clear admission journey. Choose a stage, open a family, and do the next real job.',btn('New enquiry',"openModal('new-enquiry')",'primary'))}${admissionsMetrics()}<div style="height:14px"></div><div class="case-layout">${admissionsList()}<div class="case-workspace">${workspace}</div></div>`)};
+renderAdmissions=function(){let matches=admissionsFilteredCases(),filter=ui().admissionsStageFilter||'All',c=db.admissions[ui().admissionsCase];if(!c||!matches.some(x=>x.id===c.id))c=matches[0]||null;if(c)ui().admissionsCase=c.id;let workspace=c?`${admissionHero(c)}${admissionTabs()}${renderAdmissionTab(c)}`:'<div class="card"><h3>No families in this stage</h3><p>Choose another admission stage to continue.</p></div>';return shell(`${pageHead('Admissions','Admissions','One clear admission journey. Choose a stage, open a family, and do the next real job.',btn('New enquiry',"openModal('new-enquiry')",'primary'))}${admissionsMetrics()}<div style="height:14px"></div><div class="case-layout">${admissionsList()}<div class="case-workspace">${workspace}</div></div>`)};
 applicationSummary=function(c){let s=c.application.status;let labels={not_sent:'Not sent',sent:'Sent · waiting for parent',submitted:'Submitted · needs review',accepted:'Accepted',waitlisted:'Waitlisted',declined:'Declined'};return labels[s]||s};
 admissionOverview=function(c){
   let d=admissionDerived(c),stage=admissionDisplayStage(c),action='';
@@ -1595,6 +1603,7 @@ function toggleEnquiryContactFields(){
 }
 
 function recordEnquiryContactOutcome(id){
+  if(!admissionCanClose(db.admissions[id]))return;
   const c = db.admissions[id];
   if(!c) return;
   const method = val('enq_contact_method');
@@ -1623,10 +1632,7 @@ function recordEnquiryContactOutcome(id){
 
   if(outcome === 'Not proceeding'){
     const reason = val('enq_lost_reason') || 'No longer interested';
-    c.followUp = null;
-    c.closed = {type:'Closed',reason};
-    c.events.push(ev('non_conversion','Admissions journey closed',`${reason} · ${method}${detailNote}`));
-    save();
+    if(!persistAdmissionsClosure(id,'Closed',reason,{type:'non_conversion',title:'Admissions journey closed',detail:`${reason} · ${method}${detailNote}`}))return;
     closeOverlay();
   }
 }
@@ -1732,6 +1738,7 @@ modalView = function(m){
 
 const _mpsIssue012CompleteTour = completeTour;
 completeTour = function(id){
+  if(!admissionCanClose(db.admissions[id]))return;
   const c = db.admissions[id];
   if(!c?.tour) return _mpsIssue012CompleteTour(id);
   const outcome = val('tour_outcome');
@@ -1741,9 +1748,10 @@ completeTour = function(id){
   c.tour.outcome = outcome;
   c.tour.note = note;
   c.tour.additionalInfo = additionalInfo;
-  if(outcome === 'Family not proceeding') c.closed = {type:'Withdrawn',reason:'Family not proceeding'};
   const details = [outcome,note,additionalInfo ? `Additional: ${additionalInfo}` : ''].filter(Boolean).join(' · ');
-  addEvent(id,'tour','Visit completed',details);
+  if(outcome==='Family not proceeding'){
+    if(!persistAdmissionsClosure(id,'Withdrawn','Family not proceeding',{type:'tour',title:'Visit completed',detail:details}))return;
+  }else addEvent(id,'tour','Visit completed',details);
   closeOverlay();
 };
 // Owner Issue 015 — Accepted must remain a real stage before Admission Fee.
@@ -1881,8 +1889,8 @@ admissionsMetrics = function(){
     ? `<div data-application-outcome-filters style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${renderApplicationView('Under review','Application')}${renderApplicationView('Waitlisted','Waitlisted')}${renderApplicationView('Closed','Closed')}</div></div>`
     : '';
   const selectedStage = applicationContext ? 'Application' : active;
-  const selectedLabel = selectedStage === 'All' ? 'All admissions' : selectedStage;
-  const selectedCount = all.filter(c=>admissionMatchesFilter(c,selectedStage)).length;
+  const selectedLabel = selectedStage === 'Closed cases' ? 'Active admissions' : selectedStage === 'All' ? 'All admissions' : selectedStage;
+  const selectedCount = all.filter(c=>admissionMatchesFilter(c,selectedStage==='Closed cases'?'All':selectedStage)).length;
   const compact = `<button class="admissions-stage-selector" aria-label="${esc(selectedLabel)} (${selectedCount}), choose stage" aria-haspopup="dialog" aria-expanded="${ui().modal?.name==='admissions-stage-selector'}" onclick="openModal('admissions-stage-selector')"><svg class="stage-filter-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><strong class="stage-filter-label">${esc(selectedLabel)}</strong><span class="stage-filter-count">${selectedCount}</span><svg class="stage-filter-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>`;
   return `${compact}<div class="tabs admissions-stage-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderPrimaryFilter).join('')}</div>${secondary}`;
 };
@@ -1905,23 +1913,6 @@ waitlistApplication = function(id){
   save();
   render();
 };
-
-const _mpsIssue017DeclineApplication = declineApplication;
-declineApplication = function(id){
-  _mpsIssue017DeclineApplication(id);
-  ui().admissionsStageFilter = 'Closed';
-  save();
-  render();
-};
-
-const _mpsIssue017WithdrawApplication = withdrawApplication;
-withdrawApplication = function(id){
-  _mpsIssue017WithdrawApplication(id);
-  ui().admissionsStageFilter = 'Closed';
-  save();
-  render();
-};
-
 
 // Mobile presentation only: reuse the existing modal and stage-filter action.
 function selectMobileAdmissionStage(stage){
@@ -2434,6 +2425,7 @@ verifyAdmissionPayment=function(caseId,paymentId){
   closeOverlay();
 };
 recordOverdueDecision=function(id){
+  if(!admissionCanClose(db.admissions[id]))return;
   const c=db.admissions[id];
   if(!c?.fee)return;
   const action=val('overdue_action'),reason=val('overdue_reason').trim();
@@ -2448,8 +2440,7 @@ recordOverdueDecision=function(id){
     c.fee.waived=true;c.fee.status='satisfied';c.fee.waiver={reason,by:actor,at};
     addEvent(id,'fee_waived','Admission fee waived',`${reason} · ${actor}`);
   }else{
-    c.closed={type:'Released',reason,releasedAt:at,releasedBy:actor};
-    addEvent(id,'released','Accepted place released',`${reason} · ${actor}`);
+    if(!persistAdmissionsClosure(id,'Released',reason,{type:'released',title:'Accepted place released',detail:`${reason} · ${actor}`}))return;
   }
   closeOverlay();
 };
@@ -2816,6 +2807,7 @@ verifyAdmissionPayment=function(caseId,paymentId){
   closeOverlay();
 };
 recordOverdueDecision=function(id){
+  if(!admissionCanClose(db.admissions[id]))return;
   const c=db.admissions[id];if(!c?.fee)return;
   const action=val('overdue_action'),reason=val('overdue_reason').trim();if(!reason){alert('Enter the reason for this authorised decision.');return}
   const actor=mpsAdmissionActor(),at=new Date().toISOString(),inv=mpsAdmissionFeeInvoice(c);
@@ -2827,7 +2819,7 @@ recordOverdueDecision=function(id){
     c.fee.waived=true;c.fee.waiver={reason,by:actor,at};if(inv){inv.admissionFeeWaived=true;inv.waiver={reason,by:actor,at};inv.history.push({at:mpsAdmissionToday(),text:`Admission fee waived for enrolment gate · ${reason} · ${actor}`})}
     addEvent(id,'fee_waived','Admission fee waived',`${reason} · ${actor}`);
   }else{
-    c.closed={type:'Released',reason,releasedAt:at,releasedBy:actor};addEvent(id,'released','Accepted place released',`${reason} · ${actor}`);
+    if(!persistAdmissionsClosure(id,'Released',reason,{type:'released',title:'Accepted place released',detail:`${reason} · ${actor}`}))return;
   }
   closeOverlay();
 };
@@ -3053,6 +3045,7 @@ toggleEnquiryContactFields = function(){
 };
 
 recordEnquiryContactOutcome = function(id){
+  if(!admissionCanClose(db.admissions[id]))return;
   const c = db.admissions[id];
   if(!c) return;
   const method = val('enq_contact_method');
@@ -3094,10 +3087,7 @@ recordEnquiryContactOutcome = function(id){
 
   if(outcome === 'Not proceeding'){
     const reason = val('enq_lost_reason') || 'No longer interested';
-    c.followUp = null;
-    c.closed = {type:'Closed',reason};
-    c.events.push(ev('non_conversion','Admissions journey closed',`${reason} · ${method}${detailNote}`));
-    save();
+    if(!persistAdmissionsClosure(id,'Closed',reason,{type:'non_conversion',title:'Admissions journey closed',detail:`${reason} · ${method}${detailNote}`}))return;
     closeOverlay();
   }
 };
@@ -4715,6 +4705,7 @@ modalView=function(m){
 };
 
 completeTour=function(id){
+  if(!admissionCanClose(db.admissions[id]))return;
   const c=db.admissions[id];
   if(!c?.tour) return;
   const outcome=val('tour_outcome');
@@ -4723,9 +4714,10 @@ completeTour=function(id){
   c.tour.outcome=outcome;
   c.tour.note=note;
   delete c.tour.additionalInfo;
-  if(outcome==='Family not proceeding') c.closed={type:'Withdrawn',reason:'Family not proceeding'};
   const details=[outcome,note].filter(Boolean).join(' · ');
-  addEvent(id,'tour','Visit completed',details);
+  if(outcome==='Family not proceeding'){
+    if(!persistAdmissionsClosure(id,'Withdrawn','Family not proceeding',{type:'tour',title:'Visit completed',detail:details}))return;
+  }else addEvent(id,'tour','Visit completed',details);
   closeOverlay();
 };
 
@@ -5211,6 +5203,155 @@ render=function(){
   mpsLabelMobileTables();
 };
 render();
+// BQ-098 — retain pre-enrolment closure context without adding a lifecycle stage.
+function admissionClosureStage(c){
+  if(c.closed?.stage) return c.closed.stage;
+  if(c.application?.status==='declined') return 'Application';
+  return admissionDisplayStage({...c,closed:null});
+}
+function admissionIsClosedCase(c){return !!c?.closed && c.closed.type!=='Duplicate' && !c.enrolment}
+function admissionCanClose(c){return allowed('admissions') && !!c && !c.closed && !c.enrolment}
+function admissionClosureLabel(c){
+  const stage=admissionClosureStage(c),type=c.closed?.type;
+  if(stage==='Application') return type==='Declined'?'Application declined':'Family withdrew during Application';
+  if(['Accepted','Admission Fee'].includes(stage)) return `${type==='Released'?'Place released':'Family withdrew'} after acceptance · ${stage}`;
+  return `Closed ${stage==='Visit'?'after':'at'} ${stage}`;
+}
+admissionIsApplicationClosed=function(c){return admissionIsClosedCase(c) && admissionClosureStage(c)==='Application'};
+const _bq098Matches=admissionMatchesFilter;
+admissionMatchesFilter=function(c,filter){
+  if(filter==='Closed cases') return admissionIsClosedCase(c);
+  if(filter==='Closed') return admissionIsApplicationClosed(c);
+  if(c.closed) return false;
+  return _bq098Matches(c,filter);
+};
+function admissionIdentityMatches(c,q){
+  q=String(q||'').trim().toLowerCase();const digits=mpsSafeDigits(q);
+  return String(c.childName||'').toLowerCase().includes(q) || String(c.guardian||'').toLowerCase().includes(q) || (digits.length>=4&&mpsSafeDigits(c.phone).includes(digits));
+}
+let admissionsSearchQuery='';
+const _bq098Filtered=admissionsFilteredCases;
+admissionsFilteredCases=function(){
+  if(admissionsSearchQuery.trim() && allowed('admissions')) return Object.values(db.admissions).filter(c=>c.closed?.type!=='Duplicate' && admissionIdentityMatches(c,admissionsSearchQuery));
+  return _bq098Filtered();
+};
+filterAdmissions=function(q){
+  admissionsSearchQuery=q;
+  const list=byId('admissionsCaseItems');
+  if(list) list.innerHTML=admissionsFilteredCases().map(caseListItem).join('') || '<div class="empty">No matching admissions cases.</div>';
+};
+const _bq098Filter=setAdmissionsStageFilter;
+setAdmissionsStageFilter=function(stage){admissionsSearchQuery='';_bq098Filter(stage)};
+const _bq098Select=setAdmissionCase;
+setAdmissionCase=function(id){
+  const c=db.admissions[id];if(!allowed('admissions')||!c)return;
+  if(admissionIsClosedCase(c)){
+    if(ui().admissionsStageFilter!=='Closed'||!admissionIsApplicationClosed(c))ui().admissionsStageFilter='Closed cases';
+  }
+  else if(!admissionMatchesFilter(c,ui().admissionsStageFilter||'All')) ui().admissionsStageFilter='All';
+  admissionsSearchQuery='';_bq098Select(id);
+};
+const _bq098GlobalSearch=globalSearch;
+globalSearch=function(q){
+  if(String(q||'').trim()&&allowed('admissions')){
+    const c=Object.values(db.admissions).find(c=>c.closed?.type!=='Duplicate'&&admissionIdentityMatches(c,q));
+    if(c){ui().route='admissions';ui().admissionsStageFilter=admissionIsClosedCase(c)?'Closed cases':'All';setAdmissionCase(c.id);return}
+  }
+  _bq098GlobalSearch(q);
+};
+const _bq098Metrics=admissionsMetrics;
+admissionsMetrics=function(){
+  const html=_bq098Metrics(),selected=ui().admissionsStageFilter==='Closed cases';
+  const count=Object.values(db.admissions).filter(admissionIsClosedCase).length;
+  return `${html}<div class="admissions-retrieval"><button class="btn secondary sm ${selected?'active':''}" aria-pressed="${selected}" data-closed-cases onclick="setAdmissionsStageFilter('Closed cases')">Closed cases <strong>${count}</strong></button></div>`;
+};
+const _bq098CaseItem=caseListItem;
+caseListItem=function(c){
+  if(!admissionIsClosedCase(c))return _bq098CaseItem(c);
+  const outcome=admissionSecondaryOutcome(c);
+  return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="Closed" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${esc(c.childName)}</strong><span>${badge(outcome||'Closed','grey')}</span></div><div class="meta">${esc(c.guardian)} · ${esc(c.service)}<div class="closure-context">${esc(admissionClosureLabel(c))} · ${esc(c.closed.reason||'Reason not recorded')}</div></div></div>`;
+};
+const _bq098Overview=admissionOverview;
+admissionOverview=function(c){
+  const html=_bq098Overview(c);
+  if(!admissionCanClose(c))return html;
+  const action=`<div class="admission-close-action">${btn('Close admissions case',`openModal('close-admissions-case',{caseId:'${c.id}'})`,'secondary','sm')}</div>`;
+  const end=html.lastIndexOf('</div>');
+  return html.slice(0,end)+action+html.slice(end);
+};
+function admissionClosureOptions(c){
+  const stage=admissionDisplayStage(c);
+  if(stage==='Application')return ['Declined','Family withdrew'];
+  if(['Accepted','Admission Fee'].includes(stage))return ['Place released','Family withdrew after acceptance'];
+  return ['Closed'];
+}
+// One retained closure write for generic and contextual pre-enrolment actions.
+// Callers retain their forms and supply their existing contextual history wording.
+function persistAdmissionsClosure(id,type,reason,event){
+  const c=db.admissions[id];
+  if(!admissionCanClose(c)||!String(reason||'').trim())return false;
+  const stage=admissionDisplayStage(c),at=new Date().toISOString(),by=mpsAdmissionActor();
+  c.closed={type,stage,reason:String(reason).trim(),at,by};
+  if(type==='Released')Object.assign(c.closed,{releasedAt:at,releasedBy:by});
+  c.followUp=null;
+  const history=event||{type:'case_closed',title:admissionClosureLabel(c),detail:`${c.closed.reason} · ${by}`};
+  c.events.push({...ev(history.type,history.title,history.detail),at});
+  ui().admissionsStageFilter=stage==='Application'?'Closed':'Closed cases';
+  ui().admissionsCase=id;ui().admissionsTab='overview';admissionsSearchQuery='';
+  save();
+  return true;
+}
+function closeAdmissionsCase(id){
+  const c=db.admissions[id];if(!admissionCanClose(c))return;
+  const reason=val('case_close_reason').trim(),outcome=val('case_close_outcome')||'Closed';
+  if(!reason){alert('Enter the reason for closing this admissions case.');return}
+  if(!admissionClosureOptions(c).includes(outcome))return;
+  const stage=admissionDisplayStage(c);
+  const type={'Place released':'Released','Family withdrew':'Withdrawn','Family withdrew after acceptance':'Withdrawn'}[outcome]||outcome;
+  if(!persistAdmissionsClosure(id,type,reason))return;
+  if(stage==='Application'&&type==='Declined')c.application.status='declined';
+  closeOverlay();
+}
+const _bq098Modal=modalView;
+modalView=function(m){
+  if(m.name!=='close-admissions-case')return _bq098Modal(m);
+  const c=db.admissions[m.data?.caseId];
+  if(!admissionCanClose(c))return modal('Case closure unavailable','',notice('Only authorised Admissions staff can close an active pre-enrolment case.','warn'),btn('Close','closeOverlay()','secondary'));
+  const options=admissionClosureOptions(c);
+  return modal('Close admissions case',c.childName,`${kv('Current stage',esc(admissionDisplayStage(c)))}${options.length>1?selectField('Outcome',options,options[0],'case_close_outcome'):''}${textArea('Reason (required)','','case_close_reason')}${notice('The case and its history will be retained in Closed cases.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Close case',`closeAdmissionsCase('${c.id}')`,'danger')}`);
+};
+// Historical cases offer evidence, not controls that could resume their journey.
+const _bq098Tab=renderAdmissionTab;
+renderAdmissionTab=function(c){
+  if(!admissionIsClosedCase(c))return _bq098Tab(c);
+  const summary=`<div class="card closure-summary"><h3>${esc(admissionClosureLabel(c))}</h3>${kv('Reason',esc(c.closed.reason||'Reason not recorded'))}${c.closed.by?kv('Closed by',esc(c.closed.by)):''}${c.closed.at?kv('Closed on',fmtDate(c.closed.at.slice(0,10))):''}</div>`;
+  if(ui().admissionsTab==='timeline')return summary+admissionTimeline(c);
+  const html=_bq098Tab(c).replace(/<button\b[^>]*>[\s\S]*?<\/button>/g,'');
+  return summary+html;
+};
+// Closed cases cannot be progressed through stale staff or parent controls.
+function admissionUnlessClosed(fn){return function(id,...args){if(db.admissions[id]?.closed)return;return fn(id,...args)}}
+qualifyCase=admissionUnlessClosed(qualifyCase);
+scheduleTour=admissionUnlessClosed(scheduleTour);
+sendApplication=admissionUnlessClosed(sendApplication);
+submitApplication=admissionUnlessClosed(submitApplication);
+acceptApplication=admissionUnlessClosed(acceptApplication);
+waitlistApplication=admissionUnlessClosed(waitlistApplication);
+returnWaitlistedApplication=admissionUnlessClosed(returnWaitlistedApplication);
+issueAdmissionFee=admissionUnlessClosed(issueAdmissionFee);
+createEnrolment=admissionUnlessClosed(createEnrolment);
+render();
+
+// Preserve the point reached in the existing journey graphic for historical cases.
+const _bq098Journey=journey;
+journey=function(c){
+  if(!admissionIsClosedCase(c))return _bq098Journey(c);
+  const stage=admissionClosureStage(c),copy={...c,closed:null};
+  if(stage==='Application'&&copy.application?.status==='declined')copy.application={...copy.application,status:'submitted'};
+  return _bq098Journey(copy);
+};
+render();
+syncApplicationDraft=admissionUnlessClosed(syncApplicationDraft);
 
 </script>
 </body>

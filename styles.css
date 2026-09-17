@@ -182,6 +182,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .stage-selection{display:grid;place-items:center;width:18px;height:18px;border:1px solid #cbd9e0;border-radius:50%;font-size:11px}
   [aria-pressed=true]>.stage-selection{background:#326d87;border-color:#326d87;color:white}
 }
+
+/* BQ-098: retrieval is separate from the lifecycle and closure stays secondary. */
+.admissions-retrieval{display:flex;justify-content:flex-end;margin-top:10px}
+.admissions-retrieval [aria-pressed=true]{background:#eaf4f8;border-color:#91b5c5}
+.admission-close-action{margin-top:12px}
+.closure-context{margin-top:6px;overflow-wrap:anywhere}
+.closure-summary{margin-bottom:12px}
 /* Rendered phone audit: preserve all content and actions within the available width. */
 @media(max-width:820px){
   /* Move the stage scrollbar into existing card padding without growing the card. */
