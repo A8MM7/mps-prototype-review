@@ -1607,7 +1607,11 @@ admissionsMetrics = function(){
   const secondary = applicationContext
     ? `<div data-application-outcome-filters style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${renderApplicationView('Under review','Application')}${renderApplicationView('Waitlisted','Waitlisted')}${renderApplicationView('Closed','Closed')}</div></div>`
     : '';
-  return `<div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderPrimaryFilter).join('')}</div>${secondary}`;
+  const selectedStage = applicationContext ? 'Application' : active;
+  const selectedLabel = selectedStage === 'All' ? 'All admissions' : selectedStage;
+  const selectedCount = all.filter(c=>admissionMatchesFilter(c,selectedStage)).length;
+  const compact = `<button class="admissions-stage-selector" aria-label="${esc(selectedLabel)} (${selectedCount}), choose stage" aria-haspopup="dialog" aria-expanded="${ui().modal?.name==='admissions-stage-selector'}" onclick="openModal('admissions-stage-selector')"><svg class="stage-filter-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><strong class="stage-filter-label">${esc(selectedLabel)}</strong><span class="stage-filter-count">${selectedCount}</span><svg class="stage-filter-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>`;
+  return `${compact}<div class="tabs admissions-stage-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderPrimaryFilter).join('')}</div>${secondary}`;
 };
 
 caseListItem = function(c){
@@ -1643,6 +1647,26 @@ withdrawApplication = function(id){
   ui().admissionsStageFilter = 'Closed';
   save();
   render();
+};
+
+
+// Mobile presentation only: reuse the existing modal and stage-filter action.
+function selectMobileAdmissionStage(stage){
+  ui().modal=null;
+  setAdmissionsStageFilter(stage);
+}
+const _mpsStageSelectorModalView = modalView;
+modalView = function(m){
+  if(m.name !== 'admissions-stage-selector') return _mpsStageSelectorModalView(m);
+  const active = ui().admissionsStageFilter || 'All';
+  const selected = admissionApplicationOutcomeContext(active) ? 'Application' : active;
+  const all = Object.values(db.admissions);
+  const options = ['All',...admissionStageLabels].map(stage=>{
+    const label = stage === 'All' ? 'All cases' : stage;
+    const count = all.filter(c=>admissionMatchesFilter(c,stage)).length;
+    return `<button class="admissions-stage-option" data-mobile-stage="${esc(stage)}" aria-pressed="${stage===selected}" onclick='selectMobileAdmissionStage(${JSON.stringify(stage)})'><span class="stage-dot" aria-hidden="true"></span><span>${esc(label)}</span><strong class="stage-option-count">${count}</strong><span class="stage-selection" aria-hidden="true">${stage===selected?'✓':''}</span></button>`;
+  }).join('');
+  return modal('Choose stage','Show admissions in a specific stage',`<div class="admissions-stage-options" role="group" aria-label="Admissions stages">${options}</div>`).replace('class="overlay"','class="overlay admissions-stage-overlay" onclick="if(event.target===this)closeOverlay()"').replace('class="modal"','class="modal admissions-stage-sheet" role="dialog" aria-modal="true" aria-label="Choose stage"').replace('class="x"','class="x" aria-label="Close stage selector"');
 };
 
 // Owner Issue 018 / BQ-090 — multiple possible duplicate candidates must all be resolved before creating a new Admissions record.

@@ -134,6 +134,54 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
     justify-self:stretch;
   }
 }
+
+/* Compact phone selector; tablet and desktop retain their existing tabs. */
+.admissions-stage-selector{display:none}
+@media(max-width:600px){
+  .admissions-stage-tabs{display:none!important}
+  .admissions-stage-selector{
+    display:flex;align-items:center;gap:10px;
+    width:100%;min-height:46px;padding:9px 12px;
+    border:1px solid #d2e5ed;border-radius:9px;background:#eaf4f8;
+    color:var(--navy);font:inherit;text-align:left;
+  }
+}
+
+.admissions-stage-selector svg{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.stage-filter-label{font-size:13px;line-height:1.3}
+.stage-filter-count{display:grid;place-items:center;min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:#dcebf1;color:#486473;font-size:11px;font-weight:700;font-variant-numeric:tabular-nums}
+.stage-filter-chevron{margin-left:auto}
+@media(max-width:820px){
+  .case-workspace .action-card{align-items:center}
+  .case-workspace .action-card>.icon{flex:0 0 38px}
+  .case-workspace .action-card>.grow{min-width:0}
+  .case-workspace .action-card>.grow>span:empty{display:none}
+  .case-workspace .action-card>div:last-child{justify-content:flex-end;margin-left:auto}
+}
+
+/* Stage picker only: retain the shared modal lifecycle and dismissal action. */
+@media(max-width:600px){
+  .admissions-stage-overlay{position:fixed;inset:0;z-index:95;background:rgba(15,34,48,.28)}
+  .admissions-stage-overlay .admissions-stage-sheet{
+    left:0;right:0;top:auto;bottom:0;transform:none;width:100%;
+    height:75dvh;max-height:calc(100dvh - 32px);border-radius:24px 24px 0 0;
+    padding-bottom:env(safe-area-inset-bottom,0px);box-shadow:0 -8px 36px rgba(12,33,48,.12);
+  }
+  .admissions-stage-sheet::before{content:"";display:block;flex:none;width:36px;height:4px;border-radius:2px;background:#d3dfe5;margin:10px auto 0}
+  .admissions-stage-sheet .modal-head{padding:20px 20px 22px;border:0;align-items:center}
+  .admissions-stage-sheet .modal-head h2{font-size:20px;margin:0;line-height:1.3}
+  .admissions-stage-sheet .modal-head p{font-size:12px;line-height:1.5;margin:8px 0 0;color:var(--muted)}
+  .admissions-stage-sheet .x{flex:none;width:44px;height:44px;min-height:44px;padding:0;border:0;border-radius:50%;background:#f3f6f8;color:#617987;font-size:22px;margin-left:auto}
+  .admissions-stage-sheet .modal-body{flex:1;min-height:0;padding:0 16px 20px;overflow-y:auto;overscroll-behavior:contain}
+  .admissions-stage-sheet .modal-foot{display:none}
+  .admissions-stage-option{display:grid;grid-template-columns:12px minmax(0,1fr) auto 20px;gap:12px;align-items:center;width:100%;min-height:56px;padding:13px 12px;border:0;border-bottom:1px solid #edf2f5;background:transparent;text-align:left;color:var(--navy);font:inherit;font-size:14px}
+  .admissions-stage-option:last-child{border-bottom:0}
+  .admissions-stage-option[aria-pressed=true]{background:#eaf4f8;border-color:transparent;border-radius:10px;font-weight:700}
+  .stage-dot{width:8px;height:8px;border-radius:50%;background:#91b5c5}
+  .stage-option-count{display:grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:12px;background:#f0f4f6;color:#637c89;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums}
+  .stage-selection{display:grid;place-items:center;width:18px;height:18px;border:1px solid #cbd9e0;border-radius:50%;font-size:11px}
+  [aria-pressed=true]>.stage-selection{background:#326d87;border-color:#326d87;color:white}
+}
 /* Rendered phone audit: preserve all content and actions within the available width. */
 @media(max-width:820px){
   /* Move the stage scrollbar into existing card padding without growing the card. */
