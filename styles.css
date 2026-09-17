@@ -171,3 +171,33 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .table.mobile-records td .badge{white-space:normal}
   .table.mobile-records td:last-child{padding-top:8px}
 }
+/* Rendered desktop audit: fit existing workflows without changing their rules. */
+@media(min-width:821px){
+  .modal-head{align-items:flex-start}
+  .modal-head>div{flex:1;min-width:0}
+  .modal-head h2{margin:0;color:var(--navy);font-size:20px;overflow-wrap:anywhere}
+  .modal-head .x{flex:0 0 36px;width:36px;height:36px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--navy);font-family:inherit;font-size:22px;font-weight:700;line-height:1;align-self:flex-start}
+  .modal{display:flex;flex-direction:column;overflow:hidden}
+  .modal-head,.modal-foot{flex-shrink:0}
+  .modal-body{min-height:0;overflow:auto;overflow-wrap:anywhere}
+  .drawer>.modal-body{flex:1}
+  .modal-foot{flex-wrap:wrap}
+  .kv{grid-template-columns:min(160px,40%) minmax(0,1fr)}
+  .kv>*{min-width:0;overflow-wrap:anywhere}
+  .evidence-chain{grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);align-items:stretch}
+  .evidence-chain>.card{min-width:0}
+  .evidence-chain .child-row{grid-template-columns:minmax(0,1fr);gap:7px}
+  .evidence-chain .child-row>*{min-width:0;overflow-wrap:anywhere}
+  .evidence-chain .badge{white-space:normal}
+  .field .check-row{display:flex;align-items:center;gap:8px;min-height:28px}
+  .field .check-row input[type=checkbox],.field .check-row input[type=radio]{width:18px;height:18px;flex:0 0 18px;margin:0}
+  .cal-status{white-space:normal}
+}
+@media(min-width:821px) and (max-width:1280px){
+  .case-workspace .grid{grid-template-columns:minmax(0,1fr)}
+  .case-workspace .grid>[class*="span-"]{grid-column:1}
+}
+@media(min-width:821px) and (max-width:1100px){
+  .evidence-chain{grid-template-columns:minmax(0,1fr)}
+  .evidence-chain .hide-chain-mobile{display:none!important}
+}

@@ -178,6 +178,36 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .table.mobile-records td .badge{white-space:normal}
   .table.mobile-records td:last-child{padding-top:8px}
 }
+/* Rendered desktop audit: fit existing workflows without changing their rules. */
+@media(min-width:821px){
+  .modal-head{align-items:flex-start}
+  .modal-head>div{flex:1;min-width:0}
+  .modal-head h2{margin:0;color:var(--navy);font-size:20px;overflow-wrap:anywhere}
+  .modal-head .x{flex:0 0 36px;width:36px;height:36px;border:1px solid var(--line);border-radius:9px;background:#fff;color:var(--navy);font-family:inherit;font-size:22px;font-weight:700;line-height:1;align-self:flex-start}
+  .modal{display:flex;flex-direction:column;overflow:hidden}
+  .modal-head,.modal-foot{flex-shrink:0}
+  .modal-body{min-height:0;overflow:auto;overflow-wrap:anywhere}
+  .drawer>.modal-body{flex:1}
+  .modal-foot{flex-wrap:wrap}
+  .kv{grid-template-columns:min(160px,40%) minmax(0,1fr)}
+  .kv>*{min-width:0;overflow-wrap:anywhere}
+  .evidence-chain{grid-template-columns:minmax(0,1fr) 20px minmax(0,1fr);align-items:stretch}
+  .evidence-chain>.card{min-width:0}
+  .evidence-chain .child-row{grid-template-columns:minmax(0,1fr);gap:7px}
+  .evidence-chain .child-row>*{min-width:0;overflow-wrap:anywhere}
+  .evidence-chain .badge{white-space:normal}
+  .field .check-row{display:flex;align-items:center;gap:8px;min-height:28px}
+  .field .check-row input[type=checkbox],.field .check-row input[type=radio]{width:18px;height:18px;flex:0 0 18px;margin:0}
+  .cal-status{white-space:normal}
+}
+@media(min-width:821px) and (max-width:1280px){
+  .case-workspace .grid{grid-template-columns:minmax(0,1fr)}
+  .case-workspace .grid>[class*="span-"]{grid-column:1}
+}
+@media(min-width:821px) and (max-width:1100px){
+  .evidence-chain{grid-template-columns:minmax(0,1fr)}
+  .evidence-chain .hide-chain-mobile{display:none!important}
+}
 
 </style>
 </head>
@@ -409,11 +439,11 @@ function renderParentApplication(){let id=ui().parentApplicationCase,c=db.admiss
 
 function ensureOnboarding(caseId){let c=db.admissions[caseId];if(!c.onboarding)c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});return c.onboarding}
 function sendOnboarding(caseId){let o=ensureOnboarding(caseId);o.status='sent';o.sentAt=new Date().toISOString();addEvent(caseId,'onboarding_sent','New Family Onboarding link sent','Secure link via registered WhatsApp');save();render()}
-function openParentOnboarding(caseId){ensureOnboarding(caseId);ui().parentOnboardingCase=caseId;ui().parentOnboardingStep=1;ui().route='parent-onboarding';save();render()}
+function openParentOnboarding(caseId){ensureOnboarding(caseId);ui().parentOnboardingCase=caseId;ui().parentOnboardingStep=1;ui().route='parent-onboarding';save();render();window.scrollTo(0,0)}
 function syncOnboarding(caseId,step){let o=ensureOnboarding(caseId),d=o.draft;if(step===1){d.child.legalName=val('po_legal');d.child.preferred=val('po_pref');d.child.dob=val('po_dob');d.child.gender=val('po_gender').startsWith('Select')?'':val('po_gender');d.child.address=val('po_address');d.child.languages=Array.from(document.querySelectorAll('[data-home-language]:checked')).map(x=>x.value);d.child.hasSiblings=val('po_has_siblings').startsWith('Select')?'':val('po_has_siblings');if(d.child.hasSiblings==='No')d.child.siblings=[];else d.child.siblings.forEach((x,i)=>{x.relationship=val(`po_sib${i}_rel`)||x.relationship;x.dob=val(`po_sib${i}_dob`)||x.dob});}if(step===2){d.guardians.forEach((g,i)=>{g.name=val(`po_g${i}_name`);g.relationship=val(`po_g${i}_rel`).startsWith('Select')?'':val(`po_g${i}_rel`);g.dob=val(`po_g${i}_dob`);g.phone=val(`po_g${i}_phone`);g.legalAuthority=val(`po_g${i}_auth`).startsWith('Select')?'':val(`po_g${i}_auth`);g.working=val(`po_g${i}_work`).startsWith('Select')?'':val(`po_g${i}_work`);g.company=val(`po_g${i}_company`)});d.legalRestrictions={answer:val('po_legal_restrict').startsWith('Select')?'':val('po_legal_restrict'),details:val('po_legal_details')};}if(step===3){d.emergency={name:val('po_em_name'),relationship:val('po_em_rel').startsWith('Select')?'':val('po_em_rel'),phone:val('po_em_phone')};d.pickup.forEach((p,i)=>{p.name=val(`po_p${i}_name`);p.relationship=val(`po_p${i}_rel`).startsWith('Select')?'':val(`po_p${i}_rel`);p.photo=!!p.photo})}if(step===4){d.health={allergies:(val('po_allergy').startsWith('Select')?'':val('po_allergy')),allergyDetails:val('po_allergy_detail'),conditions:(val('po_conditions').startsWith('Select')?'':val('po_conditions')),conditionDetails:val('po_condition_detail'),medication:(val('po_medication').startsWith('Select')?'':val('po_medication')),medicationDetails:val('po_medication_detail'),dietary:(val('po_dietary').startsWith('Select')?'':val('po_dietary')),dietaryDetails:val('po_dietary_detail'),emergencyInstructions:val('po_emergency_medical'),other:(val('po_other').startsWith('Select')?'':val('po_other')),otherDetails:val('po_other_detail')}}if(step===5){d.facebook=val('po_facebook').startsWith('Select')?'':val('po_facebook');d.recipients=Array.from(document.querySelectorAll('[data-recipient]:checked')).map(x=>x.value);d.starter.uniform=val('po_uniform').startsWith('Select')?'':val('po_uniform');d.starter.books=val('po_books')}save()}
 function validateOnboardingStep(caseId,step){let o=ensureOnboarding(caseId),d=o.draft,fail=m=>{alert(m);return false};if(step===1){if(!d.child.legalName||!d.child.preferred||!d.child.dob||!d.child.gender||!d.child.address||!d.child.languages?.length||!d.child.hasSiblings)return fail('Please complete the required child and family details.');if(d.child.hasSiblings==='Yes'&&(!d.child.siblings.length||d.child.siblings.some(s=>!s.relationship||!s.dob)))return fail('Please complete each sibling relationship and date of birth.')}if(step===2){if(!d.guardians.length||d.guardians.some(g=>!g.name||!g.relationship||!g.dob||!g.legalAuthority||!g.working||(g.working==='Yes'&&!g.company)))return fail('Please complete the required guardian details.');if(!d.guardians.some(g=>g.legalAuthority==='Yes'&&g.phone))return fail('At least one authorised guardian must have the registered WhatsApp/mobile number.');if(!d.legalRestrictions.answer||(d.legalRestrictions.answer.startsWith('Yes')&&!String(d.legalRestrictions.details||'').trim()))return fail('Please complete the legal restrictions declaration.')}if(step===3){if(!d.emergency.name||!d.emergency.relationship||!d.emergency.phone)return fail('Please complete the emergency contact.');if(!d.pickup.length||d.pickup.some(p=>!p.name||!p.relationship||!p.photo))return fail('Each authorised pickup person needs a name, relationship and current verification photo.')}if(step===4){let h=d.health,detailOk=(a,x)=>a==='No'||(a==='Yes'&&String(x||'').trim());if(!['Yes','No'].includes(h.allergies)||!detailOk(h.allergies,h.allergyDetails)||!['Yes','No'].includes(h.conditions)||!detailOk(h.conditions,h.conditionDetails)||!['Yes','No'].includes(h.medication)||!detailOk(h.medication,h.medicationDetails)||!['Yes','No'].includes(h.dietary)||!detailOk(h.dietary,h.dietaryDetails)||!['Yes','No'].includes(h.other)||!detailOk(h.other,h.otherDetails))return fail('Please complete every Health/care declaration and any required details.')}if(step===5){if(!d.facebook||!d.recipients?.length||!d.starter.uniform)return fail('Please complete photo consent, communication recipients and the configured uniform size.')}return true}
-function onboardingNext(caseId){let s=ui().parentOnboardingStep;syncOnboarding(caseId,s);if(!validateOnboardingStep(caseId,s))return;ui().parentOnboardingStep=Math.min(5,s+1);save();render()}
-function onboardingBack(caseId){let s=ui().parentOnboardingStep;syncOnboarding(caseId,s);ui().parentOnboardingStep=Math.max(1,s-1);save();render()}
+function onboardingNext(caseId){let s=ui().parentOnboardingStep;syncOnboarding(caseId,s);if(!validateOnboardingStep(caseId,s))return;ui().parentOnboardingStep=Math.min(5,s+1);save();render();window.scrollTo(0,0)}
+function onboardingBack(caseId){let s=ui().parentOnboardingStep;syncOnboarding(caseId,s);ui().parentOnboardingStep=Math.max(1,s-1);save();render();window.scrollTo(0,0)}
 function addGuardian(caseId){let o=ensureOnboarding(caseId);o.draft.guardians.push({name:'',relationship:'',dob:'',phone:'',legalAuthority:'',working:'',company:''});save();render()}
 function addSibling(caseId){let o=ensureOnboarding(caseId);o.draft.child.hasSiblings='Yes';o.draft.child.siblings.push({relationship:'Brother',dob:''});save();render()}
 function markPickupPhoto(caseId,index,name){syncOnboarding(caseId,3);let o=ensureOnboarding(caseId);o.draft.pickup[index].photo=true;o.draft.pickup[index].photoName=name||'uploaded-photo.jpg';save();render()}
