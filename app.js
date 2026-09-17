@@ -1916,7 +1916,9 @@ commitNewEnquiry = function(){
 closePendingAsDuplicate = function(candidateId){
   const p=ui().pendingEnquiry;
   if(!p) return closeOverlay();
-  const c=duplicateCandidateRecord(candidateId);
+  const candidate=duplicateCandidateRecord(candidateId);
+  // Matching returns a presentation copy; retain the enquiry on the stored record.
+  const c=candidate && db.admissions[candidate.id];
   if(!c){alert('That candidate is no longer available. Review the matches again.');return}
   if(!confirm(`Close the incoming enquiry for ${p.childName} as a duplicate of ${c.childName}?`)) return;
   const actor=mpsAdmissionActor(), at=new Date().toISOString();
@@ -4866,4 +4868,24 @@ modalView=function(m){
   return modal('Mark as duplicate','Choose the record to keep. This record will be linked to it and removed from the active Admissions list.',body,`${btn('Cancel','closeOverlay()','secondary')}${btn('Mark as duplicate',`mpsResolveEstablishedDuplicate('${c.id}')`,'danger')}`);
 };
 
+render();
+// Reuse existing column headings for readable phone rows; never change table data or actions.
+function mpsLabelMobileTables(){
+  document.querySelectorAll('.table-wrap > table.table').forEach(table=>{
+    const headers=Array.from(table.querySelectorAll('thead th'));
+    const rows=Array.from(table.querySelectorAll('tbody tr'));
+    // Leave complex/spanning tables in their existing scroll container.
+    if(!headers.length || rows.some(row=>row.cells.length!==headers.length || Array.from(row.cells).some(cell=>cell.colSpan!==1 || cell.rowSpan!==1))) return;
+    table.classList.add('mobile-records');
+    rows.forEach(row=>Array.from(row.cells).forEach((cell,index)=>{
+      const label=headers[index].textContent.trim();
+      if(label) cell.setAttribute('data-mobile-label',label);
+    }));
+  });
+}
+const _mpsMobileLayoutRender=render;
+render=function(){
+  _mpsMobileLayoutRender();
+  mpsLabelMobileTables();
+};
 render();
