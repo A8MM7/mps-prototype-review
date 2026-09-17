@@ -4929,9 +4929,9 @@ mpsPlainLanguageHtml = function(html){
 };
 
 render();
-// Owner review — compact rare record-management action.
-// Marking an established Admissions record as a duplicate is a rare case-level action.
-// Keep the action accessible, but place it after the case information rather than beside the section heading.
+// Owner review — compact rare record-management action and clear Admissions identity.
+// Rare record management should stay accessible without competing with normal case work.
+// Admissions identity should be explicit: child, parent/guardian and contact details must not rely on inference.
 
 function mpsCompactEstablishedDuplicateAction(html){
   if(!html || !html.includes('Record management') || !html.includes('Mark as duplicate')) return html;
@@ -4955,6 +4955,60 @@ function mpsCompactEstablishedDuplicateAction(html){
 const _mpsCompactRecordManagementOverview=admissionOverview;
 admissionOverview=function(c){
   return mpsCompactEstablishedDuplicateAction(_mpsCompactRecordManagementOverview(c));
+};
+
+// Make the child/contact relationship explicit in the persistent case header.
+admissionHero=function(c){
+  const stage=admissionDisplayStage(c);
+  return `<div class="case-hero"><div class="case-hero-row"><div class="case-avatar">${c.childName.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div class="case-title"><h2>${esc(c.childName)}</h2><p><strong>Parent/guardian:</strong> ${esc(c.guardian)} · ${esc(c.phone)}<br>${esc(c.service)} · Start ${fmtDate(c.start)}</p></div><div class="case-status">${badge(stage,admissionStageTone(c))}</div></div>${journey(c)}</div>`;
+};
+
+// Admission details is the case record, so repeat the essential identity/contact facts there.
+const _mpsIdentityAdmissionOverview=admissionOverview;
+admissionOverview=function(c){
+  const html=_mpsIdentityAdmissionOverview(c);
+  const marker='<h3>Admission details</h3>';
+  if(!html.includes(marker)) return html;
+  const identity=`${kv('Child',esc(c.childName))}${kv('Parent/guardian',esc(c.guardian))}${kv('Phone',esc(c.phone))}`;
+  return html.replace(marker,`${marker}${identity}`);
+};
+
+function mpsFilterEstablishedDuplicateRecords(query){
+  const q=String(query||'').trim().toLowerCase();
+  const compact=q.replace(/\s+/g,'');
+  let visible=0;
+  document.querySelectorAll('#est_dup_search_results [data-duplicate-search]').forEach(row=>{
+    const hay=String(row.dataset.duplicateSearch||'').toLowerCase();
+    const matches=!q || hay.includes(q) || hay.replace(/\s+/g,'').includes(compact);
+    row.style.display=matches?'flex':'none';
+    if(matches) visible+=1;
+  });
+  const empty=byId('est_dup_no_results');
+  if(empty) empty.style.display=visible?'none':'block';
+}
+
+function mpsSelectEstablishedDuplicateRecord(id){
+  const select=byId('est_dup_survivor');
+  if(select) select.value=id;
+}
+
+// Replace the long native select with a searchable, labelled list that scales on mobile.
+const _mpsSearchableDuplicateModalView=modalView;
+modalView=function(m){
+  const n=m.name,d=m.data||{};
+  if(n!=='mark-established-duplicate') return _mpsSearchableDuplicateModalView(m);
+
+  const c=db.admissions[d.caseId];
+  if(!c) return _mpsSearchableDuplicateModalView(m);
+  const options=mpsEstablishedDuplicateOptions(c.id);
+  const hiddenOptions=options.map(x=>`<option value="${esc(x.id)}">${esc(x.childName)}</option>`).join('');
+  const rows=options.map(x=>{
+    const searchText=esc(`${x.childName} ${x.guardian} ${x.phone} ${String(x.phone||'').replace(/\s+/g,'')}`.toLowerCase());
+    return `<label data-duplicate-search="${searchText}" style="display:flex;gap:10px;align-items:flex-start;padding:10px 2px;border-bottom:1px solid var(--line);cursor:pointer"><input type="radio" name="est_dup_candidate" value="${esc(x.id)}" onchange="mpsSelectEstablishedDuplicateRecord(this.value)" style="margin-top:3px"><span><strong>Child: ${esc(x.childName)}</strong><br><span style="color:var(--muted);font-size:12px">Parent/guardian: ${esc(x.guardian)} · ${esc(x.phone)}</span></span></label>`;
+  }).join('');
+
+  const body=`${kv('Duplicate record',`Child: ${esc(c.childName)} · Parent/guardian: ${esc(c.guardian)}`)}<div class="field" style="margin-top:12px"><label>Record to keep</label><input id="est_dup_search" type="search" placeholder="Search child, parent/guardian or phone…" oninput="mpsFilterEstablishedDuplicateRecords(this.value)" autocomplete="off"><select id="est_dup_survivor" style="display:none"><option value=""></option>${hiddenOptions}</select><div id="est_dup_search_results" style="max-height:300px;overflow:auto;margin-top:6px">${rows}</div><div id="est_dup_no_results" class="empty" style="display:none;padding:12px 0">No matching Admissions record.</div></div>${notice('Both histories are kept.','warn')}`;
+  return modal('Mark as duplicate','Choose the record to keep. This record will be linked to it and removed from the active Admissions list.',body,`${btn('Cancel','closeOverlay()','secondary')}${btn('Mark as duplicate',`mpsResolveEstablishedDuplicate('${c.id}')`,'danger')}`);
 };
 
 render();
