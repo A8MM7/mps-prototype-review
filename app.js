@@ -4834,7 +4834,7 @@ function mpsFilterEstablishedDuplicateRecords(query){
   document.querySelectorAll('#est_dup_search_results [data-duplicate-search]').forEach(row=>{
     const hay=String(row.dataset.duplicateSearch||'').toLowerCase();
     const matches=!q || hay.includes(q) || hay.replace(/\s+/g,'').includes(compact);
-    row.style.display=matches?'flex':'none';
+    row.style.display=matches?'grid':'none';
     if(matches) visible+=1;
   });
   const empty=byId('est_dup_no_results');
@@ -4846,7 +4846,8 @@ function mpsSelectEstablishedDuplicateRecord(id){
   if(select) select.value=id;
 }
 
-// Replace the long native select with a searchable, labelled list that scales on mobile.
+// Searchable duplicate picker: fixed selection column + flexible text column.
+// Explicit sizing prevents generic form-field input rules from stretching radio controls on mobile.
 const _mpsSearchableDuplicateModalView=modalView;
 modalView=function(m){
   const n=m.name,d=m.data||{};
@@ -4858,7 +4859,7 @@ modalView=function(m){
   const hiddenOptions=options.map(x=>`<option value="${esc(x.id)}">${esc(x.childName)}</option>`).join('');
   const rows=options.map(x=>{
     const searchText=esc(`${x.childName} ${x.guardian} ${x.phone} ${String(x.phone||'').replace(/\s+/g,'')}`.toLowerCase());
-    return `<label data-duplicate-search="${searchText}" style="display:flex;gap:10px;align-items:flex-start;padding:10px 2px;border-bottom:1px solid var(--line);cursor:pointer"><input type="radio" name="est_dup_candidate" value="${esc(x.id)}" onchange="mpsSelectEstablishedDuplicateRecord(this.value)" style="margin-top:3px"><span><strong>Child: ${esc(x.childName)}</strong><br><span style="color:var(--muted);font-size:12px">Parent/guardian: ${esc(x.guardian)} · ${esc(x.phone)}</span></span></label>`;
+    return `<label data-duplicate-search="${searchText}" style="display:grid;grid-template-columns:24px minmax(0,1fr);column-gap:12px;align-items:start;padding:12px 2px;border-bottom:1px solid var(--line);cursor:pointer;text-align:left"><input type="radio" name="est_dup_candidate" value="${esc(x.id)}" onchange="mpsSelectEstablishedDuplicateRecord(this.value)" style="width:20px;height:20px;min-width:20px;max-width:20px;margin:2px 0 0 0;padding:0;justify-self:start"><span style="display:block;min-width:0;line-height:1.35"><strong style="display:block;color:var(--navy)">Child: ${esc(x.childName)}</strong><span style="display:block;color:var(--muted);font-size:12px;margin-top:2px">Parent/guardian: ${esc(x.guardian)}</span><span style="display:block;color:var(--muted);font-size:12px;margin-top:2px">Phone: ${esc(x.phone)}</span></span></label>`;
   }).join('');
 
   const body=`${kv('Duplicate record',`Child: ${esc(c.childName)} · Parent/guardian: ${esc(c.guardian)}`)}<div class="field" style="margin-top:12px"><label>Record to keep</label><input id="est_dup_search" type="search" placeholder="Search child, parent/guardian or phone…" oninput="mpsFilterEstablishedDuplicateRecords(this.value)" autocomplete="off"><select id="est_dup_survivor" style="display:none"><option value=""></option>${hiddenOptions}</select><div id="est_dup_search_results" style="max-height:300px;overflow:auto;margin-top:6px">${rows}</div><div id="est_dup_no_results" class="empty" style="display:none;padding:12px 0">No matching Admissions record.</div></div>${notice('Both histories are kept.','warn')}`;
