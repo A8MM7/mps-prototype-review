@@ -30,9 +30,9 @@ jobs:
           set -euo pipefail
           mkdir -p site
 
-          if [[ -f index.html && -f app.js && -f styles.css && -f MPS_UI_UX_Prototype.html ]]; then
+          if [[ -f index.html && -f app.js && -f styles.css && -f MPS_UI_UX_Prototype.html && -f version.json ]]; then
             echo "Publishing QA-tested files committed by private Prototype CI."
-            cp index.html app.js styles.css MPS_UI_UX_Prototype.html site/
+            cp index.html app.js styles.css version.json MPS_UI_UX_Prototype.html site/
             if [[ -f BUILD_PROVENANCE.txt ]]; then
               cp BUILD_PROVENANCE.txt site/
               cat BUILD_PROVENANCE.txt
@@ -50,6 +50,7 @@ jobs:
           test -f site/index.html
           test -f site/app.js
           test -f site/styles.css
+          test -f site/version.json
           test -f site/MPS_UI_UX_Prototype.html
 
       - uses: actions/upload-pages-artifact@v5
