@@ -517,7 +517,7 @@ admissionsList=function(){let cases=admissionsFilteredCases();return `<div class
 caseListItem=function(c){let stage=admissionDisplayStage(c),condition=admissionCondition(c);return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="${esc(stage)}" data-search="${esc((c.childName+' '+c.guardian+' '+stage+' '+condition).toLowerCase())}" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${c.childName}</strong><span style="margin-left:auto">${badge(stage,admissionStageTone(c))}</span></div><div class="meta">${c.guardian} · ${c.service}${condition?`<br>${esc(condition)}`:''}</div></div>`};
 filterAdmissions=function(q){q=(q||'').toLowerCase();document.querySelectorAll('#admissionsCaseItems .case-item').forEach(el=>el.style.display=el.dataset.search.includes(q)?'block':'none')};
 admissionHero=function(c){let stage=admissionDisplayStage(c);return `<div class="case-hero"><div class="case-hero-row"><div class="case-avatar">${c.childName.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div class="case-title"><h2>${c.childName}</h2><p>${c.guardian} · ${c.phone} · Start ${fmtDate(c.start)}<br>${c.service}</p></div><div class="case-status">${badge(stage,admissionStageTone(c))}</div></div>${journey(c)}</div>`};
-renderAdmissions=function(){let matches=admissionsFilteredCases(),filter=ui().admissionsStageFilter||'All',c=db.admissions[ui().admissionsCase];if(!c||!matches.some(x=>x.id===c.id))c=matches[0]||null;if(c)ui().admissionsCase=c.id;let workspace=c?`${admissionHero(c)}${admissionTabs()}${renderAdmissionTab(c)}`:'<div class="card"><h3>No families in this stage</h3><p>Choose another admission stage to continue.</p></div>';return shell(`${pageHead('Admissions','Admissions','One clear admission journey. Choose a stage, open a family, and do the next real job.',btn('New enquiry',"openModal('new-enquiry')",'primary'))}${admissionsMetrics()}<div style="height:14px"></div><div class="case-layout">${admissionsList()}<div class="case-workspace">${workspace}</div></div>`)};
+renderAdmissions=function(){let matches=admissionsFilteredCases(),filter=ui().admissionsStageFilter||'All',c=db.admissions[ui().admissionsCase];if(!c||!matches.some(x=>x.id===c.id))c=matches[0]||null;if(c)ui().admissionsCase=c.id;let workspace=c?`${admissionHero(c)}${admissionTabs()}${renderAdmissionTab(c)}`:'<div class="card"><h3>No families in this stage</h3><p>Choose another admission stage to continue.</p></div>';return shell(`${pageHead('Admissions','Admissions','One clear admission journey. Choose a stage, open a family, and do the next real job.',btn('New enquiry',"openModal('new-enquiry')",'primary')).replace('class="page-head"','class="page-head admissions-page-head"')}${admissionsMetrics()}<div style="height:14px"></div>${admissionsCaseSwitcher(c)}<div class="case-layout">${admissionsList()}<div class="case-workspace">${workspace}</div></div>`)};
 applicationSummary=function(c){let s=c.application.status;let labels={not_sent:'Not sent',sent:'Sent · waiting for parent',submitted:'Submitted · needs review',accepted:'Accepted',waitlisted:'Waitlisted',declined:'Declined'};return labels[s]||s};
 admissionOverview=function(c){
   let d=admissionDerived(c),stage=admissionDisplayStage(c),action='';
@@ -1609,10 +1609,13 @@ admissionsMetrics = function(){
     ? `<div data-application-outcome-filters style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${renderApplicationView('Under review','Application')}${renderApplicationView('Waitlisted','Waitlisted')}${renderApplicationView('Closed','Closed')}</div></div>`
     : '';
   const selectedStage = applicationContext ? 'Application' : active;
-  const selectedLabel = selectedStage === 'Closed cases' ? 'Active admissions' : selectedStage === 'All' ? 'All admissions' : selectedStage;
-  const selectedCount = all.filter(c=>admissionMatchesFilter(c,selectedStage==='Closed cases'?'All':selectedStage)).length;
+  const selectedLabel = selectedStage === 'All' ? 'All admissions' : selectedStage;
+  const selectedCount = all.filter(c=>admissionMatchesFilter(c,selectedStage)).length;
   const compact = `<button class="admissions-stage-selector" aria-label="${esc(selectedLabel)} (${selectedCount}), choose stage" aria-haspopup="dialog" aria-expanded="${ui().modal?.name==='admissions-stage-selector'}" onclick="openModal('admissions-stage-selector')"><svg class="stage-filter-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><strong class="stage-filter-label">${esc(selectedLabel)}</strong><span class="stage-filter-count">${selectedCount}</span><svg class="stage-filter-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>`;
-  return `${compact}<div class="tabs admissions-stage-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderPrimaryFilter).join('')}</div>${secondary}`;
+  const historySelected=active==='Closed cases';
+  const historyCount=all.filter(admissionIsClosedCase).length;
+  const history=`<button class="tab ${historySelected?'active':''}" aria-pressed="${historySelected}" data-closed-cases onclick="setAdmissionsStageFilter('Closed cases')">Closed cases <strong>${historyCount}</strong></button>`;
+  return `${compact}<div class="admissions-navigation-row"><div class="tabs admissions-stage-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderPrimaryFilter).join('')}${history}</div></div>${secondary}`;
 };
 
 caseListItem = function(c){
@@ -1646,11 +1649,13 @@ modalView = function(m){
   const selected = admissionApplicationOutcomeContext(active) ? 'Application' : active;
   const all = Object.values(db.admissions);
   const options = ['All',...admissionStageLabels].map(stage=>{
-    const label = stage === 'All' ? 'All cases' : stage;
+    const label = stage === 'All' ? 'All active cases' : stage;
     const count = all.filter(c=>admissionMatchesFilter(c,stage)).length;
     return `<button class="admissions-stage-option" data-mobile-stage="${esc(stage)}" aria-pressed="${stage===selected}" onclick='selectMobileAdmissionStage(${JSON.stringify(stage)})'><span class="stage-dot" aria-hidden="true"></span><span>${esc(label)}</span><strong class="stage-option-count">${count}</strong><span class="stage-selection" aria-hidden="true">${stage===selected?'✓':''}</span></button>`;
   }).join('');
-  return modal('Choose stage','Show admissions in a specific stage',`<div class="admissions-stage-options" role="group" aria-label="Admissions stages">${options}</div>`).replace('class="overlay"','class="overlay admissions-stage-overlay" onclick="if(event.target===this)closeOverlay()"').replace('class="modal"','class="modal admissions-stage-sheet" role="dialog" aria-modal="true" aria-label="Choose stage"').replace('class="x"','class="x" aria-label="Close stage selector"');
+  const closedCount=all.filter(c=>admissionMatchesFilter(c,'Closed cases')).length;
+  const history=`<section class="admissions-view-history" aria-labelledby="admissions-history-title"><h3 id="admissions-history-title">History</h3><button class="admissions-stage-option" data-mobile-view="Closed cases" aria-pressed="${active==='Closed cases'}" onclick="selectMobileAdmissionStage('Closed cases')"><span class="stage-dot" aria-hidden="true"></span><span>Closed cases</span><strong class="stage-option-count">${closedCount}</strong><span class="stage-selection" aria-hidden="true">${active==='Closed cases'?'✓':''}</span></button></section>`;
+  return modal('Choose stage','Show admissions in a specific stage',`<div class="admissions-stage-options" role="group" aria-label="Admissions stages">${options}</div>${history}`).replace('class="overlay"','class="overlay admissions-stage-overlay" onclick="if(event.target===this)closeOverlay()"').replace('class="modal"','class="modal admissions-stage-sheet" role="dialog" aria-modal="true" aria-label="Choose stage"').replace('class="x"','class="x" aria-label="Close stage selector"');
 };
 
 // Owner Issue 018 / BQ-090 — multiple possible duplicate candidates must all be resolved before creating a new Admissions record.
@@ -4949,10 +4954,13 @@ function admissionIdentityMatches(c,q){
   q=String(q||'').trim().toLowerCase();const digits=mpsSafeDigits(q);
   return String(c.childName||'').toLowerCase().includes(q) || String(c.guardian||'').toLowerCase().includes(q) || (digits.length>=4&&mpsSafeDigits(c.phone).includes(digits));
 }
+function admissionsIdentitySearch(q){
+  return allowed('admissions')?Object.values(db.admissions).filter(c=>c.closed?.type!=='Duplicate'&&admissionIdentityMatches(c,q)):[];
+}
 let admissionsSearchQuery='';
 const _bq098Filtered=admissionsFilteredCases;
 admissionsFilteredCases=function(){
-  if(admissionsSearchQuery.trim() && allowed('admissions')) return Object.values(db.admissions).filter(c=>c.closed?.type!=='Duplicate' && admissionIdentityMatches(c,admissionsSearchQuery));
+  if(admissionsSearchQuery.trim() && allowed('admissions')) return admissionsIdentitySearch(admissionsSearchQuery);
   return _bq098Filtered();
 };
 filterAdmissions=function(q){
@@ -4961,7 +4969,10 @@ filterAdmissions=function(q){
   if(list) list.innerHTML=admissionsFilteredCases().map(caseListItem).join('') || '<div class="empty">No matching admissions cases.</div>';
 };
 const _bq098Filter=setAdmissionsStageFilter;
-setAdmissionsStageFilter=function(stage){admissionsSearchQuery='';_bq098Filter(stage)};
+setAdmissionsStageFilter=function(stage){
+  admissionsSearchQuery='';_bq098Filter(stage);
+  if(matchMedia('(min-width:821px)').matches)document.querySelector('.admissions-stage-tabs .tab.active')?.scrollIntoView({block:'nearest',inline:'nearest'});
+};
 const _bq098Select=setAdmissionCase;
 setAdmissionCase=function(id){
   const c=db.admissions[id];if(!allowed('admissions')||!c)return;
@@ -4978,12 +4989,6 @@ globalSearch=function(q){
     if(c){ui().route='admissions';ui().admissionsStageFilter=admissionIsClosedCase(c)?'Closed cases':'All';setAdmissionCase(c.id);return}
   }
   _bq098GlobalSearch(q);
-};
-const _bq098Metrics=admissionsMetrics;
-admissionsMetrics=function(){
-  const html=_bq098Metrics(),selected=ui().admissionsStageFilter==='Closed cases';
-  const count=Object.values(db.admissions).filter(admissionIsClosedCase).length;
-  return `${html}<div class="admissions-retrieval"><button class="btn secondary sm ${selected?'active':''}" aria-pressed="${selected}" data-closed-cases onclick="setAdmissionsStageFilter('Closed cases')">Closed cases <strong>${count}</strong></button></div>`;
 };
 const _bq098CaseItem=caseListItem;
 caseListItem=function(c){
@@ -5072,3 +5077,36 @@ journey=function(c){
 };
 render();
 syncApplicationDraft=admissionUnlessClosed(syncApplicationDraft);
+// Mobile case navigation reuses the current Admissions context and identity search.
+function admissionsCaseSwitcher(c){
+  const label=c?c.childName:'Choose case';
+  return `<button class="admissions-case-selector" aria-label="${c?`${esc(label)}, choose case`:'Choose case'}" aria-haspopup="dialog" aria-expanded="${ui().modal?.name==='admissions-case-selector'}" onclick="openModal('admissions-case-selector')"><span class="case-selector-name">${esc(label)}</span>${c?badge(admissionSecondaryOutcome(c)||admissionDisplayStage(c),admissionStageTone(c)):''}<span class="case-selector-chevron" aria-hidden="true">⌄</span></button>`;
+}
+function mobileAdmissionCaseRows(q=''){
+  const contextCases=admissionsFilteredCases();
+  const selectedId=contextCases.find(c=>c.id===ui().admissionsCase)?.id;
+  const cases=q.trim()?contextCases.filter(c=>admissionIdentityMatches(c,q)):contextCases;
+  return cases.map(c=>`<button class="admissions-case-option" data-mobile-case="${esc(c.id)}" aria-pressed="${selectedId===c.id}" onclick="selectMobileAdmissionCase('${c.id}')"><span class="case-option-heading"><strong>${esc(c.childName)}</strong>${badge(admissionSecondaryOutcome(c)||admissionDisplayStage(c),admissionStageTone(c))}</span><span class="case-option-detail">${esc(c.guardian)} · ${esc(c.phone)}</span>${admissionIsClosedCase(c)?`<span class="case-option-detail">${esc(admissionClosureLabel(c))} · ${esc(c.closed.reason||'Reason not recorded')}</span>`:''}${selectedId===c.id?'<span class="case-option-selected">✓ Selected</span>':''}</button>`).join('')||'<div class="empty">No matching admissions cases.</div>';
+}
+function filterMobileAdmissionCases(q){
+  const list=byId('mobileAdmissionCases');
+  if(list)list.innerHTML=mobileAdmissionCaseRows(q);
+}
+function selectMobileAdmissionCase(id){
+  if(!allowed('admissions')||!db.admissions[id])return;
+  ui().modal=null;
+  setAdmissionCase(id);
+  const trigger=document.querySelector('.admissions-case-selector');
+  if(trigger&&matchMedia('(max-width:600px)').matches){trigger.scrollIntoView({block:'start'});trigger.focus({preventScroll:true})}
+}
+const _mobileCaseModal=modalView;
+modalView=function(m){
+  if(m.name!=='admissions-case-selector'||!allowed('admissions'))return _mobileCaseModal(m);
+  const context=ui().admissionsStageFilter||'All';
+  const label=context==='Closed'?'Application · Closed':context==='Waitlisted'?'Application · Waitlisted':context==='All'?'All admissions':context;
+  return modal('Choose case',esc(label),`<div class="mobile-case-search"><label for="mobileCaseSearch">Search admissions</label><input id="mobileCaseSearch" type="search" placeholder="Child, parent/guardian or phone" oninput="filterMobileAdmissionCases(this.value)"></div><div id="mobileAdmissionCases">${mobileAdmissionCaseRows()}</div>`)
+    .replace('class="overlay"','class="overlay admissions-stage-overlay" onclick="if(event.target===this)closeOverlay()"')
+    .replace('class="modal"','class="modal admissions-stage-sheet admissions-case-sheet" role="dialog" aria-modal="true" aria-label="Choose case"')
+    .replace('class="x"','class="x" aria-label="Close case selector"');
+};
+render();
