@@ -467,6 +467,7 @@ const admissionStageLabels=['Enquiry','Confirmed Interest','Visit','Application'
 
 function admissionDisplayStage(c){
   let d=admissionDerived(c);
+  if(c.closed?.type==='Duplicate')return 'Duplicate';
   if(c.closed)return 'Closed';
   if(d.stage==='Enquiry')return 'Enquiry';
   if(d.stage==='Qualified')return 'Confirmed Interest';
@@ -502,7 +503,7 @@ function admissionCondition(c){
 }
 function admissionStageTone(c){
   let stage=admissionDisplayStage(c),d=admissionDerived(c);
-  if(stage==='Closed')return 'grey';
+  if(stage==='Closed'||stage==='Duplicate')return 'grey';
   if(stage==='Admission Fee'&&d.status==='Fee overdue')return 'red';
   if(stage==='Admission Fee')return 'amber';
   if(stage==='Ready to Start'||stage==='Accepted'||stage==='Confirmed Interest')return 'green';
@@ -513,11 +514,11 @@ journey=function(c){let steps=['Enquiry','Confirmed Interest','Visit','Applicati
 function admissionsFilteredCases(){let filter=ui().admissionsStageFilter||'All';return Object.values(db.admissions).filter(c=>filter==='All'||admissionDisplayStage(c)===filter)}
 function setAdmissionsStageFilter(stage){ui().admissionsStageFilter=stage;let matches=admissionsFilteredCases();if(matches.length&&!matches.some(c=>c.id===ui().admissionsCase))ui().admissionsCase=matches[0].id;save();render()}
 admissionsMetrics=function(){let all=Object.values(db.admissions),active=ui().admissionsStageFilter||'All';let stages=['All',...admissionStageLabels];return `<div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${stages.map(stage=>{let count=stage==='All'?all.length:all.filter(c=>admissionDisplayStage(c)===stage).length;return `<button class="tab ${active===stage?'active':''}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`}).join('')}</div>`};
-admissionsList=function(){let cases=admissionsFilteredCases();return `<div class="case-list"><div class="case-search"><input placeholder="Search admissions…" oninput="filterAdmissions(this.value)"></div><div id="admissionsCaseItems">${cases.length?cases.map(caseListItem).join(''):'<div class="empty" style="padding:16px">No families in this stage.</div>'}</div></div>`};
+admissionsList=function(){let cases=admissionsFilteredCases();return `<div class="case-list"><div class="case-search"><input placeholder="Search admissions…" oninput="filterAdmissions(this.value)"></div><div id="admissionsCaseItems">${cases.length?cases.map(caseListItem).join(''):(ui().admissionsStageFilter==='Duplicates'?'<div class="empty" style="padding:16px">No resolved duplicates.</div>':'<div class="empty" style="padding:16px">No families in this stage.</div>')}</div></div>`};
 caseListItem=function(c){let stage=admissionDisplayStage(c),condition=admissionCondition(c);return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="${esc(stage)}" data-search="${esc((c.childName+' '+c.guardian+' '+stage+' '+condition).toLowerCase())}" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${c.childName}</strong><span style="margin-left:auto">${badge(stage,admissionStageTone(c))}</span></div><div class="meta">${c.guardian} · ${c.service}${condition?`<br>${esc(condition)}`:''}</div></div>`};
 filterAdmissions=function(q){q=(q||'').toLowerCase();document.querySelectorAll('#admissionsCaseItems .case-item').forEach(el=>el.style.display=el.dataset.search.includes(q)?'block':'none')};
 admissionHero=function(c){let stage=admissionDisplayStage(c);return `<div class="case-hero"><div class="case-hero-row"><div class="case-avatar">${c.childName.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div class="case-title"><h2>${c.childName}</h2><p>${c.guardian} · ${c.phone} · Start ${fmtDate(c.start)}<br>${c.service}</p></div><div class="case-status">${badge(stage,admissionStageTone(c))}</div></div>${journey(c)}</div>`};
-renderAdmissions=function(){let matches=admissionsFilteredCases(),filter=ui().admissionsStageFilter||'All',c=db.admissions[ui().admissionsCase];if(!c||!matches.some(x=>x.id===c.id))c=matches[0]||null;if(c)ui().admissionsCase=c.id;let workspace=c?`${admissionHero(c)}${admissionTabs()}${renderAdmissionTab(c)}`:'<div class="card"><h3>No families in this stage</h3><p>Choose another admission stage to continue.</p></div>';return shell(`${pageHead('Admissions','Admissions','One clear admission journey. Choose a stage, open a family, and do the next real job.',btn('New enquiry',"openModal('new-enquiry')",'primary')).replace('class="page-head"','class="page-head admissions-page-head"')}${admissionsMetrics()}<div style="height:14px"></div>${admissionsCaseSwitcher(c)}<div class="case-layout">${admissionsList()}<div class="case-workspace">${workspace}</div></div>`)};
+renderAdmissions=function(){let matches=admissionsFilteredCases(),filter=ui().admissionsStageFilter||'All',c=matches.find(x=>x.id===ui().admissionsCase)||matches[0]||null;if(c)ui().admissionsCase=c.id;let workspace=c?`${admissionHero(c)}${c.closed?.type==='Duplicate'?'':admissionTabs()}${renderAdmissionTab(c)}`:(filter==='Duplicates'?'<div class="card"><h3>No resolved duplicates</h3><p>Confirmed duplicate records will appear here.</p></div>':'<div class="card"><h3>No families in this stage</h3><p>Choose another admission stage to continue.</p></div>');return shell(`${pageHead('Admissions','Admissions','One clear admission journey. Choose a stage, open a family, and do the next real job.',btn('New enquiry',"openModal('new-enquiry')",'primary')).replace('class="page-head"','class="page-head admissions-page-head"')}${admissionsMetrics()}<div style="height:14px"></div>${admissionsCaseSwitcher(c)}<div class="case-layout">${admissionsList()}<div class="case-workspace">${workspace}</div></div>`)};
 applicationSummary=function(c){let s=c.application.status;let labels={not_sent:'Not sent',sent:'Sent · waiting for parent',submitted:'Submitted · needs review',accepted:'Accepted',waitlisted:'Waitlisted',declined:'Declined'};return labels[s]||s};
 admissionOverview=function(c){
   let d=admissionDerived(c),stage=admissionDisplayStage(c),action='';
@@ -1587,11 +1588,11 @@ function admissionApplicationOutcomeContext(filter){
 
 admissionsFilteredCases = function(){
   const filter = ui().admissionsStageFilter || 'All';
-  return Object.values(db.admissions).filter(c=>admissionMatchesFilter(c,filter));
+  return admissionsRetrievableRecords().filter(c=>admissionMatchesFilter(c,filter));
 };
 
 admissionsMetrics = function(){
-  const all = Object.values(db.admissions);
+  const all = admissionsRetrievableRecords();
   const active = ui().admissionsStageFilter || 'All';
   const applicationContext = admissionApplicationOutcomeContext(active);
   const primary = ['All',...admissionStageLabels];
@@ -1612,9 +1613,7 @@ admissionsMetrics = function(){
   const selectedLabel = selectedStage === 'All' ? 'All admissions' : selectedStage;
   const selectedCount = all.filter(c=>admissionMatchesFilter(c,selectedStage)).length;
   const compact = `<button class="admissions-stage-selector" aria-label="${esc(selectedLabel)} (${selectedCount}), choose stage" aria-haspopup="dialog" aria-expanded="${ui().modal?.name==='admissions-stage-selector'}" onclick="openModal('admissions-stage-selector')"><svg class="stage-filter-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><strong class="stage-filter-label">${esc(selectedLabel)}</strong><span class="stage-filter-count">${selectedCount}</span><svg class="stage-filter-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>`;
-  const historySelected=active==='Closed cases';
-  const historyCount=all.filter(admissionIsClosedCase).length;
-  const history=`<button class="tab ${historySelected?'active':''}" aria-pressed="${historySelected}" data-closed-cases onclick="setAdmissionsStageFilter('Closed cases')">Closed cases <strong>${historyCount}</strong></button>`;
+  const history=['Closed cases','Duplicates'].map(view=>`<button class="tab ${active===view?'active':''}" aria-pressed="${active===view}" ${view==='Closed cases'?'data-closed-cases':'data-duplicates'} onclick="setAdmissionsStageFilter('${view}')">${view} <strong>${all.filter(c=>admissionMatchesFilter(c,view)).length}</strong></button>`).join('');
   return `${compact}<div class="admissions-navigation-row"><div class="tabs admissions-stage-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${primary.map(renderPrimaryFilter).join('')}${history}</div></div>${secondary}`;
 };
 
@@ -1647,14 +1646,13 @@ modalView = function(m){
   if(m.name !== 'admissions-stage-selector') return _mpsStageSelectorModalView(m);
   const active = ui().admissionsStageFilter || 'All';
   const selected = admissionApplicationOutcomeContext(active) ? 'Application' : active;
-  const all = Object.values(db.admissions);
+  const all = admissionsRetrievableRecords();
   const options = ['All',...admissionStageLabels].map(stage=>{
     const label = stage === 'All' ? 'All active cases' : stage;
     const count = all.filter(c=>admissionMatchesFilter(c,stage)).length;
     return `<button class="admissions-stage-option" data-mobile-stage="${esc(stage)}" aria-pressed="${stage===selected}" onclick='selectMobileAdmissionStage(${JSON.stringify(stage)})'><span class="stage-dot" aria-hidden="true"></span><span>${esc(label)}</span><strong class="stage-option-count">${count}</strong><span class="stage-selection" aria-hidden="true">${stage===selected?'✓':''}</span></button>`;
   }).join('');
-  const closedCount=all.filter(c=>admissionMatchesFilter(c,'Closed cases')).length;
-  const history=`<section class="admissions-view-history" aria-labelledby="admissions-history-title"><h3 id="admissions-history-title">History</h3><button class="admissions-stage-option" data-mobile-view="Closed cases" aria-pressed="${active==='Closed cases'}" onclick="selectMobileAdmissionStage('Closed cases')"><span class="stage-dot" aria-hidden="true"></span><span>Closed cases</span><strong class="stage-option-count">${closedCount}</strong><span class="stage-selection" aria-hidden="true">${active==='Closed cases'?'✓':''}</span></button></section>`;
+  const history=`<section class="admissions-view-history" aria-labelledby="admissions-history-title"><h3 id="admissions-history-title">History</h3>${['Closed cases','Duplicates'].map(view=>`<button class="admissions-stage-option" data-mobile-view="${view}" aria-pressed="${active===view}" onclick="selectMobileAdmissionStage('${view}')"><span class="stage-dot" aria-hidden="true"></span><span>${view}</span><strong class="stage-option-count">${all.filter(c=>admissionMatchesFilter(c,view)).length}</strong><span class="stage-selection" aria-hidden="true">${active===view?'✓':''}</span></button>`).join('')}</section>`;
   return modal('Choose stage','Show admissions in a specific stage',`<div class="admissions-stage-options" role="group" aria-label="Admissions stages">${options}</div>${history}`).replace('class="overlay"','class="overlay admissions-stage-overlay" onclick="if(event.target===this)closeOverlay()"').replace('class="modal"','class="modal admissions-stage-sheet" role="dialog" aria-modal="true" aria-label="Choose stage"').replace('class="x"','class="x" aria-label="Close stage selector"');
 };
 
@@ -1953,6 +1951,7 @@ commitNewEnquiry = function(){
 
 closePendingAsDuplicate = function(candidateId){
   const p=ui().pendingEnquiry;
+  if(!allowed('admissions'))return;
   if(!p) return closeOverlay();
   const candidate=duplicateCandidateRecord(candidateId);
   // Matching returns a presentation copy; retain the enquiry on the stored record.
@@ -1963,7 +1962,10 @@ closePendingAsDuplicate = function(candidateId){
   c.duplicateEnquiries=c.duplicateEnquiries||[];
   c.duplicateEnquiries.push({
     childName:p.childName,dob:p.dob,guardian:p.guardian,phone:p.phone,start:p.start,
-    service:p.service,source:p.source,message:p.message||'',resolvedAt:at,resolvedBy:actor
+    service:p.service,source:p.source,message:p.message||'',resolvedAt:at,resolvedBy:actor,
+    survivorId:c.id,matchReason:candidate.matchReason,matchStrength:candidate.matchStrength,
+    retainedIdentity:{childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone},
+    candidateReviews:{...(p.duplicateReviews||{})}
   });
   c.events.push(ev('duplicate_enquiry_retained','Duplicate enquiry retained',`${p.childName} · ${p.guardian} · ${p.phone} · source ${p.source}`));
   c.events.push(ev('duplicate_resolved','Duplicate enquiry resolved',`DUPLICATE_RESOLVED · incoming enquiry linked to this record · ${actor}`));
@@ -1983,10 +1985,13 @@ function mpsResolveEstablishedDuplicate(duplicateId){
   const duplicate=db.admissions[duplicateId];
   const survivorId=val('est_dup_survivor');
   const survivor=db.admissions[survivorId];
-  if(!duplicate||!survivor||duplicate.id===survivor.id){alert('Choose the surviving Admissions record.');return}
+  if(!allowed('admissions')||!mpsEstablishedDuplicateEligible(duplicate))return;
+  if(!survivor||survivor.closed?.type==='Duplicate'||duplicate.id===survivor.id){alert('Choose the surviving Admissions record.');return}
   const actor=mpsAdmissionActor(), at=new Date().toISOString();
   duplicate.duplicateOf=survivor.id;
-  duplicate.duplicateResolution={survivorId:survivor.id,resolvedAt:at,resolvedBy:actor};
+  duplicate.duplicateResolution={survivorId:survivor.id,resolvedAt:at,resolvedBy:actor,
+    matchReason:'Staff selected the retained record after review',
+    retainedIdentity:{childName:survivor.childName,dob:survivor.dob,guardian:survivor.guardian,phone:survivor.phone}};
   duplicate.closed={type:'Duplicate',reason:'Duplicate record',duplicateOf:survivor.id};
   survivor.duplicateRecords=survivor.duplicateRecords||[];
   if(!survivor.duplicateRecords.includes(duplicate.id)) survivor.duplicateRecords.push(duplicate.id);
@@ -4846,7 +4851,7 @@ admissionOverview=function(c){
 // Make the child/contact relationship explicit in the persistent case header.
 admissionHero=function(c){
   const stage=admissionDisplayStage(c);
-  return `<div class="case-hero"><div class="case-hero-row"><div class="case-avatar">${c.childName.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div class="case-title"><h2>${esc(c.childName)}</h2><p><strong>Parent/guardian:</strong> ${esc(c.guardian)} · ${esc(c.phone)}<br>${esc(c.service)} · Start ${fmtDate(c.start)}</p></div><div class="case-status">${badge(stage,admissionStageTone(c))}</div></div>${journey(c)}</div>`;
+  return `<div class="case-hero"><div class="case-hero-row"><div class="case-avatar">${c.childName.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div class="case-title"><h2>${esc(c.childName)}</h2><p><strong>Parent/guardian:</strong> ${esc(c.guardian)} · ${esc(c.phone)}<br>${esc(c.service)} · Start ${fmtDate(c.start)}</p></div><div class="case-status">${badge(stage,admissionStageTone(c))}</div></div>${c.closed?.type==='Duplicate'?'':journey(c)}</div>`;
 };
 
 // Admission details is the case record, so repeat the essential identity/contact facts there.
@@ -4936,6 +4941,7 @@ function admissionClosureLabel(c){
 admissionIsApplicationClosed=function(c){return admissionIsClosedCase(c) && admissionClosureStage(c)==='Application'};
 const _bq098Matches=admissionMatchesFilter;
 admissionMatchesFilter=function(c,filter){
+  if(filter==='Duplicates') return c.closed?.type==='Duplicate';
   if(filter==='Closed cases') return admissionIsClosedCase(c);
   if(filter==='Closed') return admissionIsApplicationClosed(c);
   if(c.closed) return false;
@@ -4946,7 +4952,7 @@ function admissionIdentityMatches(c,q){
   return String(c.childName||'').toLowerCase().includes(q) || String(c.guardian||'').toLowerCase().includes(q) || (digits.length>=4&&mpsSafeDigits(c.phone).includes(digits));
 }
 function admissionsIdentitySearch(q){
-  return allowed('admissions')?Object.values(db.admissions).filter(c=>c.closed?.type!=='Duplicate'&&admissionIdentityMatches(c,q)):[];
+  return allowed('admissions')?admissionsRetrievableRecords().filter(c=>admissionIdentityMatches(c,q)):[];
 }
 let admissionsSearchQuery='';
 const _bq098Filtered=admissionsFilteredCases;
@@ -4966,8 +4972,9 @@ setAdmissionsStageFilter=function(stage){
 };
 const _bq098Select=setAdmissionCase;
 setAdmissionCase=function(id){
-  const c=db.admissions[id];if(!allowed('admissions')||!c)return;
-  if(admissionIsClosedCase(c)){
+  const c=admissionsRetrievableRecords().find(c=>c.id===id);if(!allowed('admissions')||!c)return;
+  if(c.closed?.type==='Duplicate') ui().admissionsStageFilter='Duplicates';
+  else if(admissionIsClosedCase(c)){
     if(ui().admissionsStageFilter!=='Closed'||!admissionIsApplicationClosed(c))ui().admissionsStageFilter='Closed cases';
   }
   else if(!admissionMatchesFilter(c,ui().admissionsStageFilter||'All')) ui().admissionsStageFilter='All';
@@ -4976,7 +4983,7 @@ setAdmissionCase=function(id){
 const _bq098GlobalSearch=globalSearch;
 globalSearch=function(q){
   if(String(q||'').trim()&&allowed('admissions')){
-    const c=Object.values(db.admissions).find(c=>c.closed?.type!=='Duplicate'&&admissionIdentityMatches(c,q));
+    const c=admissionsRetrievableRecords().find(c=>admissionIdentityMatches(c,q));
     if(c){ui().route='admissions';ui().admissionsStageFilter=admissionIsClosedCase(c)?'Closed cases':'All';setAdmissionCase(c.id);return}
   }
   _bq098GlobalSearch(q);
@@ -5084,7 +5091,7 @@ function filterMobileAdmissionCases(q){
   if(list)list.innerHTML=mobileAdmissionCaseRows(q);
 }
 function selectMobileAdmissionCase(id){
-  if(!allowed('admissions')||!db.admissions[id])return;
+  if(!allowed('admissions')||!admissionsRetrievableRecords().some(c=>c.id===id))return;
   ui().modal=null;
   setAdmissionCase(id);
   const trigger=document.querySelector('.admissions-case-selector');
@@ -5099,5 +5106,47 @@ modalView=function(m){
     .replace('class="overlay"','class="overlay admissions-stage-overlay" onclick="if(event.target===this)closeOverlay()"')
     .replace('class="modal"','class="modal admissions-stage-sheet admissions-case-sheet" role="dialog" aria-modal="true" aria-label="Choose case"')
     .replace('class="x"','class="x" aria-label="Close case selector"');
+};
+render();
+// BQ-099 — retrieve retained duplicate evidence without changing lifecycle data.
+function admissionsRetrievableRecords(){
+  const records=Object.values(db.admissions);
+  // Incoming duplicates remain attached to their retained record. Project them
+  // for retrieval only: do not create another active case or rewrite old evidence.
+  return records.concat(records.flatMap(retained=>(retained.duplicateEnquiries||[]).map((e,index)=>({
+    ...e,id:`duplicate-enquiry:${retained.id}:${index}`,duplicateOf:retained.id,
+    duplicateResolution:e,duplicateIncoming:true,closed:{type:'Duplicate'},
+    application:{status:'not_sent'},events:[]
+  }))));
+}
+function admissionDuplicateDetails(c){
+  const r=c.duplicateResolution||{},id=c.duplicateOf||r.survivorId||c.closed?.duplicateOf;
+  return {resolution:r,retainedId:id,retained:db.admissions[id]};
+}
+function openAdmissionRetainedRecord(id){
+  if(!allowed('admissions'))return;
+  const c=admissionsRetrievableRecords().find(x=>x.id===id);
+  if(c?.closed?.type!=='Duplicate')return;
+  const {retained}=admissionDuplicateDetails(c);
+  if(retained)setAdmissionCase(retained.id);
+}
+function admissionDuplicateSummary(c){
+  const {resolution:r,retainedId,retained}=admissionDuplicateDetails(c);
+  const at=r.resolvedAt?`${r.resolvedAt.replace('T',' ').replace('Z',' UTC')}`:'Not recorded';
+  const context=r.matchReason||'Match context not recorded';
+  const snapshot=r.retainedIdentity;
+  return `<div class="card duplicate-summary"><h3>Resolved as Duplicate</h3>${kv('Child',esc(c.childName))}${kv('Parent/guardian',esc(c.guardian))}${kv('Phone',esc(c.phone))}${kv('Match context',esc(context))}${r.matchStrength?kv('Match indication',esc(r.matchStrength)):''}${kv('Retained record',esc(retained?.childName||snapshot?.childName||retainedId||'Not recorded'))}${snapshot?kv('Retained identity at resolution',esc(`${snapshot.childName} · ${snapshot.guardian} · ${snapshot.phone}`)):''}${kv('Resolved by',esc(r.resolvedBy||'Not recorded'))}${kv('Resolved at',esc(at))}${retained?btn('Open retained record',`openAdmissionRetainedRecord('${c.id}')`,'secondary'):notice('The retained record is not available.','warn')}</div>`;
+}
+const _duplicateHistoryTab=renderAdmissionTab;
+renderAdmissionTab=function(c){
+  if(c.closed?.type!=='Duplicate')return _duplicateHistoryTab(c);
+  const evidence=c.duplicateIncoming?`<div class="card" style="margin-top:12px"><h3>Retained enquiry</h3>${kv('Source',esc(c.source||'Not recorded'))}${c.message?kv('Enquiry message',esc(c.message)):''}</div>`:admissionTimeline(c);
+  return admissionDuplicateSummary(c)+evidence;
+};
+const _duplicateHistoryItem=caseListItem;
+caseListItem=function(c){
+  if(c.closed?.type!=='Duplicate')return _duplicateHistoryItem(c);
+  const {retained,resolution:r}=admissionDuplicateDetails(c);
+  return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="Duplicate" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${esc(c.childName)}</strong>${badge('Duplicate','grey')}</div><div class="meta">${esc(c.guardian)} · ${esc(c.phone)}<div>Retained: ${esc(retained?.childName||r.retainedIdentity?.childName||'Record unavailable')}</div>${r.matchReason?`<div>${esc(r.matchReason)}</div>`:''}</div></div>`;
 };
 render();
