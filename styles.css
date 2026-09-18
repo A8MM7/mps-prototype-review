@@ -242,6 +242,10 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .case-hero{padding-bottom:9px}
   .case-hero .journey{padding-bottom:10px}
 }
+
+/* BQ-100: normal retained-family navigation has a small metadata footer. */
+.duplicate-metadata>.kv:last-child{border-bottom:0;padding-bottom:0}
+.duplicate-actions-footer{display:flex;align-items:flex-start;padding-top:22px}
 /* Rendered phone audit: preserve all content and actions within the available width. */
 @media(max-width:820px){
   .modal-head{align-items:flex-start}

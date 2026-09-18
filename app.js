@@ -1586,9 +1586,19 @@ function admissionApplicationOutcomeContext(filter){
   return filter === 'Application' || admissionSecondaryFilters.includes(filter);
 }
 
+// Audit events carry the existing record-update time; scheduled journey dates do not.
+function admissionLastRecordedUpdate(c){
+  return (c.events||[]).reduce((latest,event)=>{
+    const at=Date.parse(event.at);
+    return Number.isFinite(at)?Math.max(latest,at):latest;
+  },0);
+}
 admissionsFilteredCases = function(){
   const filter = ui().admissionsStageFilter || 'All';
-  return admissionsRetrievableRecords().filter(c=>admissionMatchesFilter(c,filter));
+  const cases=admissionsRetrievableRecords().filter(c=>admissionMatchesFilter(c,filter));
+  if(filter!=='All')return cases;
+  return cases.sort((a,b)=>admissionStageLabels.indexOf(admissionDisplayStage(a))-admissionStageLabels.indexOf(admissionDisplayStage(b))
+    ||admissionLastRecordedUpdate(b)-admissionLastRecordedUpdate(a));
 };
 
 admissionsMetrics = function(){
@@ -5135,7 +5145,7 @@ function admissionDuplicateSummary(c){
   const at=r.resolvedAt?`${r.resolvedAt.replace('T',' ').replace('Z',' UTC')}`:'Not recorded';
   const context=r.matchReason||'Match context not recorded';
   const snapshot=r.retainedIdentity;
-  return `<div class="card duplicate-summary"><h3>Resolved as Duplicate</h3>${kv('Child',esc(c.childName))}${kv('Parent/guardian',esc(c.guardian))}${kv('Phone',esc(c.phone))}${kv('Match context',esc(context))}${r.matchStrength?kv('Match indication',esc(r.matchStrength)):''}${kv('Retained record',esc(retained?.childName||snapshot?.childName||retainedId||'Not recorded'))}${snapshot?kv('Retained identity at resolution',esc(`${snapshot.childName} · ${snapshot.guardian} · ${snapshot.phone}`)):''}${kv('Resolved by',esc(r.resolvedBy||'Not recorded'))}${kv('Resolved at',esc(at))}${retained?btn('Open retained record',`openAdmissionRetainedRecord('${c.id}')`,'secondary'):notice('The retained record is not available.','warn')}</div>`;
+  return `<div class="card duplicate-summary"><h3>Resolved as Duplicate</h3><div class="duplicate-metadata">${kv('Child',esc(c.childName))}${kv('Parent/guardian',esc(c.guardian))}${kv('Phone',esc(c.phone))}${kv('Match context',esc(context))}${r.matchStrength?kv('Match indication',esc(r.matchStrength)):''}${kv('Retained record',esc(retained?.childName||snapshot?.childName||retainedId||'Not recorded'))}${snapshot?kv('Retained identity at resolution',esc(`${snapshot.childName} · ${snapshot.guardian} · ${snapshot.phone}`)):''}${kv('Resolved by',esc(r.resolvedBy||'Not recorded'))}${kv('Resolved at',esc(at))}</div><div class="duplicate-actions-footer">${retained?btn('Open retained record',`openAdmissionRetainedRecord('${c.id}')`,'secondary'):notice('The retained record is not available.','warn')}</div></div>`;
 }
 const _duplicateHistoryTab=renderAdmissionTab;
 renderAdmissionTab=function(c){
@@ -5148,5 +5158,80 @@ caseListItem=function(c){
   if(c.closed?.type!=='Duplicate')return _duplicateHistoryItem(c);
   const {retained,resolution:r}=admissionDuplicateDetails(c);
   return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="Duplicate" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${esc(c.childName)}</strong>${badge('Duplicate','grey')}</div><div class="meta">${esc(c.guardian)} · ${esc(c.phone)}<div>Retained: ${esc(retained?.childName||r.retainedIdentity?.childName||'Record unavailable')}</div>${r.matchReason?`<div>${esc(r.matchReason)}</div>`:''}</div></div>`;
+};
+render();
+// BQ-100 — a fresh linked journey; historical duplicates remain resolved.
+function admissionFreshCase(identity,details={}){
+  return {id:'case_'+crypto.randomUUID(),childName:identity.childName,dob:identity.dob,
+    guardian:identity.guardian,phone:identity.phone,phoneCountry:identity.phoneCountry||'',email:identity.email||'',
+    start:details.start||'',service:details.service||'',source:details.source||'',message:details.message||'',reason:'',
+    events:[],tour:null,application:{status:'not_sent',draft:null,snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null};
+}
+function admissionCanStartNewCase(c){
+  return allowed('admissions')&&!!c&&!c.duplicateIncoming&&admissionIsClosedCase(c);
+}
+function admissionNewJourneyPendingValid(p){
+  const c=db.admissions[p?.previousCaseId];
+  return admissionCanStartNewCase(c)&&p.previousJourneyConfirmed===true&&
+    ['childName','dob','guardian','phone','phoneCountry','email'].every(k=>(p[k]||'')===(c[k]||''));
+}
+const _bq100Candidates=duplicateCandidateRecords;
+duplicateCandidateRecords=function(){
+  const p=ui().pendingEnquiry;
+  return _bq100Candidates().filter(c=>!(admissionNewJourneyPendingValid(p)&&c.id===p.previousCaseId));
+};
+function saveAdmissionNewJourney(id){
+  const c=db.admissions[id];if(!admissionCanStartNewCase(c))return;
+  const start=val('new_journey_start'),service=val('new_journey_service');
+  if(!start||!service){alert('Enter the new desired start and choose the service.');return}
+  if(!byId('new_journey_confirm')?.checked){alert('Confirm this is a new journey for the same child.');return}
+  const p={previousCaseId:id,previousJourneyConfirmed:true,start,service,source:'Existing family',message:'',duplicateReviews:{}};
+  for(const k of ['childName','dob','guardian','phone','phoneCountry','email'])p[k]=c[k]||'';
+  ui().pendingEnquiry=p;
+  if(duplicateCandidateRecords().length){ui().modal={name:'duplicate-candidate',data:null};save();render();return}
+  mpsCommitValidatedEnquiry(p);
+}
+const _bq100CommitEnquiry=mpsCommitValidatedEnquiry;
+mpsCommitValidatedEnquiry=function(p){
+  if(!p?.previousCaseId)return _bq100CommitEnquiry(p);
+  if(!admissionNewJourneyPendingValid(p))return;
+  if(duplicateCandidateRecords().length&&!duplicateAllCandidatesCleared()){
+    alert('Review and clear every other possible match before proceeding as a new record.');return;
+  }
+  const old=db.admissions[p.previousCaseId],fresh=admissionFreshCase(p,p),at=new Date().toISOString(),by=mpsAdmissionActor();
+  fresh.previousCaseId=old.id;
+  fresh.events=[{...ev('enquiry','New admissions journey started',`Previous case ${old.id} · same child confirmed · ${by}`),at}];
+  fresh.previousJourneyConfirmation={by,at,sourceCaseId:old.id,reviewedCandidates:{...p.duplicateReviews}};
+  old.nextCaseIds=old.nextCaseIds||[];old.nextCaseIds.push(fresh.id);
+  old.events.push({...ev('new_admissions_case','New admissions case started',`${fresh.id} · ${by} · original case retained`),at});
+  db.admissions[fresh.id]=fresh;
+  ui().pendingEnquiry=null;ui().modal=null;ui().drawer=null;ui().admissionsTab='overview';setAdmissionCase(fresh.id);
+};
+const _bq100EditEnquiry=editPendingEnquiry;
+editPendingEnquiry=function(){
+  if(ui().pendingEnquiry?.previousCaseId){ui().drawer=null;openModal('new-admission-journey',{caseId:ui().pendingEnquiry.previousCaseId});return}
+  _bq100EditEnquiry();
+};
+function admissionCaseLinks(c){
+  const previous=db.admissions[c.previousCaseId],next=(c.nextCaseIds||[]).map(id=>db.admissions[id]).filter(Boolean);
+  const links=[...(previous?[{c:previous,label:'Previous admissions case'}]:[]),...next.map(c=>({c,label:'New admissions case'}))];
+  return links.map(x=>`<p>${btn(x.label,`setAdmissionCase('${x.c.id}')`,'secondary','sm')} <span class="muted" style="overflow-wrap:anywhere">${esc(x.c.id)} · ${esc(admissionDisplayStage(x.c))}</span></p>`).join('');
+}
+const _bq100NewJourneyTab=renderAdmissionTab;
+renderAdmissionTab=function(c){
+  let html=_bq100NewJourneyTab(c);
+  if(!allowed('admissions')||!['overview','timeline'].includes(ui().admissionsTab)||c.closed?.type==='Duplicate')return html;
+  const links=admissionCaseLinks(c),action=admissionCanStartNewCase(c)?btn('Start new admissions case',`openModal('new-admission-journey',{caseId:'${c.id}'})`,'secondary','sm'):'';
+  if(links||action)html+=`<div class="card admission-recovery" style="margin-top:12px">${links}${action}</div>`;
+  return html;
+};
+const _bq100NewJourneyModal=modalView;
+modalView=function(m){
+  if(m?.name!=='new-admission-journey')return _bq100NewJourneyModal(m);
+  const c=db.admissions[m.data?.caseId];
+  if(!admissionCanStartNewCase(c))return modal('New case unavailable','',notice('Choose a historical Closed admissions case.','warn'),btn('Close','closeOverlay()','secondary'));
+  const p=ui().pendingEnquiry?.previousCaseId===c.id?ui().pendingEnquiry:{};
+  const services=['','Baby Class','Upper Class','Baby Class + Standard Daycare','Baby Class + Extended Daycare','Upper Class + Standard Daycare','Upper Class + Extended Daycare'];
+  return modal('Start new admissions case',c.childName,`${kv('Child',esc(c.childName))}${kv('Date of birth',fmtDate(c.dob))}${kv('Parent/guardian',esc(c.guardian))}${kv('Phone',esc(c.phone))}${c.email?kv('Email',esc(c.email)):''}<div class="form-grid">${field('New desired start',p.start||'','date',false,'new_journey_start')}${selectField('New interested service',services,p.service||'','new_journey_service')}</div><label style="display:flex;gap:10px;align-items:flex-start;margin:16px 0"><input id="new_journey_confirm" type="checkbox" style="width:20px;min-width:20px;height:20px"> <span>This is a new journey for the same child. The previous case and its outcome will stay unchanged.</span></label>${notice('Only identity and contact details are reused. Visits, applications, decisions and fees start fresh. Any other possible matches must still be reviewed.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Continue',`saveAdmissionNewJourney('${c.id}')`,'primary')}`);
 };
 render();
