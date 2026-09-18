@@ -300,3 +300,18 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .admissions-navigation-row>.admissions-stage-tabs{flex-wrap:nowrap!important;overflow-x:auto}
   .admissions-navigation-row>.admissions-stage-tabs>.tab{flex-shrink:0}
 }
+/* Composed mobile workspace headers; desktop structure stays unchanged. */
+.workspace-action-label-mobile{display:none}
+@media(max-width:600px){
+  .page-head--workspace{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 8px;align-items:center;padding:14px;margin-bottom:16px;background:#edf5f8;border:1px solid #dce8ee;border-radius:14px}
+  .page-head--workspace>.left{display:contents}
+  .page-head--workspace .eyebrow{grid-column:1/-1;grid-row:1;margin-bottom:6px}
+  .page-head--workspace h2{grid-column:1;grid-row:2;margin:0;font-size:22px;line-height:1.2;letter-spacing:-.4px}
+  .page-head--workspace .left>p{grid-column:1/-1;grid-row:3;margin-top:8px;line-height:1.55}
+  .page-head--workspace .left>p:empty{display:none}
+  .page-head--workspace>.page-actions{grid-column:2;grid-row:2;margin:0;flex-wrap:nowrap}
+  .page-head--workspace .page-actions .btn{min-height:44px;padding:10px 8px;border-radius:8px;white-space:nowrap}
+  .page-head--recovery .page-actions .btn{background:transparent;border-color:transparent;box-shadow:none;font-weight:600;padding-inline:8px}
+  .workspace-action-label-desktop{display:none}
+  .workspace-action-label-mobile{display:inline}
+}

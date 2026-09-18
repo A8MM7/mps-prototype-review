@@ -307,6 +307,21 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
   .admissions-navigation-row>.admissions-stage-tabs{flex-wrap:nowrap!important;overflow-x:auto}
   .admissions-navigation-row>.admissions-stage-tabs>.tab{flex-shrink:0}
 }
+/* Composed mobile workspace headers; desktop structure stays unchanged. */
+.workspace-action-label-mobile{display:none}
+@media(max-width:600px){
+  .page-head--workspace{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 8px;align-items:center;padding:14px;margin-bottom:16px;background:#edf5f8;border:1px solid #dce8ee;border-radius:14px}
+  .page-head--workspace>.left{display:contents}
+  .page-head--workspace .eyebrow{grid-column:1/-1;grid-row:1;margin-bottom:6px}
+  .page-head--workspace h2{grid-column:1;grid-row:2;margin:0;font-size:22px;line-height:1.2;letter-spacing:-.4px}
+  .page-head--workspace .left>p{grid-column:1/-1;grid-row:3;margin-top:8px;line-height:1.55}
+  .page-head--workspace .left>p:empty{display:none}
+  .page-head--workspace>.page-actions{grid-column:2;grid-row:2;margin:0;flex-wrap:nowrap}
+  .page-head--workspace .page-actions .btn{min-height:44px;padding:10px 8px;border-radius:8px;white-space:nowrap}
+  .page-head--recovery .page-actions .btn{background:transparent;border-color:transparent;box-shadow:none;font-weight:600;padding-inline:8px}
+  .workspace-action-label-desktop{display:none}
+  .workspace-action-label-mobile{display:inline}
+}
 
 </style>
 </head>
@@ -1576,7 +1591,7 @@ renderCalendar = function(){
   const tours=calendarVisibleAdmissionsToursInMonth(monthKey);
   const birthdays=calendarVisibleBirthdaysInMonth(monthKey);
   const guardianBirthdays=calendarVisibleGuardianBirthdaysInMonth(monthKey);
-  const actions=canManage?`${btn('Change operating day',`openModal('calendar-exception',{date:'${TODAY}'})`,'primary')}${btn('Add event',`openModal('calendar-event',{date:'${TODAY}'})`,'secondary')}`:'';
+  const actions=btn('Add calendar entry',`openModal('calendar-event',{date:'${TODAY}'})`,'primary');
   const contextSummary=[
     ...tours.map(t=>`<div class="child-row"><strong>${esc(t.childName)}</strong><span>${fmtDate(t.date)}${t.time?` · ${esc(t.time)}`:''}</span><span class="hide-mobile">Admissions visit</span></div>`),
     ...events.map(e=>`<div class="child-row"><strong>${esc(e.title)}</strong><span>${fmtDate(e.date)}</span><span class="hide-mobile">${esc(e.scope)}</span></div>`),
@@ -3601,11 +3616,6 @@ renderCalendar=function(){
     .replaceAll('Events remain separate from operating status.','Calendar entries do not change operating status.')
     .replace('<span><i class="legend-dot event"></i> Event</span>','<span><i class="legend-dot event"></i> Calendar entry</span>');
 
-  if(!html.includes('Add calendar entry')){
-    const noActions='<div class="page-head"><div class="left"><div class="eyebrow">Organisation calendar</div><h2>Calendar</h2><p>A familiar month calendar for operating days and important preschool context. What you can see still follows your existing permissions.</p></div></div>';
-    const withActions=`<div class="page-head"><div class="left"><div class="eyebrow">Organisation calendar</div><h2>Calendar</h2><p>A familiar month calendar for operating days and important preschool context. What you can see still follows your existing permissions.</p></div><div class="page-actions">${btn('Add calendar entry',`openModal('calendar-event',{date:'${TODAY}'})`,'primary')}</div></div>`;
-    html=html.replace(noActions,withActions);
-  }
   return html;
 };
 
@@ -4976,22 +4986,6 @@ mpsPlainLanguageHtml = function(html){
   return out;
 };
 
-// Calendar's earlier compatibility layer used the old explanatory subtitle as a string anchor
-// when adding the ordinary staff "Add calendar entry" action. The subtitle is now deliberately
-// gone, so keep the approved action structurally rather than depending on wording.
-const _mpsTaskPurposeRenderCalendar = renderCalendar;
-renderCalendar = function(){
-  let html = _mpsTaskPurposeRenderCalendar();
-  if(html.includes('Add calendar entry')) return html;
-  const headStart = html.indexOf('<div class="page-head">');
-  if(headStart < 0) return html;
-  const closePair = html.indexOf('</div></div>', headStart);
-  if(closePair < 0) return html;
-  const insertAt = closePair + '</div>'.length;
-  const action = `<div class="page-actions">${btn('Add calendar entry',`openModal('calendar-event',{date:'${TODAY}'})`,'primary')}</div>`;
-  return html.slice(0,insertAt) + action + html.slice(insertAt);
-};
-
 // Install the stricter copy layer immediately so a refresh and Reset render the same UI.
 render();
 // BQ-094 refinement — useful preschool context in the staff header.
@@ -5063,10 +5057,22 @@ function mpsSimplifyPageHeadings(root){
   root.querySelectorAll('.page-head').forEach(head=>{
     const eyebrow=head.querySelector('.eyebrow');
     const title=head.querySelector('h2');
-    if(!eyebrow||!title) return;
+    if(!title) return;
 
-    const eye=mpsHeadingText(eyebrow.textContent);
     const heading=mpsHeadingText(title.textContent);
+    // Owner-approved composed phone headers; Attendance keeps its hierarchy.
+    if(['Daycare','Photos & media','Staff & access','Monthly reports','Health & safety','Calendar'].includes(heading)){
+      head.classList.add('page-head--workspace');
+      if(heading==='Photos & media') head.classList.add('page-head--recovery');
+      if(heading==='Staff & access'){
+        const action=head.querySelector('.page-actions button');
+        if(action&&!action.querySelector('.workspace-action-label-mobile')){
+          action.innerHTML='<span class="workspace-action-label-desktop">Add staff account</span><span class="workspace-action-label-mobile">Add staff</span>';
+        }
+      }
+    }
+    if(!eyebrow) return;
+    const eye=mpsHeadingText(eyebrow.textContent);
 
     // Daycare covers the whole daycare workspace (including Standard and
     // Extended Daycare). "Extended care" wrongly makes the page sound like it

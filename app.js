@@ -1255,7 +1255,7 @@ renderCalendar = function(){
   const tours=calendarVisibleAdmissionsToursInMonth(monthKey);
   const birthdays=calendarVisibleBirthdaysInMonth(monthKey);
   const guardianBirthdays=calendarVisibleGuardianBirthdaysInMonth(monthKey);
-  const actions=canManage?`${btn('Change operating day',`openModal('calendar-exception',{date:'${TODAY}'})`,'primary')}${btn('Add event',`openModal('calendar-event',{date:'${TODAY}'})`,'secondary')}`:'';
+  const actions=btn('Add calendar entry',`openModal('calendar-event',{date:'${TODAY}'})`,'primary');
   const contextSummary=[
     ...tours.map(t=>`<div class="child-row"><strong>${esc(t.childName)}</strong><span>${fmtDate(t.date)}${t.time?` · ${esc(t.time)}`:''}</span><span class="hide-mobile">Admissions visit</span></div>`),
     ...events.map(e=>`<div class="child-row"><strong>${esc(e.title)}</strong><span>${fmtDate(e.date)}</span><span class="hide-mobile">${esc(e.scope)}</span></div>`),
@@ -3280,11 +3280,6 @@ renderCalendar=function(){
     .replaceAll('Events remain separate from operating status.','Calendar entries do not change operating status.')
     .replace('<span><i class="legend-dot event"></i> Event</span>','<span><i class="legend-dot event"></i> Calendar entry</span>');
 
-  if(!html.includes('Add calendar entry')){
-    const noActions='<div class="page-head"><div class="left"><div class="eyebrow">Organisation calendar</div><h2>Calendar</h2><p>A familiar month calendar for operating days and important preschool context. What you can see still follows your existing permissions.</p></div></div>';
-    const withActions=`<div class="page-head"><div class="left"><div class="eyebrow">Organisation calendar</div><h2>Calendar</h2><p>A familiar month calendar for operating days and important preschool context. What you can see still follows your existing permissions.</p></div><div class="page-actions">${btn('Add calendar entry',`openModal('calendar-event',{date:'${TODAY}'})`,'primary')}</div></div>`;
-    html=html.replace(noActions,withActions);
-  }
   return html;
 };
 
@@ -4655,22 +4650,6 @@ mpsPlainLanguageHtml = function(html){
   return out;
 };
 
-// Calendar's earlier compatibility layer used the old explanatory subtitle as a string anchor
-// when adding the ordinary staff "Add calendar entry" action. The subtitle is now deliberately
-// gone, so keep the approved action structurally rather than depending on wording.
-const _mpsTaskPurposeRenderCalendar = renderCalendar;
-renderCalendar = function(){
-  let html = _mpsTaskPurposeRenderCalendar();
-  if(html.includes('Add calendar entry')) return html;
-  const headStart = html.indexOf('<div class="page-head">');
-  if(headStart < 0) return html;
-  const closePair = html.indexOf('</div></div>', headStart);
-  if(closePair < 0) return html;
-  const insertAt = closePair + '</div>'.length;
-  const action = `<div class="page-actions">${btn('Add calendar entry',`openModal('calendar-event',{date:'${TODAY}'})`,'primary')}</div>`;
-  return html.slice(0,insertAt) + action + html.slice(insertAt);
-};
-
 // Install the stricter copy layer immediately so a refresh and Reset render the same UI.
 render();
 // BQ-094 refinement — useful preschool context in the staff header.
@@ -4742,10 +4721,22 @@ function mpsSimplifyPageHeadings(root){
   root.querySelectorAll('.page-head').forEach(head=>{
     const eyebrow=head.querySelector('.eyebrow');
     const title=head.querySelector('h2');
-    if(!eyebrow||!title) return;
+    if(!title) return;
 
-    const eye=mpsHeadingText(eyebrow.textContent);
     const heading=mpsHeadingText(title.textContent);
+    // Owner-approved composed phone headers; Attendance keeps its hierarchy.
+    if(['Daycare','Photos & media','Staff & access','Monthly reports','Health & safety','Calendar'].includes(heading)){
+      head.classList.add('page-head--workspace');
+      if(heading==='Photos & media') head.classList.add('page-head--recovery');
+      if(heading==='Staff & access'){
+        const action=head.querySelector('.page-actions button');
+        if(action&&!action.querySelector('.workspace-action-label-mobile')){
+          action.innerHTML='<span class="workspace-action-label-desktop">Add staff account</span><span class="workspace-action-label-mobile">Add staff</span>';
+        }
+      }
+    }
+    if(!eyebrow) return;
+    const eye=mpsHeadingText(eyebrow.textContent);
 
     // Daycare covers the whole daycare workspace (including Standard and
     // Extended Daycare). "Extended care" wrongly makes the page sound like it
