@@ -377,3 +377,22 @@ button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-vis
 .family-actions{margin-top:16px}.family-legal{margin-top:22px}.family-legal h4{margin:0 0 8px}.family-role-controls{margin:16px 0}.family-role-controls p{color:var(--muted);font-size:12px}
 
 .family-authority{margin:8px 0 16px;padding:12px;background:var(--bg);border-radius:8px}.family-authority h4{margin:0 0 12px}.family-authority[hidden]{display:none}
+/* BQ-102: calm operational tabs and wrapping row actions. */
+.attendance-summary{margin:0 0 16px;color:var(--muted);font-size:13px}
+.attendance-row-actions{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.attendance-detail{display:block;margin-top:6px;overflow-wrap:anywhere}
+.temporary-pickup-section{margin-top:22px}.temporary-pickup-section h4{margin-bottom:12px}
+.temporary-instruction{padding:12px 0;margin-bottom:14px}.temporary-instruction p{margin:6px 0}.temporary-instruction .attendance-row-actions{margin-top:12px}
+.attendance-tabs .tab{min-height:44px}
+@media(max-width:600px){.attendance-row-actions .btn{min-height:44px}.attendance-summary{line-height:1.6}.temporary-pickup-section .btn{min-height:44px}}
+
+.attendance-corrections-summary{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-top:20px;padding:16px 0}
+
+.attendance-facts{margin:12px 0}.attendance-fact{display:grid;grid-template-columns:120px minmax(0,1fr);gap:16px;padding:10px 0;align-items:start;border-bottom:1px solid var(--line)}
+.attendance-fact:last-child{border-bottom:0}.attendance-fact dt{color:var(--muted)}.attendance-fact dd{margin:0;overflow-wrap:anywhere;color:var(--navy)}
+.attendance-history article+article{margin-top:24px;padding-top:20px;border-top:1px solid var(--line)}
+.attendance-history-correction{margin-top:18px}.attendance-history h3,.attendance-history h4{margin:0 0 8px}
+@media(max-width:600px){.attendance-fact{grid-template-columns:92px minmax(0,1fr);gap:12px}.attendance-corrections-summary{align-items:center;gap:12px}.attendance-corrections-summary .btn{min-height:44px;flex-shrink:0}}
+
+.attendance-correction-list article{padding:14px 0;overflow-wrap:anywhere}.attendance-correction-list article+article{border-top:1px solid var(--line)}
+.attendance-correction-list header{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:baseline}.attendance-correction-list header span,.attendance-correction-list footer{color:var(--muted);font-size:12px}.attendance-correction-list p{margin:7px 0}.attendance-correction-values{font-weight:600}.attendance-temporary-cue{color:#875b0a}
