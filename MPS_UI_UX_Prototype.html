@@ -48881,10 +48881,10 @@ const ORG = prototypeTenantConfig.name;
 // Developer-only fixture switch: ?qaFixture=populated, batchc, batchd, batche or clean.
 // The choice is kept in a cookie so each fixture has independent local storage.
 const fixtureUrl=new URL(location.href),explicitFixture=fixtureUrl.searchParams.get('qaFixture');
-// Presentation-only entry for the experienced Head Teacher; both tool modes use the same fixture.
-const headTeacherReview=fixtureUrl.searchParams.get('headTeacherReview')==='1'&&explicitFixture!=='clean';
-const ownerNieReview=!headTeacherReview&&!explicitFixture;
-const governedNieReview=headTeacherReview||ownerNieReview;
+// The ordinary entry and its older Head Teacher URL share one controlled store.
+// An explicit QA fixture always keeps its own isolated store.
+const headTeacherReview=!explicitFixture;
+const governedNieReview=headTeacherReview;
 const requestedFixture=explicitFixture||(governedNieReview?'batche':null);
 const fixtureChanged=!!requestedFixture&&!document.cookie.split('; ').includes(`mpsQaFixture=${requestedFixture==='clean'?'':requestedFixture}`);
 if(['populated','batchc','batchd','batche','clean'].includes(requestedFixture)){
@@ -48896,11 +48896,11 @@ const batchEReviewFixture=requestedFixture==='batche';
 const batchDReviewFixture=batchEReviewFixture||requestedFixture==='batchd';
 const batchCReviewFixture=batchDReviewFixture||requestedFixture==='batchc';
 const populatedQaFixture=batchCReviewFixture||requestedFixture==='populated';
-const storageKey = ownerNieReview?'mpsPrototypeOwnerNie2026V3':headTeacherReview?'mpsPrototypeHeadTeacherNie2026V5':batchEReviewFixture?'mpsPrototypeBatchECalendar2026V2':batchDReviewFixture?'mpsPrototypeBatchDCalendar2026V2':batchCReviewFixture?'mpsPrototypeBatchCCalendar2026V3':populatedQaFixture?'mpsPrototypeProductCalendar2026V4':'mpsPrototypeOwnerReviewCleanV1';
+const storageKey = headTeacherReview?'mpsPrototypeHeadTeacherNie2026V5':batchEReviewFixture?'mpsPrototypeBatchECalendar2026V2':batchDReviewFixture?'mpsPrototypeBatchDCalendar2026V2':batchCReviewFixture?'mpsPrototypeBatchCCalendar2026V3':populatedQaFixture?'mpsPrototypeProductCalendar2026V4':'mpsPrototypeOwnerReviewCleanV1';
 const qaDateCookie=document.cookie.split('; ').find(part=>part.startsWith('mpsQaDate='))?.slice('mpsQaDate='.length)||'';
 const frozenQaDate=/^\d{4}-\d{2}-\d{2}$/.test(qaDateCookie)&&!Number.isNaN(Date.parse(`${qaDateCookie}T12:00:00Z`))?qaDateCookie:null;
 const prototypeReviewToolsActive=populatedQaFixture&&fixtureUrl.searchParams.get('reviewTools')==='1';
-const reviewDateStorageKey=ownerNieReview?'mpsOwnerNieReviewDate':headTeacherReview?'mpsHeadTeacherNieReviewDate':'mpsPrototypeReviewDate';
+const reviewDateStorageKey=headTeacherReview?'mpsHeadTeacherNieReviewDate':'mpsPrototypeReviewDate';
 const savedReviewDate=populatedQaFixture?sessionStorage.getItem(reviewDateStorageKey):null;
 const reviewDateChoice=governedNieReview&&(!prototypeReviewToolsActive||!savedReviewDate)?'2026-09-29':savedReviewDate;
 function mpsPreschoolLocalDate(now=new Date(),configuredTimezone=null){
@@ -49084,7 +49084,13 @@ try{db=JSON.parse(localStorage.getItem(storageKey))||(populatedQaFixture?seedDB(
 // Review-entry UI only; do not rewrite any planning/teaching/evidence/report records.
 if(governedNieReview&&!prototypeReviewToolsActive){db.ui.persona='anjali';db.ui.signedOut=false}
 function save(){if(educationBooting||educationSaveBlocked)return false;try{localStorage.setItem(storageKey,JSON.stringify(db));return true}catch(e){alert('Changes could not be saved. Free browser storage and retry.');return false}}
-function resetDemo(){if(!prototypeReviewToolsActive)return false;if(confirm('Reset this prototype fixture to its starting state?')){localStorage.removeItem(storageKey);location.reload()}}
+function resetDemo(){
+ if(!headTeacherReview&&!prototypeReviewToolsActive)return false;
+ if(!confirm(headTeacherReview?'Reset the prototype to its starting sample?':'Reset this prototype fixture to its starting state?'))return false;
+ localStorage.removeItem(storageKey);
+ if(headTeacherReview)sessionStorage.removeItem(reviewDateStorageKey);
+ location.reload();return true;
+}
 function ui(){return db.ui}
 function currentPersona(){const p=db.personas[ui().persona]||db.personas.anjali,a=db.staff?.accounts?.[p.id];return a?{id:a.id,name:a.name,bundles:a.bundles,scope:a.scope,initials:a.name.split(/\s+/).filter(Boolean).map(x=>x[0]).slice(0,2).join('')}:p}
 function has(bundle){return currentPersona().bundles.includes(bundle)}
@@ -49140,7 +49146,7 @@ function navList(){let work=['today','admissions','attendance','daycare','lesson
 function mobileNav(){let pref=['today','attendance','lessons','daycare','admissions','billing','media','staff'];let xs=pref.filter(allowed).slice(0,5);return `<div class="mobile-nav">${xs.map(r=>`<button class="${ui().route===r||r==='lessons'&&ui().route==='lesson-today'?'active':''}" onclick="openWorkspace('${r}')"><span class="mi">${routes[r].icon}</span>${routes[r].label.split(' ')[0]}</button>`).join('')}</div>`}
 function personaSelect(){return `<div class="prototype-persona"><span>Prototype persona</span><select onchange="switchPersona(this.value)">${Object.values(db.personas).map(p=>`<option value="${p.id}" ${p.id===ui().persona?'selected':''}>${p.name}</option>`).join('')}</select></div>`}
 function switchPersona(id){ui().persona=id;let r=ui().route;if(!allowed(r)&&r!=='parent-application'&&r!=='parent-onboarding')ui().route='today';save();render()}
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><div class="brandmark">E</div><div><h1>Eliira</h1></div></div>${navList()}${prototypeReviewToolsActive?`<button class="nav-item" onclick="resetDemo()"><span class="ico">↺</span>Reset prototype</button>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><div class="brandmark">E</div></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><div class="brandmark">E</div><div><h1>Eliira</h1></div></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<button class="nav-item" onclick="resetDemo()"><span class="ico">↺</span>Reset prototype</button>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><div class="brandmark">E</div></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -50470,7 +50476,7 @@ mobileNav=function(){
 };
 function mobileMoreModal(){
   const xs=mobileSecondaryRoutes();
-  return modal('More','Open any other area available to this staff member.',`<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${xs.map(r=>`<button class="btn secondary" style="width:100%" onclick="openWorkspace('${r}')"><span>${routes[r].icon}</span>${esc(routes[r].label)}</button>`).join('')}</div>`,btn('Close','closeOverlay()','secondary'));
+  return modal('More','Open any other area available to this staff member.',`<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${xs.map(r=>`<button class="btn secondary" style="width:100%" onclick="openWorkspace('${r}')"><span>${routes[r].icon}</span>${esc(routes[r].label)}</button>`).join('')}</div>${headTeacherReview?`<div style="margin-top:16px"><button class="btn secondary" onclick="resetDemo()">↺ Reset prototype</button></div>`:''}`,btn('Close','closeOverlay()','secondary'));
 }
 const mobileNavigationBaseModalView=modalView;
 modalView=function(m){if(m?.name==='mobile-more')return mobileMoreModal();return mobileNavigationBaseModalView(m)};
