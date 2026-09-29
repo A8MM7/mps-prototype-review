@@ -48896,7 +48896,7 @@ const batchEReviewFixture=requestedFixture==='batche';
 const batchDReviewFixture=batchEReviewFixture||requestedFixture==='batchd';
 const batchCReviewFixture=batchDReviewFixture||requestedFixture==='batchc';
 const populatedQaFixture=batchCReviewFixture||requestedFixture==='populated';
-const storageKey = ownerNieReview?'mpsPrototypeOwnerNie2026V2':headTeacherReview?'mpsPrototypeHeadTeacherNie2026V4':batchEReviewFixture?'mpsPrototypeBatchECalendar2026V2':batchDReviewFixture?'mpsPrototypeBatchDCalendar2026V2':batchCReviewFixture?'mpsPrototypeBatchCCalendar2026V3':populatedQaFixture?'mpsPrototypeProductCalendar2026V4':'mpsPrototypeOwnerReviewCleanV1';
+const storageKey = ownerNieReview?'mpsPrototypeOwnerNie2026V3':headTeacherReview?'mpsPrototypeHeadTeacherNie2026V5':batchEReviewFixture?'mpsPrototypeBatchECalendar2026V2':batchDReviewFixture?'mpsPrototypeBatchDCalendar2026V2':batchCReviewFixture?'mpsPrototypeBatchCCalendar2026V3':populatedQaFixture?'mpsPrototypeProductCalendar2026V4':'mpsPrototypeOwnerReviewCleanV1';
 const qaDateCookie=document.cookie.split('; ').find(part=>part.startsWith('mpsQaDate='))?.slice('mpsQaDate='.length)||'';
 const frozenQaDate=/^\d{4}-\d{2}-\d{2}$/.test(qaDateCookie)&&!Number.isNaN(Date.parse(`${qaDateCookie}T12:00:00Z`))?qaDateCookie:null;
 const prototypeReviewToolsActive=populatedQaFixture&&fixtureUrl.searchParams.get('reviewTools')==='1';
@@ -49225,7 +49225,7 @@ function renderToday(){let p=currentPersona(),actions=todayActions();
   if(has('Social Media')&&!has('Head Teacher')){let assets=Object.values(db.media.approvedAssets);return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Your MPS view contains approved public-safe assets only.')}<div class="metric-row"><div class="metric"><strong>${assets.length}</strong><span>Approved assets</span><small>Available for publishing</small></div></div><div class="section-title">Approved assets</div>${assets.length?approvedAssets():`<div class="card"><p>No approved MarketingAssets are currently available. Private child photos, nominations, profiles, Health and assessment data are not exposed to this persona.</p></div>`}`)}
   if(has('Accounts')&&!has('Head Teacher')){let invs=Object.values(db.billing.invoices),out=invs.filter(i=>i.status==='issued').reduce((sum,i)=>sum+invoiceOutstanding(i),0);return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Finance-only action view. Child Health, teaching and private media are outside this persona.')}${todayAttentionSection(actions)}<div class="section-title">Summary</div><div class="metric-row"><div class="metric"><strong>${money(out)}</strong><span>Outstanding</span><small>Issued balances</small></div><div class="metric"><strong>${invs.filter(i=>invoiceStatus(i).text==='Overdue').length}</strong><span>Overdue</span><small>Staff-led follow-up</small></div><div class="metric"><strong>${Object.values(db.billing.payments).filter(x=>x.status==='pending').length}</strong><span>Payments to verify</span><small>Real-source check</small></div><div class="metric"><strong>${invs.filter(i=>i.status==='draft').length}</strong><span>Draft invoices</span><small>Editable before issue</small></div></div>`)}
   if(has('System Administration')){return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Organisation access and recovery work only; operational child data is not automatically exposed.')}<div class="metric-row"><div class="metric"><strong>${Object.values(db.staff.accounts).filter(x=>x.status==='active').length}</strong><span>Active accounts</span><small>Personal identities</small></div><div class="metric"><strong>${Object.values(db.staff.accounts).filter(x=>x.status==='inactive').length}</strong><span>Inactive</span><small>Historical attribution retained</small></div></div><div class="grid" style="margin-top:14px"><div class="span-6 card"><h3>Access governance</h3><p>Permission bundles are additive. One person uses one account; responsibilities do not require role switching.</p></div><div class="span-6 card"><h3>Recovery</h3><p>Ordinary staff → System Administrator reset. Last/only administrator → configured secure recovery; platform break-glass requires ownership/control verification.</p></div></div>`)}
-  let present=Object.values(db.attendance).filter(x=>x.date===TODAY&&x.status==='present').length;let daycareCount=Object.values(db.daycare.bookings).filter(x=>x.date===TODAY).length;let lessonCount=mpsTodayState(ensureTeachingSelection())?.items.length||0;return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'One personalised operational view built from the permission bundles on this account.')}${todayAttentionSection(actions)}<div class="section-title">Today at ${ORG}</div><div class="grid"><div class="span-8 card soft-blue"><div class="card-header"><div class="grow"><h3>🚩 International Flags Day</h3><p>Whole preschool · staff-created calendar event · Normal Preschool Day</p></div>${badge('Context','blue')}</div><p>Planning context only. It does not change operating-day truth or invent a lesson.</p></div><div class="span-4 card"><h3>🎂 Birthday</h3><p>Amaya Perera · derived from DOB. Calm context, not an alert.</p></div></div><div class="section-title">Summary</div><div class="metric-row"><div class="metric"><strong>${present}</strong><span>Children present</span><small>Physical-presence truth</small></div><div class="metric"><strong>${daycareCount}</strong><span>Daycare today</span><small>Authorised bookings</small></div><div class="metric"><strong>${actions.length}</strong><span>Needs action</span><small>Source-backed work</small></div><div class="metric"><strong>${lessonCount}</strong><span>Lessons today</span><small>Assigned teaching scope</small></div></div><div class="section-title">Teaching today</div>${todayTeachingCard()}`)}
+  let present=attendanceRoster().filter(x=>x.status==='present').length;let daycareCount=Object.values(db.daycare.bookings).filter(x=>x.date===TODAY).length;let lessonCount=mpsTodayState(ensureTeachingSelection())?.items.length||0;return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'One personalised operational view built from the permission bundles on this account.')}${todayAttentionSection(actions)}<div class="section-title">Today at ${ORG}</div><div class="grid"><div class="span-8 card soft-blue"><div class="card-header"><div class="grow"><h3>🚩 International Flags Day</h3><p>Whole preschool · staff-created calendar event · Normal Preschool Day</p></div>${badge('Context','blue')}</div><p>Planning context only. It does not change operating-day truth or invent a lesson.</p></div><div class="span-4 card"><h3>🎂 Birthday</h3><p>Amaya Perera · derived from DOB. Calm context, not an alert.</p></div></div><div class="section-title">Summary</div><div class="metric-row"><div class="metric"><strong>${present}</strong><span>Children present</span><small>Physical-presence truth</small></div><div class="metric"><strong>${daycareCount}</strong><span>Daycare today</span><small>Authorised bookings</small></div><div class="metric"><strong>${actions.length}</strong><span>Needs action</span><small>Source-backed work</small></div><div class="metric"><strong>${lessonCount}</strong><span>Lessons today</span><small>Assigned teaching scope</small></div></div><div class="section-title">Teaching today</div>${todayTeachingCard()}`)}
 
 function currentWeek(){const id=ensureTeachingSelection();if(!id)return emptyClassWeek();const weeks=db.curriculum.weeks[id]||(db.curriculum.weeks[id]={});return weeks[ui().lessonWeek]||(weeks[ui().lessonWeek]=emptyClassWeek())}
 function className(){return classroomLabel(ui().lessonClass)}
@@ -49274,10 +49274,24 @@ function checkout(childId,temp=false){
   if(!attendanceCanCheckout(childId))return;
   const instruction=activeTemporaryPickup(childId);
   if(instruction&&!temp){openModal('checkout',{childId});return}
-  if(temp&&(!instruction||!['Reference photo matched by staff','Government photo ID checked','Live visual guardian confirmation'].includes(val('temp_verify'))))return;
-  if(!temp&&!profileCollectorOptions(childId).includes(val('collectorSelect'))){alert('Select an authorised collector after completing the existing verification.');return}
+  if(temp){
+    if(!instruction){alert('No current temporary pickup authorisation is recorded.');return}
+    if(instruction.origin==='Checkout Guardian authorisation'&&(!checkoutAuthorisingGuardians(childId).some(link=>link.id===instruction.guardianLinkId&&link.guardianId===instruction.guardianId)||preschoolPickupTime()<instruction.from||preschoolPickupTime()>instruction.until)){
+      alert('This temporary authorisation is no longer valid. Keep the child checked in.');return;
+    }
+    if(!pickupIdentityMethods.includes(val('temp_verify'))){alert('Complete the collector identity check before handover.');return}
+  }else{
+    const collector=val('collectorSelect');
+    if(collector==='Other authorised collector'||!collector&&profileCollectorOptions(childId).length===1){
+      openModal('checkout-other-authorisation',{childId});return;
+    }
+    if(!profileCollectorOptions(childId).slice(0,-1).includes(collector)){
+      alert('Select a recorded authorised collector.');return;
+    }
+    if(!pickupIdentityMethods.includes(val('routine_verify'))){alert('Complete the collector identity check before handover.');return}
+  }
   let r=db.attendance[childId];r.date=r.date||TODAY;r.checkoutDate=TODAY;r.checkoutRecordedAt=new Date().toISOString();r.checkoutActor=staffActor();r.status='checked_out';r.checkOut=new Date(r.checkoutRecordedAt).toLocaleTimeString('en-GB',{timeZone:mpsPreschoolClockTimezone(),hour:'2-digit',minute:'2-digit'});r.collector=temp?instruction.name:val('collectorSelect');
-  if(temp)r.pickupVerification={instructionId:instruction.id,instruction:JSON.parse(JSON.stringify(instruction)),method:val('temp_verify'),at:new Date().toISOString(),actor:staffActor()};
+  r.pickupVerification=temp?{instructionId:instruction.id,instruction:JSON.parse(JSON.stringify(instruction)),method:val('temp_verify'),at:new Date().toISOString(),actor:staffActor()}:{method:val('routine_verify'),at:new Date().toISOString(),actor:staffActor()};
   // Persist verified departure before optional fee processing.
   if(!save())return;
   processCheckoutLatePickup(childId,r);
@@ -49413,6 +49427,7 @@ function modalView(m){let n=m.name,d=m.data||{};
   if(n==='rapid-arrival')return modal('Rapid arrival','Fast convenience; each selected child still becomes physically present individually.',attendanceRoster().filter(x=>x.status!=='present').map(r=>`<label class="check-row"><input data-arrival type="checkbox" value="${r.id}"> ${r.name}</label>`).join('')||notice('No eligible children need arrival recording.','info'),`${btn('Cancel','closeOverlay()','secondary')}${btn('Check in selected','rapidArrival()','primary')}`);
   if(n==='attendance-absence')return attendanceAbsenceModal(d.childId);
   if(n==='temporary-pickup-instruction')return temporaryPickupInstructionModal(d.childId,d.id);
+  if(n==='checkout-other-authorisation')return checkoutOtherAuthorisationModal(d.childId);
   if(n==='checkout'||n==='temporary-pickup')return attendanceCheckoutModal(d.childId,n==='temporary-pickup');
   if(n==='checkout-correction')return attendanceCheckoutCorrectionModal(d.childId,d.date);
   if(n==='attendance-correction')return attendanceArrivalCorrectionModal(d.childId);
@@ -49425,7 +49440,7 @@ function modalView(m){let n=m.name,d=m.data||{};
   if(n==='observation')return mpsObservationModal(d);
   if(n==='assessment')return mpsAssessmentModal(d);
   if(n==='published-info'){let w=currentWeek();return modal('Week is published','Teachers see this approved plan in Today.',`${kv('Published by',profileStaffLink(w.approvedById,w.approvedBy))}${kv('Week',w.label)}${kv('Status','Published')}`,btn('Close','closeOverlay()','secondary'))}
-  if(n==='health-update'){let u=db.health.updates[d.id];if(!u||!has('Head Teacher')||!canViewChildHealth(u.childId))return modal('Health update unavailable','',notice('You do not have access to review this Health update.','warn'),btn('Close','closeOverlay()','secondary'));return modal('Review Health update','Do not overwrite authoritative Health until reviewed.',`${kv('Child',profileChildLink(u.childId,u.childName))}${kv('Parent submission',esc(u.summary))}<div class="section-title">Current Health record</div>${childHealthContext(u.childId)}${textArea('Review note','Confirmed new instructions with guardian; update current Health plan.','hu_note')}`,`${btn('Keep pending','closeOverlay()','secondary')}${btn('Confirm into Health',`confirmHealthUpdate('${u.id}')`,'primary')}`)}
+  if(n==='health-update'){let u=db.health.updates[d.id];if(!u||!has('Head Teacher')||!canViewChildHealth(u.childId))return modal('Health update unavailable','',notice('You do not have access to review this Health update.','warn'),btn('Close','closeOverlay()','secondary'));return modal('Review Health update','Do not overwrite authoritative Health until reviewed.',`${kv('Child',profileChildLink(u.childId,u.childName))}${kv('Parent submission',esc(u.summary))}<div class="section-title">Current Health record</div>${childHealthContext(u.childId)}${textArea('Review note','','hu_note')}`,`${btn('Keep pending','closeOverlay()','secondary')}${btn('Confirm into Health',`confirmHealthUpdate('${u.id}')`,'primary')}`)}
   if(n==='medication'){return modal('Medication administration','Current valid authorisation required.',`${kv('Child',profileChildLink('minoli'))}${kv('Medication',db.health.medAuth.minoli.medication)}${kv('Authorisation',badge(db.health.medAuth.minoli.status,db.health.medAuth.minoli.status==='current'?'green':'red'))}${selectField('Outcome',['Administered','Refused','Child absent','Not administered — other'],'Administered','med_outcome')}${field('Actual time','14:03','time',false,'med_time')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record actual outcome','recordMedication()','primary')}`)}
   if(n==='med-authorisation')return modal('Replace medication authorisation','A new valid instruction replaces the old current version.',`${field('Medication','Prescribed inhaler','text',true)}${textArea('Current instruction',db.health.medAuth.minoli.instruction,'ma_instruction')}${notice('Casual verbal/WhatsApp messages alone are not routine medication authorisation.','warn')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save replacement','replaceMedicationAuth()','primary')}`);
   if(n==='incident')return modal('New incident','Care first; record objective facts as soon as safely practical.',`${selectField('Category',['Accident / Injury','Illness / Medical event','Behaviour / Safeguarding concern','Safety / Facility incident','Uncollected Child','Other'],'Accident / Injury','inc_cat')}${textArea('What happened','','inc_what')}${textArea('Immediate action','','inc_action')}${selectField('Guardian contact',['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'],'Not yet contacted','inc_contact')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save incident','saveIncident()','primary')}`);
@@ -49619,7 +49634,7 @@ saveAdaptation=function(uid){let p=planActivityByUid(uid);if(!plannedActivityCan
 function mpsPlannedExperiencePreview(activity){const snapshot=activity?.guidanceSnapshot;if(!snapshot?.offers?.length)return '';const chosen=snapshot.offers.filter(offer=>offer.code==='C'||snapshot.themeBands?.includes(offer.band)||snapshot.bands?.length===1&&offer.code==='O'),first=chosen.find(offer=>typeof offer.offer==='string'&&offer.offer.trim());return first?`<p class="planned-experience-preview" data-planned-experience><strong>For ages ${esc(first.band)}:</strong> ${esc(first.offer)}</p>${chosen.length>1?'<small class="planned-experience-more">Other age guidance in detail</small>':''}`:''}
 function mpsPlannedActivityArea(lib){const areas=mpsLearningAreas(lib);return `<div class="planned-learning-area" data-planned-learning-area>${areas.length?`<strong>${areas.length===1?'Learning area':'Learning areas'}:</strong> ${areas.slice(0,2).map(esc).join(' · ')}${areas.length>2?` · +${areas.length-2} more`:''}`:'Learning area not recorded'}</div>`}
 function mpsOriginalActivityHtml(lib,snapshot=null,includeOther=true){return `<details class="planned-original-source" data-original-activity-source><summary>Original activity & source</summary>${includeOther?mpsB09OtherGuidanceHtml(snapshot):''}${mpsActivitySourceHtml(lib,mpsB09VisibleTexts(snapshot))}</details>`}
-activityCard=function(a,day){let p=planActivityByUid(a.uid),lib=mpsResolveActivity(mpsLibraryActivity(a.libId,p?.wk),a);if(!lib)return `<div class="lesson-card"><div class="title">Activity unavailable</div></div>`;let editable=plannedActivityCanChange(p);return `<div class="lesson-card planned-lesson-card" data-source-activity="${esc(lib.id)}"><div class="title">${esc(lib.title)}</div>${mpsPlannedActivityArea(lib)}${mpsPlannedExperiencePreview(a)}${a.adaptation?`<div class="planned-teacher-change" data-planned-teacher-change><strong>Your change:</strong> ${esc(a.adaptation)}</div>`:''}${a.materialsAdaptation?`<div class="materials"><span class="material">Materials change: ${esc(a.materialsAdaptation)}</span></div>`:''}${lib.materials?`<div class="materials"><span class="material">${esc(lib.materials)}</span></div>`:''}<div class="lesson-card-actions">${btn(editable?'Open / adapt':'View details',`openDrawer('activity-detail',{uid:'${a.uid}'})`,'secondary','sm')}${mpsActualStatus(p)?badge(mpsActualLabel(mpsActualStatus(p).outcome),mpsActualTone(mpsActualStatus(p).outcome)):''}</div></div>`}
+activityCard=function(a,day){let p=planActivityByUid(a.uid),lib=mpsResolveActivity(mpsLibraryActivity(a.libId,p?.wk),a);if(!lib)return `<div class="lesson-card"><div class="title">Activity unavailable</div></div>`;let editable=plannedActivityCanChange(p),hasSavedClassOffer=!!a.guidanceSnapshot?.offers?.some(offer=>typeof offer?.offer==='string'&&offer.offer.trim());return `<div class="lesson-card planned-lesson-card" data-source-activity="${esc(lib.id)}"><div class="title">${esc(lib.title)}</div>${mpsPlannedActivityArea(lib)}${mpsPlannedExperiencePreview(a)}${a.adaptation?`<div class="planned-teacher-change" data-planned-teacher-change><strong>Your change:</strong> ${esc(a.adaptation)}</div>`:''}${a.materialsAdaptation?`<div class="materials"><span class="material">Materials change: ${esc(a.materialsAdaptation)}</span></div>`:''}${!hasSavedClassOffer&&lib.materials?`<div class="materials"><span class="material">${esc(lib.materials)}</span></div>`:''}<div class="lesson-card-actions">${btn(editable?'Open / adapt':'View details',`openDrawer('activity-detail',{uid:'${a.uid}'})`,'secondary','sm')}${mpsActualStatus(p)?badge(mpsActualLabel(mpsActualStatus(p).outcome),mpsActualTone(mpsActualStatus(p).outcome)):''}</div></div>`}
 
 renderWeekBoard=function(w){
  const days=lessonWeekDays().map(x=>x.id),count=days.reduce((n,day)=>n+w.days[day].length,0),canAdd=canAddToCurrentWeek(w);
@@ -53263,7 +53278,7 @@ const MPS_PLAIN_LANGUAGE_REPLACEMENTS = [
   ['Amaya has one audited arrival-time correction.','Amaya has one corrected arrival time.'],
   ['Rapid arrival','Quick check-in'],
   ['Fast convenience; each selected child still becomes physically present individually.','Check in several children quickly.'],
-  ['Routine authorised collector · manual human check','Authorised collector checked by staff'],
+  ['Routine authorised collector · manual human check','Verification required before handover'],
   ['Human verification remains the safety decision.','Confirm the collector before handing over the child.'],
   ['Authorised corrections preserve the original fact and amendment.','The original time and the correction are both kept in the history.'],
 
@@ -55433,7 +55448,14 @@ function profileCollectorField(childId){
   const field=selectField('Collector',options,missing?'':options[0],'collectorSelect',`updatePickupIdentityPreview('${childId}',this.value)`);
   return missing?field.replace(/(<select[^>]*>)/,'$1<option value="" selected disabled>No authorised pickup people recorded</option>'):field;
 }
-function updatePickupIdentityPreview(childId,collector){const current=document.querySelector('.pickup-identity');if(current)current.outerHTML=profilePickupIdentity(childId,collector)}
+function updatePickupIdentityPreview(childId,collector){
+  const current=document.querySelector('.pickup-identity');if(current)current.outerHTML=profilePickupIdentity(childId,collector);
+  const unlisted=!collector||collector==='Other authorised collector';
+  const routine=byId('pickup_routine_check'),help=byId('pickup_unlisted_help'),action=document.querySelector('[data-checkout-action] button');
+  if(routine)routine.hidden=unlisted;
+  if(help)help.hidden=!unlisted;
+  if(action)action.textContent=unlisted?'Continue to Guardian authorisation':'Record checkout';
+}
 function profilePickupIdentity(childId,collector=null){
   if(!canViewPickup(childId))return '';
   const child=db.people.children[childId],c=profileCase(child),all=familyRecord(childId).pickup,pickups=collector===null?all.slice(0,1):all.filter(p=>p.name+' · '+p.relationship===collector);
@@ -55721,6 +55743,34 @@ function activeTemporaryPickup(childId){
 }
 function canManageTemporaryPickup(childId){return canManageChild(childId)&&canViewPickup(childId)}
 function temporaryPickupValidity(p){return p.legacyValidity||`${p.date===TODAY?'Today':fmtDate(p.date)}${p.from&&p.until?' '+p.from+'–'+p.until:''}`}
+function checkoutAuthorisingGuardians(childId){
+  return childLinks(childId).filter(link=>link.legalAuthority==='Yes'&&!link.deactivated&&db.people.guardians[link.guardianId]?.name);
+}
+function preschoolPickupTime(now=new Date()){
+  return new Intl.DateTimeFormat('en-GB',{timeZone:mpsPreschoolClockTimezone(),hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now);
+}
+function checkoutOtherAuthorisationModal(childId){
+  if(!attendanceCanCheckout(childId))return modal('Temporary pickup','',notice('This child is not available for checkout in your scope.','warn'),btn('Close','closeOverlay()','secondary'));
+  if(!canManageTemporaryPickup(childId))return modal('Temporary pickup','',notice('Ask the Head Teacher to record the Guardian’s temporary authorisation. Keep the child checked in until the collector is verified.','warn'),btn('Close','closeOverlay()','secondary'));
+  const guardians=checkoutAuthorisingGuardians(childId);
+  if(!guardians.length)return modal('Temporary pickup','',notice('No authorised Guardian is recorded for this child. Keep the child checked in and ask the Head Teacher to resolve the family record.','warn'),btn('Close','closeOverlay()','secondary'));
+  return modal('Authorise temporary pickup','Record the Guardian’s instruction for this collector. Staff must verify the collector separately before handover.',
+    `${kv('Child',esc(profileChildName(childId)))}${field('Collector name','','text',false,'co_name')}<div class="field"><label for="co_guardian">Authorising Guardian</label><select id="co_guardian"><option value="" selected disabled>Select Guardian</option>${guardians.map(link=>`<option value="${esc(link.id)}">${esc(db.people.guardians[link.guardianId].name)}</option>`).join('')}</select></div>${selectField('Request source',['Select…','WhatsApp','Phone','In person'],'Select…','co_source')}${textArea('Authorisation reference / what the Guardian confirmed','','co_reference')}${kv('Valid',esc(`${fmtDate(TODAY)} · from now until 11:59 PM`))}`,
+    btn('Cancel','closeOverlay()','secondary')+btn('Record authorisation',`recordCheckoutAuthorisation('${childId}')`,'primary'));
+}
+function recordCheckoutAuthorisation(childId){
+  if(!attendanceCanCheckout(childId)||!canManageTemporaryPickup(childId)||activeTemporaryPickup(childId))return;
+  const link=checkoutAuthorisingGuardians(childId).find(item=>item.id===val('co_guardian'));
+  const name=val('co_name').trim(),source=val('co_source'),reference=val('co_reference').trim();
+  if(!link||!name||!['WhatsApp','Phone','In person'].includes(source)||!reference){alert('Record the collector, authorising Guardian, request source and what the Guardian confirmed.');return}
+  if(temporaryPickupInstructions(childId).some(p=>p.date===TODAY)){alert('A temporary instruction already exists for today. Review that instruction before handover.');return}
+  const guardian=db.people.guardians[link.guardianId],at=new Date().toISOString(),actor=staffActor();
+  const instruction={id:'temporary_'+crypto.randomUUID(),childId,name,date:TODAY,from:preschoolPickupTime(),until:'23:59',
+    guardianId:guardian.id,guardianLinkId:link.id,requestedBy:guardian.name,source,reference,recordedAt:at,recordedActor:actor,
+    origin:'Checkout Guardian authorisation',history:[{at,actor,action:'Guardian authorisation recorded at checkout',before:null}]};
+  const family=editableFamily(childId);family.temporaryPickups=family.temporaryPickups||[];family.temporaryPickups.push(instruction);
+  openModal('checkout',{childId});
+}
 function ensureAttendanceReviewSamples(){
   if(db.attendanceReviewSamples)return false;
   // Move the exact old demonstration instruction, retaining unknown attribution.
@@ -55811,9 +55861,16 @@ function attendanceCheckoutModal(childId,temporaryOnly=false){
   if(!attendanceCanCheckout(childId))return modal('Checkout child','',notice('This child is not currently available for checkout in your scope.','warn'),btn('Close','closeOverlay()','secondary'));
   const p=activeTemporaryPickup(childId);
   if(p)return modal('Temporary pickup · '+profileChildName(childId),'Human verification remains the safety decision.',
-    kv('Instruction',esc(p.name+' · '+temporaryPickupValidity(p)))+kv('Requested by',esc(p.requestContext||[p.requestedBy,p.source].join(' · ')))+kv('Reference',esc(p.reference))+selectField('Physical identity check',['Reference photo matched by staff','Government photo ID checked','Live visual guardian confirmation'],'Reference photo matched by staff','temp_verify')+notice('If staff are not satisfied, do not release the child.','bad'),btn('Do not release','closeOverlay()','danger')+btn('Escalate uncollected',`escalateUncollected('${childId}')`,'secondary')+btn('Safe handover & checkout',`checkout('${childId}',true)`,'primary'));
+    kv('Instruction',esc(p.name+' · '+temporaryPickupValidity(p)))+kv('Requested by',esc(p.requestContext||[p.requestedBy,p.source].join(' · ')))+kv('Reference',esc(p.reference))+pickupIdentityCheckField('temp_verify')+notice('If staff are not satisfied, do not release the child.','bad'),btn('Do not release','closeOverlay()','danger')+btn('Escalate uncollected',`escalateUncollected('${childId}')`,'secondary')+btn('Safe handover & checkout',`checkout('${childId}',true)`,'primary'));
   if(temporaryOnly)return modal('Temporary pickup','',notice('No temporary pickup instruction is recorded for today.','warn'),btn('Close','closeOverlay()','secondary'));
-  return modal('Checkout child','Record only after safe handover.',profileCollectorField(childId)+kv('Verification','Routine authorised collector · manual human check'),btn('Cancel','closeOverlay()','secondary')+btn('Record checkout',`checkout('${childId}')`,'primary'));
+  const unlistedOnly=profileCollectorOptions(childId).length===1;
+  const routine=`<div id="pickup_routine_check" ${unlistedOnly?'hidden':''}>${kv('Verification','Routine authorised collector · manual human check')}${pickupIdentityCheckField('routine_verify')}</div>`;
+  const unlisted=`<div id="pickup_unlisted_help" ${unlistedOnly?'':'hidden'}>${notice('Record a Guardian’s temporary authorisation before checking the collector’s identity.','info')}</div>`;
+  return modal('Checkout child','Record only after safe handover.',profileCollectorField(childId)+unlisted+routine,btn('Cancel','closeOverlay()','secondary')+`<span data-checkout-action>${btn(unlistedOnly?'Continue to Guardian authorisation':'Record checkout',`checkout('${childId}')`,'primary')}</span>`);
+}
+const pickupIdentityMethods=['Reference photo matched by staff','Government photo ID checked','Live visual guardian confirmation'];
+function pickupIdentityCheckField(id){
+  return `<div class="field"><label for="${id}">Physical identity check</label><select id="${id}"><option value="" selected disabled>Select the check completed</option>${pickupIdentityMethods.map(method=>`<option value="${esc(method)}">${esc(method)}</option>`).join('')}</select></div>`;
 }
 
 // Current and historical daily records have one owner: Attendance. The Child
@@ -57161,7 +57218,9 @@ function mpsAssessmentTargets(context){
 }
 function mpsAssessmentBroaderTargets(context){
  // Only explicitly source-checked links are eligible for manual selection.
- if(context?.planned||context?.actual||context?.source)return [];
+ // An existing Observation may be assessed against a deliberately selected
+ // reviewed target even when its truthful actual-teaching context is local.
+ if(!context?.observation&&(context?.planned||context?.actual||context?.source))return [];
  const week={curriculumSnapshot:context.curriculum},edition=mpsSourceEditionForWeek(week),seen=new Set(),items=[];
  if(!edition||mpsCurriculumSourceData.editions[edition]?.packId!==context.curriculum?.packId)return [];
  for(const activity of Object.values(mpsCurriculumSourceData.activities))if(activity.editionId===edition)for(const link of activity.curriculumLinks||[]){
@@ -57207,9 +57266,9 @@ function mpsAssessmentModal(data={}){
  const contextual=mpsAssessmentTargets(context),broader=contextual.length?[]:mpsAssessmentBroaderTargets(context),searching=!contextual.length&&data.broaderSearch===true&&broader.length>0,selectedBroader=searching&&broader.find(item=>item.targetId===data.broaderTargetId);
  const children=currentChildrenInScope().filter(child=>childClassroom(child)===context.roomId),chosen=context.observation?.childId||data.childId||null,observationId=context.observation?.id||null;
  if(!contextual.length&&!searching){
-  const spontaneous=!!context.observation&&!context.source&&!context.activityUid&&!context.actualTeachingId;
-  const message=spontaneous?'<strong>No learning target is linked to this observation.</strong><p>Keep this as evidence, or find a reviewed learning target only if one genuinely matches what you observed.</p>':'No explicit assessment target is linked to this experience. You can still record what you noticed as an Observation.';
-  const observationAction=spontaneous?'':btn('Add observation',`openModal('observation',{${context.activityUid?`uid:'${context.activityUid}'`:context.actualTeachingId?`actualId:'${context.actualTeachingId}'`:`classroomId:'${context.roomId}',date:'${context.date}'`}})`,'primary');
+  const existingObservation=!!context.observation;
+  const message=existingObservation?'<strong>No learning target is linked to this observation.</strong><p>Keep this as evidence, or find a reviewed learning target only if one genuinely matches what you observed.</p>':'No explicit assessment target is linked to this experience. You can still record what you noticed as an Observation.';
+  const observationAction=existingObservation?'':btn('Add observation',`openModal('observation',{${context.activityUid?`uid:'${context.activityUid}'`:context.actualTeachingId?`actualId:'${context.actualTeachingId}'`:`classroomId:'${context.roomId}',date:'${context.date}'`}})`,'primary');
   return modal('Assess learning','',`${context.title?kv('Experience',esc(context.title)):''}${notice(message,'info')}`,`${btn('Cancel','closeOverlay()','secondary')}${broader.length?btn('Find a learning target','mpsAssessmentOpenBroaderSearch()','secondary'):observationAction}`);
  }
  if(searching&&!selectedBroader){
@@ -57595,6 +57654,10 @@ function mpsSeedGovernedNieReviewSample(){
  db.curriculum.weeks[room][monday]=sample;
  // Past day's synthetic Done record; Tuesday remains ready for Owner outcome review.
  db.curriculum.actualTeaching.ht_nie_v2_monday={id:'ht_nie_v2_monday',classroomId:room,date:monday,plannedUid:'ht_nie_v2_Mon_0',outcome:'DONE',experience:null,note:'',actor,recordedAt:'2026-09-28T09:30:00.000Z',history:[]};
+ // This is a new versioned review store. Earlier Owner/Head Teacher stores
+ // and their genuine saved Health history remain untouched.
+ db.health.profiles.imani={...db.health.profiles.imani,instructions:"Parent-reported storage: Imani's labelled inhaler is in her classroom bag. This note does not authorise administration."};
+ db.health.updates.hu1={...db.health.updates.hu1,summary:"Parent reports a change: Imani's labelled inhaler is now kept at Reception rather than in her classroom bag. This note does not authorise administration."};
  db.headTeacherNieSampleVersion=2;ui().lessonClass=room;ui().lessonWeek=monday;
  // Other classroom's genuine Shiny Hands evidence/assessment/Term report examples remain.
  return true;
