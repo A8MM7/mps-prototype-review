@@ -36,16 +36,17 @@ function mpsB09ActivitySnapshot(lib,day){
  return {version:context.version,date:context.date,range:context.range,bands:context.bands,termId:context.termId,termName:context.termName,termReference:context.termReference,theme:context.theme,coreBands:guidance.coreBands,themeBands:guidance.themeBands,offers:guidance.bands.map(({band,code,version,offer,teacherOffer})=>({band,code,version,offer:teacherOffer||offer,internalOffer:offer})),safeguards:guidance.safeguards,internalSafeguards:guidance.internalSafeguards,presentation:{version:mpsTeacherGuidance.version,sha256:mpsTeacherGuidance.sha256,inputs:mpsSourceCopy(mpsTeacherGuidance.inputs)}};
 }
 function mpsB09BandNames(bands){return bands.length?`ages ${bands.join(bands.length===2?' and ':', ')}`:''}
-function mpsB09CardGuidance(lib,context){
- const guidance=mpsB09Activity(lib,context);if(!guidance||!guidance.section)return '';
- const selected=guidance.bands.filter(p=>p.code==='C'||guidance.themeBands.includes(p.band)),first=selected[0];
- return `<div class="b09-card-guidance" data-b09-card><div class="b09-labels">${guidance.coreBands.length?`<span>Core for ${esc(mpsB09BandNames(guidance.coreBands))}</span>`:''}${guidance.themeBands.length?`<span>Theme choice for ${esc(mpsB09BandNames(guidance.themeBands))}</span>`:''}${guidance.coreBands.length&&guidance.themeMatch?'<span>Fits this month’s theme</span>':''}</div>${first?`<p><strong>For ${esc(mpsB09BandNames([first.band]))}:</strong> ${esc(first.teacherOffer||first.offer)}</p>`:''}${selected.length>1?`<small>Different experiences for ${esc(mpsB09BandNames(selected.slice(1).map(p=>p.band)))}. View details.</small>`:''}</div>`;
+function mpsB09CardGuidance(lib,context,showOptional=false){
+ const guidance=mpsB09Activity(lib,context);if(!guidance)return '';
+ const selected=guidance.bands.filter(p=>p.code==='C'||guidance.themeBands.includes(p.band)),optional=showOptional&&!guidance.section?guidance.bands.find(p=>p.code==='O'&&p.teacherOffer):null,first=selected[0]||optional;
+ if(!first)return '';
+ return `<div class="b09-card-guidance" data-b09-card><div class="b09-labels">${guidance.coreBands.length?`<span>Core for ${esc(mpsB09BandNames(guidance.coreBands))}</span>`:''}${guidance.themeBands.length?`<span>Theme choice for ${esc(mpsB09BandNames(guidance.themeBands))}</span>`:''}${guidance.coreBands.length&&guidance.themeMatch?'<span>Fits this month’s theme</span>':''}${optional?'<span>Optional in the wider Library</span>':''}</div><p><strong>For ${esc(mpsB09BandNames([first.band]))}:</strong> ${esc(first.teacherOffer||first.offer)}</p>${selected.length>1?`<small>Different experiences for ${esc(mpsB09BandNames(selected.slice(1).map(p=>p.band)))}. View details.</small>`:''}</div>`;
 }
 function mpsB09DetailHtml(lib,context,snapshot=null,planned=false){
  const guidance=snapshot?{bands:snapshot.offers,coreBands:snapshot.coreBands,themeBands:snapshot.themeBands,safeguards:snapshot.safeguards}:mpsB09Activity(lib,context);
  if(!guidance)return '';
- const chosen=guidance.bands.filter(p=>p.code==='C'||guidance.themeBands.includes(p.band)||planned&&snapshot?.bands?.length===1&&p.code==='O');
- return `<section class="b09-detail" data-b09-detail><h3>For your class</h3><p class="b09-context">${esc(snapshot?.range||context?.range)} years · ${esc(snapshot?.termName||context?.termName)}${(snapshot?.theme||context?.theme)?` · ${esc((snapshot?.theme||context?.theme).name)}`:''}</p>${chosen.length?chosen.map(p=>`<div class="b09-offer" data-b09-band="${esc(p.band)}"><strong>${p.code==='C'?'Core choice':guidance.themeBands.includes(p.band)?'Theme choice':'Planned experience'} for ages ${esc(p.band)}</strong><p>${esc(p.teacherOffer||p.offer)}</p></div>`).join(''):'<p>Browse this activity in the wider Library for this date.</p>'}${guidance.safeguards?`<details class="b09-safeguards" open><summary>Preparation and safeguards</summary><p>${esc(guidance.safeguards)}</p></details>`:''}${planned?'':'<small>Choose and adapt this experience for your class.</small>'}</section>`;
+ const chosen=guidance.bands.filter(p=>p.code==='C'||guidance.themeBands.includes(p.band)||p.code==='O'&&(planned&&snapshot?.bands?.length===1||!planned&&!!p.teacherOffer));
+ return `<section class="b09-detail" data-b09-detail><h3>For your class</h3><p class="b09-context">${esc(snapshot?.range||context?.range)} years · ${esc(snapshot?.termName||context?.termName)}${(snapshot?.theme||context?.theme)?` · ${esc((snapshot?.theme||context?.theme).name)}`:''}</p>${chosen.length?chosen.map(p=>`<div class="b09-offer" data-b09-band="${esc(p.band)}"><strong>${p.code==='C'?'Core choice':guidance.themeBands.includes(p.band)?'Theme choice':planned?'Planned experience':'Optional choice'} for ages ${esc(p.band)}</strong><p>${esc(p.teacherOffer||p.offer)}</p></div>`).join(''):'<p>Browse this activity in the wider Library for this date.</p>'}${guidance.safeguards?`<details class="b09-safeguards" open><summary>Preparation and safeguards</summary><p>${esc(guidance.safeguards)}</p></details>`:''}${planned?'':'<small>Choose and adapt this experience for your class.</small>'}</section>`;
 }
 function mpsB09VisibleTexts(snapshot){if(!snapshot?.offers?.length)return [];const chosen=snapshot.offers.filter(p=>p.code==='C'||snapshot.themeBands?.includes(p.band));return [...chosen.map(p=>p.offer),snapshot.safeguards].filter(Boolean)}
 function mpsB09OtherGuidanceHtml(snapshot){if(!snapshot?.offers?.length||snapshot.bands?.length<=1)return '';const chosen=snapshot.offers.filter(p=>p.code==='C'||snapshot.themeBands?.includes(p.band)),other=snapshot.offers.filter(p=>!chosen.includes(p));return other.length?`<section class="b09-source-other"><h4>Other retained age-band guidance</h4>${other.map(p=>`<p><strong>${esc(p.band)} · ${p.code==='O'?'Optional in the wider Library':'Not a default choice'}:</strong> ${esc(p.offer)}</p>`).join('')}</section>`:''}
@@ -130,7 +131,7 @@ function curriculumSettingsContext(packId,adoptionDate=''){
  const pack=mpsCurriculumPack(packId),current=mpsCurrentCurriculumVersion(pack),upcoming=mpsUpcomingCurriculumVersion(pack);
  if(!pack||!current)return notice('This curriculum pack is not available for new planning. Choose an available pack.','warn');
  const transition=upcoming?.transitionWindow;
- return `<div class="curriculum-version-context">${kv('Current version',`<strong>${esc(current.label)}</strong><small data-source-status>Eliira manages pack versions. Activity details show source and review status.</small>`)}${upcoming?kv('Upcoming version',`<strong>${esc(upcoming.label)}</strong>${upcoming.effectiveFrom?`<small>Effective ${fmtDate(upcoming.effectiveFrom)}</small>`:''}`):''}${transition?`<div class="field curriculum-adoption-date"><label for="curriculum_adoption_date">Adoption date (optional)</label><input id="curriculum_adoption_date" type="date" min="${esc(transition.start)}" max="${esc(transition.end)}" value="${esc(adoptionDate||'')}"><small>Choose a date from ${fmtDate(transition.start)} to ${fmtDate(transition.end)}.</small></div>`:''}</div>`;
+ return `<div class="curriculum-version-context">${kv('Current version',`<strong>${esc(current.label==='Prototype curriculum sample'?'Sample curriculum content':current.label)}</strong><small data-source-status>Eliira manages pack versions. Activity details show source and review status.</small>`)}${upcoming?kv('Upcoming version',`<strong>${esc(upcoming.label)}</strong>${upcoming.effectiveFrom?`<small>Effective ${fmtDate(upcoming.effectiveFrom)}</small>`:''}`):''}${transition?`<div class="field curriculum-adoption-date"><label for="curriculum_adoption_date">Adoption date (optional)</label><input id="curriculum_adoption_date" type="date" min="${esc(transition.start)}" max="${esc(transition.end)}" value="${esc(adoptionDate||'')}"><small>Choose a date from ${fmtDate(transition.start)} to ${fmtDate(transition.end)}.</small></div>`:''}</div>`;
 }
 function curriculumSettingsFields(){
  const configured=mpsTenantCurriculum(),available=mpsAvailableCurriculumPacks(),selected=available.some(pack=>pack.id===configured.primaryPackId)?configured.primaryPackId:MPS_DEFAULT_CURRICULUM_PACK_ID;
@@ -47845,7 +47846,7 @@ function placementSummary(p){if(!validPlacement(p))return notice('Head Teacher p
 function admissionPlacementReview(c){
  if(c.closed||c.migrationHistory||c.enrolment||!['submitted','waitlisted'].includes(c.application?.status))return '';
  const suggestion=suggestLevel(c.dob,c.start),p=c.confirmedPlacement;
- return `<section class="card" style="margin-bottom:16px"><h3>Placement review</h3>${kv('Likely level',esc(suggestion.label))}${kv('Desired start',fmtDate(c.start))}${notice('Age suggests a level. Head Teacher confirms the actual classroom.','info')}${has('Head Teacher')?placementFields(p||{},'placement')+btn(p?'Update placement':'Confirm placement',`confirmApplicationPlacement('${c.id}')`,'primary'):placementSummary(p)}${p?kv('Confirmed by',esc(p.actor?.name||p.source||'Not recorded')):''}</section>`;
+ return `<section class="card"><h3>Placement review</h3>${kv('Likely level',esc(suggestion.label))}${kv('Desired start',fmtDate(c.start))}${notice('Age suggests a level. Head Teacher confirms the actual classroom.','info')}${has('Head Teacher')?placementFields(p||{},'placement')+btn(p?'Update placement':'Confirm placement',`confirmApplicationPlacement('${c.id}')`,'primary'):placementSummary(p)}${p?kv('Confirmed by',esc(p.actor?.name||p.source||'Not recorded')):''}</section>`;
 }
 function confirmApplicationPlacement(id){const c=db.admissions[id];if(!has('Head Teacher')||!c||c.closed||c.enrolment||!['submitted','waitlisted'].includes(c.application?.status))return;const p={levelId:val('placement_level'),classroomId:val('placement_room'),startDate:c.start,confirmedAt:new Date().toISOString(),actor:staffActor()};if(!validPlacement(p)||educationLevel(p.levelId).retired||!educationDate(c.start)){alert('Select a classroom belonging to an active level.');return}p.levelName=educationLevel(p.levelId).name;p.classroomName=educationRoom(p.classroomId).name;p.classroomLabel=classroomLabel(p.classroomId,true);c.placementHistory=c.placementHistory||[];if(c.confirmedPlacement)c.placementHistory.push(JSON.parse(JSON.stringify(c.confirmedPlacement)));c.confirmedPlacement=p;addEvent(id,'placement_confirmed','Placement confirmed',classroomLabel(p.classroomId,true));save();render()}
 function childPlacementControls(child){const e=childEnrolment(child);if(!has('Head Teacher')||!e)return '';return `<details class="card"><summary>Classroom placement</summary>${placementSummary(educationPlacement(e))}${placementFields(educationPlacement(e)||{},'transition')}${field('Effective date',TODAY,'date',false,'transition_date')}${textArea('Reason','','transition_reason')}${btn('Confirm classroom transition',`confirmChildTransition('${child.id}')`,'primary')}${(e.placementHistory||[]).map(p=>kv(p.effectiveDate?fmtDate(p.effectiveDate):'Historical date not recorded',esc(p.classroomLabel||classroomLabel(p.classroomId,true)))).join('')}</details>`}
@@ -48027,9 +48028,10 @@ const ORG = prototypeTenantConfig.name;
 const fixtureUrl=new URL(location.href),explicitFixture=fixtureUrl.searchParams.get('qaFixture');
 // The ordinary entry and its older Head Teacher URL share one controlled store.
 // An explicit QA fixture always keeps its own isolated store.
-const headTeacherReview=!explicitFixture;
+const cleanHeadTeacherReview=!explicitFixture;
+const headTeacherReview=cleanHeadTeacherReview||explicitFixture==='headteacher-v8';
 const governedNieReview=headTeacherReview;
-const requestedFixture=explicitFixture||(governedNieReview?'batche':null);
+const requestedFixture=explicitFixture==='headteacher-v8'?'batche':explicitFixture;
 const fixtureChanged=!!requestedFixture&&!document.cookie.split('; ').includes(`mpsQaFixture=${requestedFixture==='clean'?'':requestedFixture}`);
 if(['populated','batchc','batchd','batche','clean'].includes(requestedFixture)){
  document.cookie=`mpsQaFixture=${requestedFixture==='clean'?'':requestedFixture}; Path=/; SameSite=Lax; Max-Age=${requestedFixture==='clean'?0:31536000}`;
@@ -48040,13 +48042,13 @@ const batchEReviewFixture=requestedFixture==='batche';
 const batchDReviewFixture=batchEReviewFixture||requestedFixture==='batchd';
 const batchCReviewFixture=batchDReviewFixture||requestedFixture==='batchc';
 const populatedQaFixture=batchCReviewFixture||requestedFixture==='populated';
-const storageKey = headTeacherReview?'mpsPrototypeHeadTeacherNie2026V5':batchEReviewFixture?'mpsPrototypeBatchECalendar2026V2':batchDReviewFixture?'mpsPrototypeBatchDCalendar2026V2':batchCReviewFixture?'mpsPrototypeBatchCCalendar2026V3':populatedQaFixture?'mpsPrototypeProductCalendar2026V4':'mpsPrototypeOwnerReviewCleanV1';
+const storageKey = cleanHeadTeacherReview?'mpsPrototypeHeadTeacherCleanV2':headTeacherReview?'mpsPrototypeHeadTeacherNie2026V8':batchEReviewFixture?'mpsPrototypeBatchECalendar2026V2':batchDReviewFixture?'mpsPrototypeBatchDCalendar2026V2':batchCReviewFixture?'mpsPrototypeBatchCCalendar2026V3':populatedQaFixture?'mpsPrototypeProductCalendar2026V4':'mpsPrototypeOwnerReviewCleanV1';
 const qaDateCookie=document.cookie.split('; ').find(part=>part.startsWith('mpsQaDate='))?.slice('mpsQaDate='.length)||'';
 const frozenQaDate=/^\d{4}-\d{2}-\d{2}$/.test(qaDateCookie)&&!Number.isNaN(Date.parse(`${qaDateCookie}T12:00:00Z`))?qaDateCookie:null;
 const prototypeReviewToolsActive=populatedQaFixture&&fixtureUrl.searchParams.get('reviewTools')==='1';
 const reviewDateStorageKey=headTeacherReview?'mpsHeadTeacherNieReviewDate':'mpsPrototypeReviewDate';
 const savedReviewDate=populatedQaFixture?sessionStorage.getItem(reviewDateStorageKey):null;
-const reviewDateChoice=governedNieReview&&(!prototypeReviewToolsActive||!savedReviewDate)?'2026-09-29':savedReviewDate;
+const reviewDateChoice=cleanHeadTeacherReview?'today':governedNieReview&&(!prototypeReviewToolsActive||!savedReviewDate)?'2026-09-29':savedReviewDate;
 function mpsPreschoolLocalDate(now=new Date(),configuredTimezone=null){
  let timeZone='Asia/Colombo';
  try{const saved=JSON.parse(localStorage.getItem(storageKey));const configured=configuredTimezone||saved?.organization?.timezone;if(configured){new Intl.DateTimeFormat('en-GB',{timeZone:configured}).format(now);timeZone=configured}}catch(_error){}
@@ -48073,11 +48075,11 @@ function seedDB(){
     },
     admissions:{
       mihira:{id:'mihira',childName:'Mihira Ranasinghe',dob:'2024-04-05',guardian:'Chathuri Ranasinghe',phone:'070 331 8821',start:'2027-01-19',service:'Baby Class',source:'Walk-in / Signboard',reason:'Location / convenience',events:[ev('enquiry','Enquiry created','Walk-in / Signboard')],tour:null,application:{status:'not_sent',draft:null,snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null},
-      amaya:{id:'amaya',childName:'Amaya Perera',dob:'2024-03-14',guardian:'Nadeesha Perera',phone:'077 234 5678',start:'2027-01-05',service:'Baby Class + Standard Daycare',source:'Facebook',reason:'Educational approach / play-based learning',events:[ev('enquiry','Enquiry created','Facebook'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed','Family wants to proceed'),ev('application_sent','Application link sent','Secure WhatsApp link'),ev('application_submitted','Application submitted','Parent confirmed details'),ev('accepted','Application accepted','Baby Class · 05 Jan 2027'),ev('fee_invoice','Admission-fee invoice issued','LKR 15,000')],tour:{status:'completed',date:'2026-09-10',time:'10:00',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Amaya Perera',dob:'2024-03-14',guardian:'Nadeesha Perera',phone:'077 234 5678',service:'Baby Class + Standard Daycare',start:'2027-01-05',note:'Extended daycare may be needed later.'},snapshot:null},fee:{amount:15000,due:'2026-09-19',verified:5000,pending:[{id:'admp2',amount:10000,method:'Bank transfer',reference:'NP-ADM-10000',status:'pending'}],status:'pending'},enrolment:null,onboarding:null,closed:null},
-      senuri:{id:'senuri',childName:'Senuri Peris',dob:'2023-11-02',guardian:'Tharushi Peris',phone:'071 442 9011',start:'2027-01-05',service:'Upper Class',source:'Google / Search',reason:'Head Teacher / teaching quality',events:[ev('enquiry','Enquiry created','Google / Search'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed',''),ev('application_sent','Application link sent',''),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted','Upper Class'),ev('fee_invoice','Admission-fee invoice issued','LKR 15,000'),ev('fee_overdue','Admission fee became overdue','Due 10 Sep 2026')],tour:{status:'completed',date:'2026-09-04',time:'09:30',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Senuri Peris',dob:'2023-11-02',guardian:'Tharushi Peris',phone:'071 442 9011',service:'Upper Class',start:'2027-01-05',note:''},snapshot:null},fee:{amount:15000,due:'2026-09-10',verified:0,pending:[],status:'overdue'},enrolment:null,onboarding:null,closed:null},
-      nethmi:{id:'nethmi',childName:'Nethmi Silva',dob:'2024-01-23',guardian:'Dilani Silva',phone:'076 890 1142',start:'2027-01-12',service:'Baby Class + Extended Daycare',source:'WhatsApp',reason:'Extended daycare / operating hours',events:[ev('enquiry','Enquiry created','WhatsApp'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed','Family wants to proceed')],tour:{status:'completed',date:'2026-09-12',time:'11:00',outcome:'Family wants to proceed'},application:{status:'not_sent',draft:{childName:'Nethmi Silva',dob:'2024-01-23',guardian:'Dilani Silva',phone:'076 890 1142',service:'Baby Class + Extended Daycare',start:'2027-01-12',note:'Both guardians work full time.'},snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null},
-      thehan:{id:'thehan',childName:'Thehan Wijesinghe',dob:'2022-05-21',guardian:'Madhavi Wijesinghe',phone:'075 124 8899',start:'2027-01-05',service:'Upper Class',source:'Existing-family referral',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Existing-family referral'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed',''),ev('application_sent','Application link sent',''),ev('application_submitted','Application submitted','Parent submitted 13 Sep')],tour:{status:'completed',date:'2026-09-08',time:'10:30',outcome:'Family wants to proceed'},application:{status:'submitted',draft:{childName:'Thehan Wijesinghe',dob:'2022-05-21',guardian:'Madhavi Wijesinghe',phone:'075 124 8899',service:'Upper Class',start:'2027-01-05',note:'No additional note.'},snapshot:{submittedAt:'2026-09-13T18:00',data:{childName:'Thehan Wijesinghe'}}},fee:null,enrolment:null,onboarding:null,closed:null},
-      imani:{id:'imani',childName:'Imani de Alwis',dob:'2024-02-17',guardian:'Shanika de Alwis',phone:'077 551 3320',start:'2027-01-05',service:'Baby Class',source:'Website',reason:'Educational approach / play-based learning',events:[ev('enquiry','Enquiry created','Website'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed',''),ev('application_sent','Application link sent',''),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted',''),ev('fee_verified','Admission fee verified','LKR 15,000'),ev('enrolled','Enrolment created','Baby Class · 05 Jan 2027'),ev('onboarding_sent','New Family Onboarding link sent',''),ev('onboarding_submitted','New Family Onboarding submitted','Parent input awaiting review')],tour:{status:'completed',date:'2026-09-06',time:'09:00',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Imani de Alwis',dob:'2024-02-17',guardian:'Shanika de Alwis',phone:'077 551 3320',service:'Baby Class',start:'2027-01-05',note:''},snapshot:null},fee:{amount:15000,due:'2026-09-12',verified:15000,pending:[],status:'satisfied'},enrolment:{status:'active',className:'Baby Class',service:'Preschool',start:'2027-01-05'},onboarding:seedOnboarding('Imani de Alwis','Imani','2024-02-17','Shanika de Alwis','077 551 3320',{submitted:true,healthConfirmed:false}),closed:null}
+      amaya:{id:'amaya',childName:'Amaya Perera',dob:'2024-03-14',guardian:'Nadeesha Perera',phone:'077 234 5678',start:'2027-01-05',service:'Baby Class + Standard Daycare',source:'Facebook',reason:'Educational approach / play-based learning',events:[ev('enquiry','Enquiry created','Facebook'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed','Family wants to proceed'),ev('application_sent','Application link sent','Secure WhatsApp link'),ev('application_submitted','Application submitted','Parent confirmed details'),ev('accepted','Application accepted','Baby Class · 05 Jan 2027'),ev('fee_invoice','Admission-fee invoice issued','LKR 15,000')],tour:{status:'completed',date:'2026-09-10',time:'10:00',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Amaya Perera',dob:'2024-03-14',guardian:'Nadeesha Perera',phone:'077 234 5678',service:'Baby Class + Standard Daycare',start:'2027-01-05'},snapshot:null},fee:{amount:15000,due:'2026-09-19',verified:5000,pending:[{id:'admp2',amount:10000,method:'Bank transfer',reference:'NP-ADM-10000',status:'pending'}],status:'pending'},enrolment:null,onboarding:null,closed:null},
+      senuri:{id:'senuri',childName:'Senuri Peris',dob:'2023-11-02',guardian:'Tharushi Peris',phone:'071 442 9011',start:'2027-01-05',service:'Upper Class',source:'Google / Search',reason:'Head Teacher / teaching quality',events:[ev('enquiry','Enquiry created','Google / Search'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed',''),ev('application_sent','Application link sent',''),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted','Upper Class'),ev('fee_invoice','Admission-fee invoice issued','LKR 15,000'),ev('fee_overdue','Admission fee became overdue','Due 10 Sep 2026')],tour:{status:'completed',date:'2026-09-04',time:'09:30',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Senuri Peris',dob:'2023-11-02',guardian:'Tharushi Peris',phone:'071 442 9011',service:'Upper Class',start:'2027-01-05'},snapshot:null},fee:{amount:15000,due:'2026-09-10',verified:0,pending:[],status:'overdue'},enrolment:null,onboarding:null,closed:null},
+      nethmi:{id:'nethmi',childName:'Nethmi Silva',dob:'2024-01-23',guardian:'Dilani Silva',phone:'076 890 1142',start:'2027-01-12',service:'Baby Class + Extended Daycare',source:'WhatsApp',reason:'Extended daycare / operating hours',events:[ev('enquiry','Enquiry created','WhatsApp'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed','Family wants to proceed')],tour:{status:'completed',date:'2026-09-12',time:'11:00',outcome:'Family wants to proceed'},application:{status:'not_sent',draft:{childName:'Nethmi Silva',dob:'2024-01-23',guardian:'Dilani Silva',phone:'076 890 1142',service:'Baby Class + Extended Daycare',start:'2027-01-12'},snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null},
+      thehan:{id:'thehan',childName:'Thehan Wijesinghe',dob:'2022-05-21',guardian:'Madhavi Wijesinghe',phone:'075 124 8899',start:'2027-01-05',service:'Upper Class',source:'Existing-family referral',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Existing-family referral'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed',''),ev('application_sent','Application link sent',''),ev('application_submitted','Application submitted','Parent submitted 13 Sep')],tour:{status:'completed',date:'2026-09-08',time:'10:30',outcome:'Family wants to proceed'},application:{status:'submitted',draft:{childName:'Thehan Wijesinghe',dob:'2022-05-21',guardian:'Madhavi Wijesinghe',phone:'075 124 8899',service:'Upper Class',start:'2027-01-05'},snapshot:{submittedAt:'2026-09-13T18:00',data:{childName:'Thehan Wijesinghe'}}},fee:null,enrolment:null,onboarding:null,closed:null},
+      imani:{id:'imani',childName:'Imani de Alwis',dob:'2024-02-17',guardian:'Shanika de Alwis',phone:'077 551 3320',start:'2027-01-05',service:'Baby Class',source:'Website',reason:'Educational approach / play-based learning',events:[ev('enquiry','Enquiry created','Website'),ev('qualified','Marked Qualified Lead',''),ev('tour','Tour completed',''),ev('application_sent','Application link sent',''),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted',''),ev('fee_verified','Admission fee verified','LKR 15,000'),ev('enrolled','Enrolment created','Baby Class · 05 Jan 2027'),ev('onboarding_sent','New Family Onboarding link sent',''),ev('onboarding_submitted','New Family Onboarding submitted','Parent input awaiting review')],tour:{status:'completed',date:'2026-09-06',time:'09:00',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Imani de Alwis',dob:'2024-02-17',guardian:'Shanika de Alwis',phone:'077 551 3320',service:'Baby Class',start:'2027-01-05'},snapshot:null},fee:{amount:15000,due:'2026-09-12',verified:15000,pending:[],status:'satisfied'},enrolment:{status:'active',className:'Baby Class',service:'Preschool',start:'2027-01-05'},onboarding:seedOnboarding('Imani de Alwis','Imani','2024-02-17','Shanika de Alwis','077 551 3320',{submitted:true,healthConfirmed:false}),closed:null}
     },
     attendance:{
       amaya:{id:'amaya',date:'2026-09-14',name:'Amaya Perera',className:'Baby Class',status:'present',checkIn:'08:12',checkOut:null,collector:null,corrections:[{from:'08:21',to:'08:12',reason:'Staff selected wrong time during morning rush',by:'Anjali Fernando',byId:'anjali',at:'08:34'}]},
@@ -48087,7 +48089,7 @@ function seedDB(){
       dilan:{id:'dilan',date:'2026-09-14',name:'Dilan Jayasinghe',className:'Upper Class',status:'present',checkIn:'08:19',checkOut:null,collector:null,corrections:[],temporaryPickup:{name:'Ayesha Fernando',valid:'Today 16:00–18:00',source:'Registered guardian WhatsApp',reference:'Current reference photo supplied'}},
       minoli:{id:'minoli',date:'2026-09-14',name:'Minoli Fernando',className:'Upper Class',status:'present',checkIn:'08:22',checkOut:null,collector:null,corrections:[]}
     },
-    daycare:{capacity:8,bookings:{
+    daycare:{bookings:{
       amaya:{id:'bk_amaya',childId:'amaya',childName:'Amaya Perera',date:'2026-09-14',care:'Standard Daycare',recurring:true},
       minoli:{id:'bk_minoli',childId:'minoli',childName:'Minoli Fernando',date:'2026-09-14',care:'Extended Daycare',recurring:true},
       dilan:{id:'bk_dilan',childId:'dilan',childName:'Dilan Jayasinghe',date:'2026-09-14',care:'Standard Daycare',recurring:true}
@@ -48114,8 +48116,8 @@ function seedDB(){
     health:{profiles:{amaya:{allergies:'Peanut allergy',instructions:'Avoid peanut exposure; follow current family/medical instructions.'},imani:{allergies:'None recorded',instructions:''}},updates:{hu1:{id:'hu1',childId:'imani',childName:'Imani de Alwis',summary:'New asthma inhaler guidance',status:'pending',submittedBy:'Parent secure update'}},medAuth:{minoli:{id:'ma1',childId:'minoli',childName:'Minoli Fernando',medication:'Prescribed inhaler',status:'current',instruction:'2 puffs at 14:00 when due',authorisedBy:'Guardian secure authorisation',updated:'2026-09-01'}},administrations:[],incidents:[]},
     billing:{
       invoices:{
-        inv1:{id:'inv1',number:'SEP-2026-014',childId:'amaya',childName:'Amaya Perera',status:'issued',issued:'2026-09-01',due:'2026-09-10',lines:[{id:'l1',description:'September preschool fee',amount:12000}],allocations:[{paymentId:'p1',amount:5000}],history:[{at:'01 Sep',text:'Invoice issued · immutable PDF snapshot created'}],evidence:{invoicePdf:'SEP-2026-014.pdf'}},
-        inv2:{id:'inv2',number:'SEP-2026-019',childId:'senuri',childName:'Senuri Peris',status:'issued',issued:'2026-09-01',due:'2026-09-10',lines:[{id:'l2',description:'September preschool fee',amount:12000}],allocations:[],history:[{at:'01 Sep',text:'Invoice issued · immutable PDF snapshot created'}],evidence:{invoicePdf:'SEP-2026-019.pdf'}},
+        inv1:{id:'inv1',number:'SEP-2026-014',childId:'amaya',childName:'Amaya Perera',status:'issued',issued:'2026-09-01',due:'2026-09-10',lines:[{id:'l1',description:'September preschool fee',amount:12000}],allocations:[{paymentId:'p1',amount:5000}],history:[{at:'01 Sep',text:'Invoice issued · prototype PDF filename recorded'}],evidence:{invoicePdf:'SEP-2026-014.pdf'}},
+        inv2:{id:'inv2',number:'SEP-2026-019',childId:'senuri',childName:'Senuri Peris',status:'issued',issued:'2026-09-01',due:'2026-09-10',lines:[{id:'l2',description:'September preschool fee',amount:12000}],allocations:[],history:[{at:'01 Sep',text:'Invoice issued · prototype PDF filename recorded'}],evidence:{invoicePdf:'SEP-2026-019.pdf'}},
         inv3:{id:'inv3',number:'OCT-2026-DRAFT',childId:'nethmi',childName:'Nethmi Silva',status:'draft',issued:null,due:'2026-10-10',lines:[{id:'l3',description:'October preschool fee',amount:12000}],allocations:[],history:[{at:'14 Sep',text:'Monthly draft created'}],evidence:{}}
       },
       payments:{p1:{id:'p1',childId:'amaya',amount:5000,method:'Bank transfer',reference:'NP-SEP-01',status:'verified',verification:'Bank app/account checked',evidence:null},p2:{id:'p2',childId:'amaya',amount:7000,method:'Bank transfer',reference:'NP-SEP-02',status:'pending',verification:null,evidence:'Optional transfer screenshot attached'}},
@@ -48181,13 +48183,13 @@ function cleanOwnerReviewDB(){
  const clean=seedDB(),education=educationDefaults();
  delete clean.batchBSeedPending;delete clean.batchCSeedPending;
  clean.prototypeFixture='clean';clean.ownerAccessDefaultVersion=1;clean.educationCareVersion=1;
- clean.ui={...clean.ui,persona:'anjali',admissionsCase:null,lessonClass:'nursery_a',lessonWeek:TODAY,modal:null,drawer:null,searchResults:[]};
+ clean.ui={...clean.ui,persona:'anjali',admissionsCase:null,lessonClass:'nursery_a',lessonWeek:mpsMondayForDate(TODAY),modal:null,drawer:null,searchResults:[]};
  clean.personas={anjali:{...clean.personas.anjali,bundles:initialOwnerBundles(),scope:'Nursery'}};
  clean.staff={accounts:{anjali:{...clean.staff.accounts.anjali,bundles:initialOwnerBundles(),scope:'Nursery',classroomIds:['nursery_a']}},history:[]};
  clean.organization={name:ORG,contactPhone:'',timezone:'Asia/Colombo',settingsHistory:[],educationCare:education,curriculum:{primaryPackId:MPS_DEFAULT_CURRICULUM_PACK_ID,adoptionDate:null},
   fees:{currency:'LKR',currencyDisplay:'Rs',admissionFee:25000,admissionDueDays:7,monthly:{preschool:7000,daycareAddons:{standard:8000,extended:13000}},monthlyDueDay:10,latePickupGraceMinutes:15,latePickupFee:200}};
  clean.admissions={};clean.people={children:{},guardians:{},links:{},version:1};clean.attendance={};
- clean.daycare={capacity:clean.daycare.capacity,bookings:{},careRecords:{},mealRecords:[],restSessions:[],activities:[],careNotes:[],activityCatalogue:[...clean.daycare.activityCatalogue],latePickups:{}};
+ clean.daycare={bookings:{},careRecords:{},mealRecords:[],restSessions:[],activities:[],careNotes:[],activityCatalogue:[...clean.daycare.activityCatalogue],latePickups:{}};
  clean.curriculum.weeks=Object.fromEntries(education.classrooms.map(room=>[room.id,{}]));
  clean.observations={};clean.assessments={};clean.reports={};
  clean.health={profiles:{},updates:{},medAuth:{},administrations:[],incidents:[]};
@@ -48196,6 +48198,21 @@ function cleanOwnerReviewDB(){
  clean.calendar={exceptions:{},events:{}};
  clean.bq101MigrationIdentityRepair=true;clean.bq101ProspectSamplesReconciled=true;
  clean.bq101LifecycleSamplesReconciled=true;clean.attendanceReviewSamples=true;
+ return clean;
+}
+function cleanHeadTeacherReviewDB(){
+ const clean=cleanOwnerReviewDB();
+ clean.prototypeFixture='clean';
+ delete clean.batchDSeedPending;delete clean.batchESeedPending;
+ clean.curriculum.library={};
+ clean.ui.lessonClass=null;clean.ui.lessonWeek=null;
+ const responsibilities=[...initialOwnerBundles(),'Assistant Teacher','Medication administration'];
+ clean.personas.anjali.bundles=responsibilities;
+ clean.staff.accounts.anjali.bundles=responsibilities;
+ clean.staff.accounts.anjali.classroomIds=[];
+ // Review-only second person: a distinct Staff ID with only her own teaching scope.
+ clean.staff.accounts.priya={id:'priya',name:'Priya Perera',username:'priya.perera',bundles:['Class Teacher'],scope:'Nursery',classroomIds:['nursery_a'],status:'active'};
+ clean.personas.priya={id:'priya',name:'Priya Perera',bundles:['Class Teacher'],scope:'Nursery',initials:'PP'};
  return clean;
 }
 function ev(type,title,detail=''){return {id:'e_'+Math.random().toString(36).slice(2,9),type,title,detail,at:new Date().toISOString()}}
@@ -48213,7 +48230,7 @@ function seedOnboarding(childName,preferred,dob,guardian,phone,opt={}){
     facebook:'Yes, that\'s okay',recipients:[guardian,second],documents:{birthCertificate:false,birthCertificateFile:null},starter:{uniform:'Size 24',books:'Pending collection'}
   }:{
     child:{legalName:childName,preferred,dob,gender:'',address:'',languages:[],hasSiblings:'',siblings:[]},
-    guardians:[{name:guardian,relationship:'',dob:'',phone,legalAuthority:'',working:'',company:''}],
+    guardians:[{name:guardian,relationship:'',dob:'',phone,legalAuthority:'',working:'',company:'',jobTitle:''}],
     legalRestrictions:{answer:'',details:''},emergency:{name:'',relationship:'',phone:''},pickup:[{name:'',relationship:'',photo:false,photoName:null}],
     health:{allergies:'',allergyDetails:'',conditions:'',conditionDetails:'',medication:'',medicationDetails:'',dietary:'',dietaryDetails:'',emergencyInstructions:'',other:'',otherDetails:''},
     facebook:'',recipients:[],documents:{birthCertificate:false,birthCertificateFile:null},starter:{uniform:'',books:'Pending collection'}
@@ -48224,9 +48241,9 @@ function week(label,area,summary,published,days){return {label,officialArea:area
 function planAct(libId,uid){return {uid,libId,adaptation:'',delivery:null,deliveryNote:'',deliveredAt:null}}
 
 let db;
-try{db=JSON.parse(localStorage.getItem(storageKey))||(populatedQaFixture?seedDB():cleanOwnerReviewDB());if(!db.ui||!db.admissions||!db.staff||!db.curriculum||!db.billing||(db.educationCareVersion!==undefined&&db.educationCareVersion!==1))throw new Error('Unrecognised saved data')}catch(e){educationSaveBlocked=true;educationMigrationError='Saved records could not be read';db=populatedQaFixture?seedDB():cleanOwnerReviewDB()}
+try{db=JSON.parse(localStorage.getItem(storageKey))||(cleanHeadTeacherReview?cleanHeadTeacherReviewDB():populatedQaFixture?seedDB():cleanOwnerReviewDB());if(!db.ui||!db.admissions||!db.staff||!db.curriculum||!db.billing||(db.educationCareVersion!==undefined&&db.educationCareVersion!==1))throw new Error('Unrecognised saved data')}catch(e){educationSaveBlocked=true;educationMigrationError='Saved records could not be read';db=cleanHeadTeacherReview?cleanHeadTeacherReviewDB():populatedQaFixture?seedDB():cleanOwnerReviewDB()}
 // Review-entry UI only; do not rewrite any planning/teaching/evidence/report records.
-if(governedNieReview&&!prototypeReviewToolsActive){db.ui.persona='anjali';db.ui.signedOut=false}
+if(governedNieReview&&!prototypeReviewToolsActive){if(!db.staff.accounts[db.ui.persona])db.ui.persona='anjali';db.ui.signedOut=false}
 function save(){if(educationBooting||educationSaveBlocked)return false;try{localStorage.setItem(storageKey,JSON.stringify(db));return true}catch(e){alert('Changes could not be saved. Free browser storage and retry.');return false}}
 function resetDemo(){
  if(!headTeacherReview&&!prototypeReviewToolsActive)return false;
@@ -48244,7 +48261,7 @@ function money(n,currencyDisplay){return mpsFeeDisplay(n,currencyDisplay)}
 function badge(text,t='blue'){return `<span class="badge b-${t}">${text}</span>`}
 function prov(text,t='reused'){return `<span class="prov ${t}">${text}</span>`}
 function btn(label,action,kind='secondary',extra=''){return `<button class="btn ${kind} ${extra}" onclick="${action}">${label}</button>`}
-function kv(k,v){return `<div class="kv"><div class="k">${k}</div><div class="v">${v}</div></div>`}
+function kv(k,v,extra=''){return `<div class="kv${extra?' '+extra:''}"><div class="k">${k}</div><div class="v">${v}</div></div>`}
 function notice(text,type='info'){return `<div class="notice ${type}">${text}</div>`}
 let mpsFeedbackTimer;
 function showFeedback(message,anchor=null){
@@ -48268,13 +48285,13 @@ function openDrawer(name,data=null){ui().drawer={name,data};save();render()}
 function closeOverlay(){ui().modal=null;ui().drawer=null;save();render()}
 function setAdmissionCase(id){ui().admissionsCase=id;ui().admissionsTab='overview';save();render()}
 function setAdmissionTab(tab){ui().admissionsTab=tab;save();render()}
-function setLessonTab(tab){ui().lessonTab=tab;save();render()}
+function setLessonTab(tab){if(!['week','evidence'].includes(tab))return;ui().lessonTab=tab;save();render()}
 function setHealthTab(tab){ui().healthTab=tab;save();render()}
 function healthScopedChildren(){return Object.values(db.people?.children||{}).filter(c=>canViewChildHealth(c.id))}
 function healthSelectedChild(){let id=ui().healthChild;return healthScopedChildren().some(c=>c.id===id)?id:null}
 function setHealthChild(id){ui().healthChild=healthScopedChildren().some(c=>c.id===id)?id:null;save();render()}
-function healthChildSelector(){let children=healthScopedChildren(),selected=healthSelectedChild();if(!children.length)return `<div class="health-subject-bar health-subject-empty"><div><strong>Health subject</strong><span>No children are available in your Health scope.</span></div></div>`;return `<div class="health-subject-bar"><div><strong>Health subject</strong><span>Choose the child whose Health information you need.</span></div><div class="field"><label for="health_child">Child</label><select id="health_child" onchange="setHealthChild(this.value)"><option value="">Select a child</option>${children.map(c=>`<option value="${esc(c.id)}" ${c.id===selected?'selected':''}>${esc(profileChildName(c.id))}</option>`).join('')}</select></div></div>`}
-function openHealthForChild(id){if(!allowed('health')||!canViewChildHealth(id))return;ui().healthChild=id;setRoute('health')}
+function healthChildSelector(){let children=healthScopedChildren(),selected=healthSelectedChild();if(!children.length)return `<div class="health-subject-bar health-subject-empty"><span>No children are available in your Health scope.</span></div>`;return `<div class="health-subject-bar"><div class="field"><label for="health_child">Child</label><select id="health_child" onchange="setHealthChild(this.value)"><option value="">Select a child</option>${children.map(c=>`<option value="${esc(c.id)}" ${c.id===selected?'selected':''}>${esc(profileChildName(c.id))}</option>`).join('')}</select></div></div>`}
+function openHealthForChild(id){if(!allowed('health')||!canViewChildHealth(id))return;ui().healthChild=id;ui().healthTab='updates';setRoute('health')}
 function reviewHealthUpdate(id){let u=db.health.updates[id];if(!u||!has('Head Teacher')||!canViewChildHealth(u.childId))return;ui().healthChild=u.childId;openModal('health-update',{id})}
 function setMediaTab(tab){ui().mediaTab=tab;save();render()}
 function addEvent(caseId,type,title,detail=''){db.admissions[caseId].events.push(ev(type,title,detail));save()}
@@ -48282,15 +48299,33 @@ function fmtDate(s){if(!s)return '—';let d=new Date(s+'T00:00:00');return d.to
 
 const sources=['Website','Facebook','Instagram','WhatsApp','Google / Search','Phone call','Walk-in / Signboard','Existing-family referral','Other referral','Event / Open Day','Other'];
 const reasons=['Educational approach / play-based learning','Head Teacher / teaching quality','English-medium environment','Extended daycare / operating hours','Location / convenience','Facilities / outdoor environment','Reputation / recommendation / preschool legacy','Fees / value','Other'];
-const lostReasons=['Could not contact','Chose another preschool','Fees / affordability','Location / transport','Hours / daycare needs not suitable','No suitable place / start date','Family postponed preschool decision','No longer interested','Other'];
-const routes={today:{label:'Today',icon:'⌂'},admissions:{label:'Admissions',icon:'◎',bundles:['Admissions','Head Teacher']},attendance:{label:'Attendance',icon:'✓',bundles:['Head Teacher','Class Teacher','Assistant Teacher','Daycare']},daycare:{label:'Daycare',icon:'☀',bundles:['Daycare','Head Teacher']},lessons:{label:'Lesson planning',icon:'✦',bundles:['Head Teacher','Class Teacher']},'lesson-today':{label:'Teaching today',icon:'◉',bundles:['Head Teacher','Class Teacher']},reports:{label:'Reports',icon:'▤',bundles:['Head Teacher','Class Teacher']},health:{label:'Health & safety',icon:'♥',bundles:['Head Teacher','Class Teacher','Daycare']},billing:{label:'Billing',icon:'₨',bundles:['Accounts']},media:{label:'Photos & media',icon:'▧',bundles:['Head Teacher','Class Teacher','Social Media']},calendar:{label:'Calendar',icon:'◫',bundles:['Head Teacher','System Administration']},staff:{label:'Staff & access',icon:'⚙',bundles:['System Administration']}};
+const lostReasons=['Could not contact','Chose another preschool','Fees / affordability','Location / transport','Hours / daycare needs not suitable','Requested start or service not offered','Family postponed preschool decision','No longer interested','Other'];
+const routes={today:{label:'Today',icon:'house'},admissions:{label:'Admissions',icon:'user-round-plus',bundles:['Admissions','Head Teacher']},attendance:{label:'Attendance',icon:'circle-check',bundles:['Head Teacher','Class Teacher','Assistant Teacher','Daycare']},daycare:{label:'Daycare',icon:'sun',bundles:['Daycare','Head Teacher']},lessons:{label:'Planning',icon:'clipboard-list',bundles:['Head Teacher']},'lesson-today':{label:'Teaching',icon:'presentation',bundles:['Head Teacher','Class Teacher']},reports:{label:'Reports',icon:'file-text',bundles:['Head Teacher','Class Teacher']},health:{label:'Health & safety',icon:'heart-pulse',bundles:['Head Teacher','Class Teacher','Daycare']},billing:{label:'Fees & payments',icon:'receipt-text',bundles:['Accounts']},media:{label:'Photos & media',icon:'image',bundles:['Head Teacher','Class Teacher','Social Media']},calendar:{label:'Calendar',icon:'calendar-days',bundles:['Head Teacher','System Administration']},staff:{label:'Staff',icon:'contact-round',bundles:['System Administration']}};
+function mpsLineIcon(name){return `<span class="nav-line-icon icon-${name}" aria-hidden="true"></span>`}
+function mpsUtilityAction(label,action,icon='file-text'){
+  return btn(`${mpsLineIcon(icon)}<span>${esc(label)}</span>`,action,'ghost','utility-action');
+}
 function allowed(route){let r=routes[route];if(!r||!r.bundles)return true;return r.bundles.some(has)}
-function navButton(route){let r=routes[route];let active=ui().route===route;return `<button class="nav-item ${active?'active':''}" onclick="openWorkspace('${route}')"><span class="ico">${r.icon}</span>${r.label}${route==='today'&&todayActions().length?`<span class="nav-badge">${todayActions().length}</span>`:''}</button>`}
+function navButton(route){let r=routes[route];let active=ui().route===route;return `<button class="nav-item ${active?'active':''}" onclick="openWorkspace('${route}')"><span class="ico">${mpsLineIcon(r.icon)}</span>${r.label}${route==='today'&&todayActions().length?`<span class="nav-badge">${todayActions().length}</span>`:''}</button>`}
 function navList(){let work=['today','admissions','attendance','daycare','lessons','lesson-today','reports','health','billing','media'];let manage=['children','staff','calendar'].filter(r=>routes[r]);return `<div class="nav-group"><div class="nav-label">Work</div>${work.filter(allowed).map(navButton).join('')}</div><div class="nav-group"><div class="nav-label">Manage</div>${manage.filter(allowed).map(navButton).join('')}</div>`}
-function mobileNav(){let pref=['today','attendance','lessons','daycare','admissions','billing','media','staff'];let xs=pref.filter(allowed).slice(0,5);return `<div class="mobile-nav">${xs.map(r=>`<button class="${ui().route===r||r==='lessons'&&ui().route==='lesson-today'?'active':''}" onclick="openWorkspace('${r}')"><span class="mi">${routes[r].icon}</span>${routes[r].label.split(' ')[0]}</button>`).join('')}</div>`}
+function mobileNav(){let pref=['today','attendance','lessons','daycare','admissions','billing','media','staff'];let xs=pref.filter(allowed).slice(0,5);return `<div class="mobile-nav">${xs.map(r=>`<button class="${ui().route===r||r==='lessons'&&ui().route==='lesson-today'?'active':''}" onclick="openWorkspace('${r}')"><span class="mi">${mpsLineIcon(routes[r].icon)}</span>${routes[r].label.split(' ')[0]}</button>`).join('')}</div>`}
 function personaSelect(){return `<div class="prototype-persona"><span>Prototype persona</span><select onchange="switchPersona(this.value)">${Object.values(db.personas).map(p=>`<option value="${p.id}" ${p.id===ui().persona?'selected':''}>${p.name}</option>`).join('')}</select></div>`}
 function switchPersona(id){ui().persona=id;let r=ui().route;if(!allowed(r)&&r!=='parent-application'&&r!=='parent-onboarding')ui().route='today';save();render()}
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><div class="brandmark">E</div><div><h1>Eliira</h1></div></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<button class="nav-item" onclick="resetDemo()"><span class="ico">↺</span>Reset prototype</button>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><div class="brandmark">E</div></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function mpsReviewStaffAccounts(){
+ if(!headTeacherReview&&!prototypeReviewToolsActive)return [];
+ return ['anjali','priya'].map(id=>db.staff?.accounts?.[id]).filter(a=>a?.status==='active'&&db.personas?.[a.id]);
+}
+function mpsReviewStaffPicker(){
+ const accounts=mpsReviewStaffAccounts();if(accounts.length<2)return '';
+ return `<label class="review-person-picker"><span>View as</span><select aria-label="View as staff member" onchange="mpsReviewSwitchStaff(this.value)">${accounts.map(a=>`<option value="${esc(a.id)}" ${ui().persona===a.id?'selected':''}>${esc(a.name)} · ${esc(a.bundles.includes('Head Teacher')?'Head Teacher':'Class Teacher')}</option>`).join('')}</select></label>`;
+}
+function mpsReviewSwitchStaff(id){
+ if(!mpsReviewStaffAccounts().some(a=>a.id===id))return false;
+ ui().persona=id;ui().route='today';ui().modal=null;ui().drawer=null;ui().accountMenuOpen=false;
+ const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
+ save();render();return true;
+}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=0964a0560fe2" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=0964a0560fe2" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -48301,7 +48336,7 @@ function admissionDerived(c){
   if(c.enrolment){let ready=admissionRequiredReadinessComplete(c);return {stage:'Enrolled',status:ready?'Ready to start':c.onboarding?.status==='submitted'?'Pre-start review':'Pre-start',statusTone:ready?'green':c.onboarding?.status==='submitted'?'amber':'blue',next:ready?'Ready to start':c.onboarding?.status==='submitted'?'Review onboarding submission':'Send/complete onboarding'};}
   if(c.fee){if(c.fee.status==='overdue')return {stage:'Accepted',status:'Fee overdue',statusTone:'red',next:'Decide overdue fee action'};if(c.fee.status==='satisfied'||c.fee.verified>=c.fee.amount)return {stage:'Accepted',status:'Fee satisfied',statusTone:'green',next:'Create enrolment'};return {stage:'Accepted',status:'Admission fee',statusTone:'amber',next:'Verify / settle admission fee'};}
   if(c.application.status==='accepted')return {stage:'Accepted',status:'Accepted',statusTone:'green',next:'Create admission-fee invoice'};
-  if(c.application.status==='waitlisted')return {stage:'Application',status:'Waitlisted',statusTone:'amber',next:'Review waitlist when capacity changes'};
+  if(c.application.status==='waitlisted')return {stage:'Application',status:'Waitlisted',statusTone:'amber',next:'Review waitlisted application'};
   if(c.application.status==='declined')return {stage:'Application',status:'Declined',statusTone:'grey',next:'Closed'};
   if(c.application.status==='submitted')return {stage:'Application',status:'Review required',statusTone:'purple',next:'Review submitted application'};
   if(c.application.status==='sent')return {stage:'Application',status:'Waiting for parent',statusTone:'blue',next:'Waiting for parent application'};
@@ -48335,56 +48370,57 @@ function admissionOverview(c){let d=admissionDerived(c);let action='';
 function actionCard(title,sub,buttons,cls=''){return `<div class="action-card ${cls}"><div class="icon">${cls==='warning'?'!':'→'}</div><div class="grow"><strong>${title}</strong><span>${sub}</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${buttons}</div></div>`}
 function applicationSummary(c){let s=c.application.status;let labels={not_sent:'Not sent',sent:'Sent · waiting for parent',submitted:'Submitted · review required',accepted:'Accepted',waitlisted:'Waitlisted',declined:'Declined'};return labels[s]||s}
 function admissionApplication(c){let a=c.application;if(a.status==='not_sent')return `<div class="card"><h3>Application</h3><p>This family has not been sent an Application yet.</p><div style="margin-top:12px">${btn('Generate secure Application',`openModal('send-application',{caseId:'${c.id}'})`,'primary')}</div></div>`;
- let snap=a.snapshot?.data||a.draft||{};let decision=a.status==='submitted'?`<div class="section-title">Decision</div><div style="display:flex;gap:8px;flex-wrap:wrap">${btn('Decline',`openModal('decline-application',{caseId:'${c.id}'})`,'danger')}${btn('Record withdrawal',`openModal('withdraw-application',{caseId:'${c.id}'})`,'secondary')}${btn('Waitlist',`openModal('waitlist-application',{caseId:'${c.id}'})`,'secondary')}${btn('Accept',`openModal('accept-application',{caseId:'${c.id}'})`,'primary')}</div>`:'';return `<div class="grid"><div class="span-8 card"><div class="card-header"><div class="grow"><h3>Application</h3><p>Parent submission stays on the same admissions record with provenance.</p></div>${badge(applicationSummary(c),a.status==='submitted'?'purple':a.status==='accepted'?'green':'blue')}</div>${kv('Child',`${snap.childName||c.childName} ${prov(a.snapshot?'Parent submitted':'Admissions prefill',a.snapshot?'parent':'reused')}`)}${kv('DOB',snap.dob||c.dob)}${kv('Guardian',snap.guardian||c.guardian)}${kv('Phone',snap.phone||c.phone)}${kv('Service',snap.service||c.service)}${kv('Desired start',fmtDate(snap.start||c.start))}${snap.note?kv('Application note',esc(snap.note)):''}${decision}</div><div class="span-4 card"><h3>Secure link</h3>${kv('Status',a.status==='sent'?'Sent / active':a.status==='submitted'?'Submitted':'Closed after decision')}${kv('Parent account','Not required')}${kv('Channel','Registered WhatsApp')}${a.status==='sent'?btn('Open parent preview',`openParentApplication('${c.id}')`,'secondary','sm'):''}</div></div>`}
+ let snap=a.snapshot?.data||a.draft||{};let decision=a.status==='submitted'?`<div class="section-title">Decision</div><div style="display:flex;gap:8px;flex-wrap:wrap">${btn('Decline',`openModal('decline-application',{caseId:'${c.id}'})`,'danger')}${btn('Record withdrawal',`openModal('withdraw-application',{caseId:'${c.id}'})`,'secondary')}${btn('Waitlist',`openModal('waitlist-application',{caseId:'${c.id}'})`,'secondary')}${btn('Accept',`openModal('accept-application',{caseId:'${c.id}'})`,'primary')}</div>`:'';return `<div class="grid"><div class="span-8 card"><div class="card-header"><div class="grow"><h3>Application</h3><p>Parent submission stays on the same admissions record with provenance.</p></div>${badge(applicationSummary(c),a.status==='submitted'?'purple':a.status==='accepted'?'green':'blue')}</div>${kv('Child',`${snap.childName||c.childName} ${prov(a.snapshot?'Parent submitted':'Admissions prefill',a.snapshot?'parent':'reused')}`)}${kv('DOB',snap.dob||c.dob)}${kv('Guardian',snap.guardian||c.guardian)}${kv('Phone',snap.phone||c.phone)}${kv('Service',snap.service||c.service)}${kv('Desired start',fmtDate(snap.start||c.start))}${a.snapshot?.data?.note?kv('Historical parent-submitted note',esc(a.snapshot.data.note)):''}${decision}</div><div class="span-4 card"><h3>Secure link</h3>${kv('Status',a.status==='sent'?'Sent / active':a.status==='submitted'?'Submitted':'Closed after decision')}${kv('Parent account','Not required')}${kv('Channel','Registered WhatsApp')}${a.status==='sent'?btn('Open parent preview',`openParentApplication('${c.id}')`,'secondary','sm'):''}</div></div>`}
 function feeOutstanding(f){return Math.max(0,(f?.amount||0)-(f?.verified||0))}
 function admissionPayments(c){if(!c.fee)return `<div class="card"><h3>Admission fee</h3><p>No fee gate exists yet for this case. It is created only after Acceptance.</p></div>`;let f=c.fee;let pending=f.pending||[];let outstanding=feeOutstanding(f);return `<div class="grid"><div class="span-8 card"><div class="card-header"><div class="grow"><h3>Admission fee</h3><p>Issued financial history is stable; verified money is allocated to the gate.</p></div>${badge(f.status==='overdue'?'Overdue':outstanding===0?'Satisfied':'In progress',f.status==='overdue'?'red':outstanding===0?'green':'amber')}</div><div class="money">${money(f.amount)}</div>${kv('Due date',fmtDate(f.due))}${kv('Verified',money(f.verified))}${kv('Outstanding',money(outstanding))}<div class="section-title">Payment activity</div>${pending.length?pending.map(p=>`<div class="child-row"><strong>${money(p.amount)} · ${p.method}</strong><span>${badge(p.status,p.status==='pending'?'amber':p.status==='rejected'?'red':'green')}</span><span class="hide-mobile">${esc(p.reference||'No reference')}</span><span>${p.status==='pending'?btn('Verify',`openModal('verify-admission-payment',{caseId:'${c.id}',paymentId:'${p.id}'})`,'primary','sm'):'✓'}</span></div>`).join(''):'<div class="empty">No payment recorded yet.</div>'}</div><div class="span-4 card"><h3>Controls</h3><p>Accepted is not Enrolled. Full verified settlement or an authorised waiver is required before conversion.</p>${outstanding>0?`<div style="margin-top:10px">${btn('Record payment',`openModal('record-admission-payment',{caseId:'${c.id}'})`,'primary')}</div>`:''}${f.status==='overdue'?`<div style="margin-top:8px">${btn('Overdue action',`openModal('overdue-fee',{caseId:'${c.id}'})`,'secondary')}</div>`:''}</div></div>`}
 function onboardingSafetyComplete(o){if(!o||o.status!=='submitted')return false;let d=o.draft,detailOk=(ans,detail)=>ans==='No'||(ans==='Yes'&&String(detail||'').trim());let childOk=!!(d.child?.legalName&&d.child?.preferred&&d.child?.dob&&d.child?.gender&&d.child?.address&&Array.isArray(d.child?.languages)&&d.child.languages.length);let siblingOk=d.child?.hasSiblings==='No'||(d.child?.hasSiblings==='Yes'&&d.child.siblings?.length&&d.child.siblings.every(s=>s.relationship&&s.dob));let guardiansOk=!!(d.guardians?.length&&d.guardians.every(g=>g.name&&g.relationship&&g.dob&&g.legalAuthority&&g.working&&(g.working==='No'||g.company))&&d.guardians.some(g=>g.legalAuthority==='Yes'&&g.phone));let legalOk=!!(d.legalRestrictions?.answer&&(d.legalRestrictions.answer==='No'||String(d.legalRestrictions.details||'').trim()));let emergencyOk=!!(d.emergency?.name&&d.emergency?.relationship&&d.emergency?.phone);let pickupOk=!!(d.pickup?.length&&d.pickup.every(p=>p.name&&p.relationship&&p.photo));let h=d.health||{},healthOk=detailOk(h.allergies,h.allergyDetails)&&detailOk(h.conditions,h.conditionDetails)&&detailOk(h.medication,h.medicationDetails)&&detailOk(h.dietary,h.dietaryDetails)&&detailOk(h.other,h.otherDetails);return !!(childOk&&siblingOk&&guardiansOk&&legalOk&&emergencyOk&&pickupOk&&healthOk&&d.facebook&&d.recipients?.length)}
-function onboardingChecklistComplete(o){if(!o)return false;return !!(o.draft.documents?.birthCertificate&&o.draft.starter?.books==='Collected')}
+function onboardingChecklistComplete(o){if(!o)return false;return !!(mpsBirthCertificateState(o.draft.documents).complete&&o.draft.starter?.books==='Collected')}
 function admissionPrestart(c){if(!c.enrolment)return `<div class="card"><h3>Pre-start</h3><p>Pre-start work begins after Enrolment. Accepted is not Enrolled.</p></div>`;if(!c.onboarding)c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});let o=c.onboarding;let safety=onboardingSafetyComplete(o)&&(!db.people||childPhotoReady(c));let checklist=onboardingChecklistComplete(o);let safetyPct=o.status==='submitted'?(o.healthConfirmed&&safety?100:80):o.status==='sent'?30:10;let checklistPct=(o.draft.documents?.birthCertificate?50:0)+(o.draft.starter?.books==='Collected'?50:0);return `${db.people?childPhotoPrestart(c):''}<div class="grid"><div class="span-8 card"><div class="card-header"><div class="grow"><h3>Pre-start readiness</h3><p>Safety readiness and practical checklist completion are shown separately.</p></div>${badge(o.healthConfirmed&&safety?'Safety ready':o.status==='submitted'?'Review required':'In progress',o.healthConfirmed&&safety?'green':o.status==='submitted'?'amber':'blue')}</div><strong>Safety / operational readiness</strong><div class="progress"><span style="width:${safetyPct}%"></span></div><p>${safetyPct}% · guardian/pickup/Health/communication controls</p><div style="height:10px"></div><strong>Practical checklist</strong><div class="progress"><span style="width:${checklistPct}%"></span></div><p>${checklistPct}% · non-critical documents/starter items</p><div class="child-row"><strong>Guardian & legal authority</strong><span>${badge(o.status==='submitted'?'Submitted':'Outstanding',o.status==='submitted'?'green':'amber')}</span><span class="hide-mobile">${o.draft.guardians?.length||0} guardian profiles</span><span>›</span></div><div class="child-row"><strong>Emergency & pickup</strong><span>${badge(o.status==='submitted'&&o.draft.pickup?.length?'Submitted':'Outstanding',o.status==='submitted'&&o.draft.pickup?.length?'green':'amber')}</span><span class="hide-mobile">${o.draft.pickup?.length||0} authorised pickup people</span><span>›</span></div><div class="child-row"><strong>Health</strong><span>${badge(o.healthConfirmed?'Confirmed':o.status==='submitted'?'Review required':'Outstanding',o.healthConfirmed?'green':'amber')}</span><span class="hide-mobile">Parent input → authorised review</span><span>${o.status==='submitted'&&!o.healthConfirmed?btn('Review',`openModal('review-health',{caseId:'${c.id}'})`,'primary','sm'):'›'}</span></div><div class="child-row"><strong>Birth certificate copy</strong><span>${badge(o.draft.documents?.birthCertificate?'Received':'Outstanding',o.draft.documents?.birthCertificate?'green':'amber')}</span><span class="hide-mobile">${o.draft.documents?.birthCertificateFile||'Practical checklist'}</span><span>${!o.draft.documents?.birthCertificate?btn('Mark received',`markOnboardingDocument('${c.id}')`,'secondary','sm'):'✓'}</span></div><div class="child-row"><strong>Starter items</strong><span>${badge(o.draft.starter?.books==='Collected'?'Complete':'In progress',o.draft.starter?.books==='Collected'?'green':'blue')}</span><span class="hide-mobile">${esc(o.draft.starter?.uniform||'')} · ${esc(o.draft.starter?.books||'')}</span><span>${o.draft.starter?.books!=='Collected'?btn('Mark collected',`markStarterComplete('${c.id}')`,'secondary','sm'):'✓'}</span></div>${o.healthConfirmed&&safety?notice('<strong>Ready to Start for safety/operations.</strong> Any remaining non-critical checklist items stay visible and do not masquerade as 100% complete.','ok'):notice('Do not rely on parent-submitted Health as authoritative until an authorised review confirms it.','info')}</div><div class="span-4 card"><h3>Parent onboarding</h3>${kv('Status',o.status==='submitted'?'Submitted':o.status==='sent'?'Sent · waiting for parent':'Not sent')}${kv('Channel','Secure link via registered WhatsApp')}${kv('Account required','No')}${o.status==='not_sent'?btn('Generate & send link',`sendOnboarding('${c.id}')`,'primary','sm'):btn(o.status==='submitted'?'Preview submission':'Open parent preview',`openParentOnboarding('${c.id}')`,'secondary','sm')}</div></div>`}
 function markOnboardingDocument(id){let o=db.admissions[id].onboarding;o.draft.documents.birthCertificate=true;o.draft.documents.birthCertificateFile=o.draft.documents.birthCertificateFile||'Received by staff';save();render()}
 function markStarterComplete(id){let o=db.admissions[id].onboarding;o.draft.starter.books='Collected';save();render()}
 function admissionTimeline(c){let events=[...c.events].sort((a,b)=>String(a.at).localeCompare(String(b.at)));return `<div class="card"><h3>Case timeline</h3><p>Derived only from this family’s actual recorded events.</p><div class="timeline">${events.map(e=>`<div class="timeline-item"><b>${esc(e.title)}</b><div>${esc(e.detail||'')}${e.at?` · ${new Date(e.at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}</div></div>`).join('')}</div></div>`}
 
 function openParentApplication(caseId){ui().parentApplicationCase=caseId;ui().parentApplicationStep=1;ui().route='parent-application';save();render()}
-function syncApplicationDraft(caseId){let c=db.admissions[caseId],d=c.application.draft||(c.application.draft={});['childName','dob','guardian','phone','service','start'].forEach(k=>{let e=byId('pa_'+k);if(e)d[k]=e.value});let n=byId('pa_note');if(n)d.note=n.value;save()}
+function syncApplicationDraft(caseId){let c=db.admissions[caseId],d=c.application.draft||(c.application.draft={});['childName','dob','guardian','phone','service','start'].forEach(k=>{let e=byId('pa_'+k);if(e)d[k]=e.value});save()}
 function appContinue(caseId){syncApplicationDraft(caseId);let d=db.admissions[caseId].application.draft;if(!d.childName||!d.dob||!d.guardian||!d.phone||!d.service||!d.start){alert('Please complete the required Application details before continuing.');return}ui().parentApplicationStep=2;save();render()}
 function submitApplication(caseId){syncApplicationDraft(caseId);if(val('pa_confirm')!=='Yes — submit'){alert('Please confirm the information or go back to correct it.');return}let c=db.admissions[caseId];c.application.status='submitted';c.application.snapshot={submittedAt:new Date().toISOString(),data:JSON.parse(JSON.stringify(c.application.draft))};c.childName=c.application.draft.childName;c.dob=c.application.draft.dob;c.guardian=c.application.draft.guardian;c.phone=c.application.draft.phone;c.service=c.application.draft.service;c.start=c.application.draft.start;addEvent(caseId,'application_submitted','Application submitted','Parent reviewed/confirmed the secure form');ui().route='admissions';ui().admissionsCase=caseId;ui().admissionsTab='application';ui().parentApplicationStep=1;save();render()}
-function renderParentApplication(){let id=ui().parentApplicationCase,c=db.admissions[id];if(!c){ui().route='admissions';save();return renderAdmissions()}let d=c.application.draft||(c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start,note:''});let s=ui().parentApplicationStep;let body=s===1?`${notice('Please review what the preschool already knows. Correct only what changed or add what is missing.','info')}<div class="form-grid">${field('Child full name',d.childName,'text',false,'pa_childName')}${field('Date of birth',d.dob,'date',false,'pa_dob')}${field('Parent / guardian',d.guardian,'text',false,'pa_guardian')}${field('Registered phone',d.phone,'text',false,'pa_phone')}</div>${selectField('Interested service',['Baby Class','Upper Class','Baby Class + Standard Daycare','Baby Class + Extended Daycare'],d.service,'pa_service')}${field('Desired start',d.start,'date',false,'pa_start')}`:`${notice('This is deliberately a lean Application. Pickup, Health, documents and consent belong to post-enrolment onboarding.','ok')}${textArea('Anything Admissions should know for this application?',d.note||'','pa_note')}${selectField('Please confirm the information above is accurate',['Yes — submit','No — I need to correct something'],'Yes — submit','pa_confirm')}`;return `<div class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>${ORG}</strong><p>Secure Application · no MPS account required</p></div><div class="parent-content"><div class="stepper"><span class="active"></span><span class="${s===2?'active':''}"></span></div><div class="eyebrow">Application for ${esc(c.childName)}</div><h2 style="color:var(--navy);font-size:20px;margin:5px 0 12px">${s===1?'Review your details':'Confirm & submit'}</h2>${body}<div class="parent-foot">${btn(s===1?'Back to Admissions':'Back',s===1?`ui().route='admissions';save();render()`:`syncApplicationDraft('${id}');ui().parentApplicationStep=1;save();render()`,'secondary')}${btn(s===1?'Continue':'Submit application',s===1?`appContinue('${id}')`:`submitApplication('${id}')`,'primary')}</div></div></div></div>`}
+function renderParentApplication(){let id=ui().parentApplicationCase,c=db.admissions[id];if(!c){ui().route='admissions';save();return renderAdmissions()}let d=c.application.draft||(c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start});let s=ui().parentApplicationStep;let body=s===1?`${notice('Please review what the preschool already knows. Correct only what changed or add what is missing.','info')}<div class="form-grid">${field('Child full name',d.childName,'text',false,'pa_childName')}${field('Date of birth',d.dob,'date',false,'pa_dob')}${field('Parent / guardian',d.guardian,'text',false,'pa_guardian')}${field('Registered phone',d.phone,'text',false,'pa_phone')}</div>${selectField('Interested service',['Baby Class','Upper Class','Baby Class + Standard Daycare','Baby Class + Extended Daycare'],d.service,'pa_service')}${field('Desired start',d.start,'date',false,'pa_start')}`:`${notice('This is deliberately a lean Application. Pickup, Health, documents and consent belong to post-enrolment onboarding.','ok')}${selectField('Please confirm the information above is accurate',['Yes — submit','No — I need to correct something'],'Yes — submit','pa_confirm')}`;return `<div class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>${ORG}</strong><p>Secure Application · no MPS account required</p></div><div class="parent-content"><div class="stepper"><span class="active"></span><span class="${s===2?'active':''}"></span></div><div class="eyebrow">Application for ${esc(c.childName)}</div><h2 style="color:var(--navy);font-size:20px;margin:5px 0 12px">${s===1?'Review your details':'Confirm & submit'}</h2>${body}<div class="parent-foot">${btn(s===1?'Back to Admissions':'Back',s===1?`ui().route='admissions';save();render()`:`syncApplicationDraft('${id}');ui().parentApplicationStep=1;save();render()`,'secondary')}${btn(s===1?'Continue':'Submit application',s===1?`appContinue('${id}')`:`submitApplication('${id}')`,'primary')}</div></div></div></div>`}
 
 function ensureOnboarding(caseId){let c=db.admissions[caseId];if(!c.onboarding)c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});return c.onboarding}
 function sendOnboarding(caseId){let o=ensureOnboarding(caseId);o.status='sent';o.sentAt=new Date().toISOString();addEvent(caseId,'onboarding_sent','New Family Onboarding link sent','Secure link via registered WhatsApp');save();render()}
 function openParentOnboarding(caseId){ensureOnboarding(caseId);ui().parentOnboardingCase=caseId;ui().parentOnboardingStep=1;ui().route='parent-onboarding';save();render();window.scrollTo(0,0)}
-function syncOnboarding(caseId,step){let o=ensureOnboarding(caseId),d=o.draft;if(step===1){d.child.legalName=val('po_legal');d.child.preferred=val('po_pref');d.child.dob=val('po_dob');d.child.gender=val('po_gender').startsWith('Select')?'':val('po_gender');d.child.address=val('po_address');d.child.languages=Array.from(document.querySelectorAll('[data-home-language]:checked')).map(x=>x.value);d.child.hasSiblings=val('po_has_siblings').startsWith('Select')?'':val('po_has_siblings');if(d.child.hasSiblings==='No')d.child.siblings=[];else d.child.siblings.forEach((x,i)=>{x.relationship=val(`po_sib${i}_rel`)||x.relationship;x.dob=val(`po_sib${i}_dob`)||x.dob});}if(step===2){d.guardians.forEach((g,i)=>{g.name=val(`po_g${i}_name`);g.relationship=val(`po_g${i}_rel`).startsWith('Select')?'':val(`po_g${i}_rel`);g.dob=val(`po_g${i}_dob`);g.phone=val(`po_g${i}_phone`);g.legalAuthority=val(`po_g${i}_auth`).startsWith('Select')?'':val(`po_g${i}_auth`);g.working=val(`po_g${i}_work`).startsWith('Select')?'':val(`po_g${i}_work`);g.company=val(`po_g${i}_company`)});d.legalRestrictions={answer:val('po_legal_restrict').startsWith('Select')?'':val('po_legal_restrict'),details:val('po_legal_details')};}if(step===3){d.emergency={name:val('po_em_name'),relationship:val('po_em_rel').startsWith('Select')?'':val('po_em_rel'),phone:val('po_em_phone')};d.pickup.forEach((p,i)=>{p.name=val(`po_p${i}_name`);p.relationship=val(`po_p${i}_rel`).startsWith('Select')?'':val(`po_p${i}_rel`);p.photo=!!p.photo})}if(step===4){d.health={allergies:(val('po_allergy').startsWith('Select')?'':val('po_allergy')),allergyDetails:val('po_allergy_detail'),conditions:(val('po_conditions').startsWith('Select')?'':val('po_conditions')),conditionDetails:val('po_condition_detail'),medication:(val('po_medication').startsWith('Select')?'':val('po_medication')),medicationDetails:val('po_medication_detail'),dietary:(val('po_dietary').startsWith('Select')?'':val('po_dietary')),dietaryDetails:val('po_dietary_detail'),emergencyInstructions:val('po_emergency_medical'),other:(val('po_other').startsWith('Select')?'':val('po_other')),otherDetails:val('po_other_detail')}}if(step===5){d.facebook=val('po_facebook').startsWith('Select')?'':val('po_facebook');captureOnboardingRecipients(caseId);d.starter.uniform=val('po_uniform').startsWith('Select')?'':val('po_uniform');d.starter.books=val('po_books')}save()}
-function validateOnboardingStep(caseId,step){let o=ensureOnboarding(caseId),d=o.draft,fail=m=>{alert(m);return false};if(step===1){if(!d.child.legalName||!d.child.preferred||!d.child.dob||!d.child.gender||!d.child.address||!d.child.languages?.length||!d.child.hasSiblings)return fail('Please complete the required child and family details.');if(d.child.hasSiblings==='Yes'&&(!d.child.siblings.length||d.child.siblings.some(s=>!s.relationship||!s.dob)))return fail('Please complete each sibling relationship and date of birth.')}if(step===2){if(!d.guardians.length||d.guardians.some(g=>!g.name||!g.relationship||!g.dob||!g.legalAuthority||!g.working||(g.working==='Yes'&&!g.company)))return fail('Please complete the required guardian details.');if(!d.guardians.some(g=>g.legalAuthority==='Yes'&&g.phone))return fail('At least one authorised guardian must have the registered WhatsApp/mobile number.');if(!d.legalRestrictions.answer||(d.legalRestrictions.answer.startsWith('Yes')&&!String(d.legalRestrictions.details||'').trim()))return fail('Please complete the legal restrictions declaration.')}if(step===3){if(!d.emergency.name||!d.emergency.relationship||!d.emergency.phone)return fail('Please complete the emergency contact.');if(!d.pickup.length||d.pickup.some(p=>!p.name||!p.relationship||!p.photo))return fail('Each authorised pickup person needs a name, relationship and current verification photo.')}if(step===4){let h=d.health,detailOk=(a,x)=>a==='No'||(a==='Yes'&&String(x||'').trim());if(!['Yes','No'].includes(h.allergies)||!detailOk(h.allergies,h.allergyDetails)||!['Yes','No'].includes(h.conditions)||!detailOk(h.conditions,h.conditionDetails)||!['Yes','No'].includes(h.medication)||!detailOk(h.medication,h.medicationDetails)||!['Yes','No'].includes(h.dietary)||!detailOk(h.dietary,h.dietaryDetails)||!['Yes','No'].includes(h.other)||!detailOk(h.other,h.otherDetails))return fail('Please complete every Health/care declaration and any required details.')}if(step===5){if(!d.facebook||!d.recipients?.length||!d.starter.uniform)return fail('Please complete photo consent, communication recipients and the configured uniform size.')}return true}
+function syncOnboarding(caseId,step){let o=ensureOnboarding(caseId),d=o.draft;if(step===1){d.child.legalName=val('po_legal');d.child.preferred=val('po_pref');d.child.dob=val('po_dob');d.child.gender=val('po_gender').startsWith('Select')?'':val('po_gender');d.child.address=val('po_address');d.child.languages=Array.from(document.querySelectorAll('[data-home-language]:checked')).map(x=>x.value);d.child.hasSiblings=val('po_has_siblings').startsWith('Select')?'':val('po_has_siblings');if(d.child.hasSiblings==='No')d.child.siblings=[];else d.child.siblings.forEach((x,i)=>{x.relationship=val(`po_sib${i}_rel`)||x.relationship;x.dob=val(`po_sib${i}_dob`)||x.dob});}if(step===2){d.guardians.forEach((g,i)=>{g.name=val(`po_g${i}_name`);g.relationship=val(`po_g${i}_rel`).startsWith('Select')?'':val(`po_g${i}_rel`);g.dob=val(`po_g${i}_dob`);g.phone=val(`po_g${i}_phone`);g.legalAuthority=val(`po_g${i}_auth`).startsWith('Select')?'':val(`po_g${i}_auth`);g.working=val(`po_g${i}_work`).startsWith('Select')?'':val(`po_g${i}_work`);g.company=g.working==='Yes'?val(`po_g${i}_company`):'';g.jobTitle=g.working==='Yes'?val(`po_g${i}_job_title`):''});d.legalRestrictions={answer:val('po_legal_restrict').startsWith('Select')?'':val('po_legal_restrict'),details:val('po_legal_details')};}if(step===3){d.emergency={name:val('po_em_name'),relationship:val('po_em_rel').startsWith('Select')?'':val('po_em_rel'),phone:val('po_em_phone')};d.pickup.forEach((p,i)=>{p.name=val(`po_p${i}_name`);p.relationship=val(`po_p${i}_rel`).startsWith('Select')?'':val(`po_p${i}_rel`);p.photo=!!p.photo})}if(step===4){d.health={allergies:(val('po_allergy').startsWith('Select')?'':val('po_allergy')),allergyDetails:val('po_allergy_detail'),conditions:(val('po_conditions').startsWith('Select')?'':val('po_conditions')),conditionDetails:val('po_condition_detail'),medication:(val('po_medication').startsWith('Select')?'':val('po_medication')),medicationDetails:val('po_medication_detail'),dietary:(val('po_dietary').startsWith('Select')?'':val('po_dietary')),dietaryDetails:val('po_dietary_detail'),emergencyInstructions:val('po_emergency_medical'),other:(val('po_other').startsWith('Select')?'':val('po_other')),otherDetails:val('po_other_detail')}}if(step===5){d.facebook=val('po_facebook').startsWith('Select')?'':val('po_facebook');captureOnboardingRecipients(caseId);d.starter.uniform=val('po_uniform').startsWith('Select')?'':val('po_uniform');d.starter.books=val('po_books')}save()}
+function validateOnboardingStep(caseId,step){let o=ensureOnboarding(caseId),d=o.draft,fail=m=>{alert(m);return false};if(step===1){if(!d.child.legalName||!d.child.preferred||!d.child.dob||!d.child.gender||!d.child.address||!d.child.languages?.length||!d.child.hasSiblings)return fail('Please complete the required child and family details.');if(d.child.hasSiblings==='Yes'&&(!d.child.siblings.length||d.child.siblings.some(s=>!s.relationship||!s.dob)))return fail('Please complete each sibling relationship and date of birth.')}if(step===2){if(!d.guardians.length||d.guardians.some(g=>!g.name||!g.relationship||!g.dob||!g.legalAuthority||!g.working||(g.working==='Yes'&&(!g.company?.trim()||!g.jobTitle?.trim()))))return fail('Please complete the required guardian details.');if(!d.guardians.some(g=>g.legalAuthority==='Yes'&&g.phone))return fail('At least one authorised guardian must have the registered WhatsApp/mobile number.');if(!d.legalRestrictions.answer||(d.legalRestrictions.answer.startsWith('Yes')&&!String(d.legalRestrictions.details||'').trim()))return fail('Please complete the legal restrictions declaration.')}if(step===3){if(!d.emergency.name||!d.emergency.relationship||!d.emergency.phone)return fail('Please complete the emergency contact.');if(!d.pickup.length||d.pickup.some(p=>!p.name||!p.relationship||!p.photo))return fail('Each authorised pickup person needs a name, relationship and current verification photo.')}if(step===4){let h=d.health,detailOk=(a,x)=>a==='No'||(a==='Yes'&&String(x||'').trim());if(!['Yes','No'].includes(h.allergies)||!detailOk(h.allergies,h.allergyDetails)||!['Yes','No'].includes(h.conditions)||!detailOk(h.conditions,h.conditionDetails)||!['Yes','No'].includes(h.medication)||!detailOk(h.medication,h.medicationDetails)||!['Yes','No'].includes(h.dietary)||!detailOk(h.dietary,h.dietaryDetails)||!['Yes','No'].includes(h.other)||!detailOk(h.other,h.otherDetails))return fail('Please complete every Health/care declaration and any required details.')}if(step===5){if(!d.facebook||!d.recipientGuardianIds?.length||d.recipientGuardianIds.length>2||d.recipientGuardianIds.some(id=>!onboardingGuardianChoices(caseId).some(x=>x.id===id))||!d.starter.uniform)return fail('Please complete photo consent, Family communications and the configured uniform size.')}return true}
 function onboardingNext(caseId){let s=ui().parentOnboardingStep;syncOnboarding(caseId,s);if(!validateOnboardingStep(caseId,s))return;ui().parentOnboardingStep=Math.min(5,s+1);save();render();window.scrollTo(0,0)}
 function onboardingBack(caseId){let s=ui().parentOnboardingStep;syncOnboarding(caseId,s);ui().parentOnboardingStep=Math.max(1,s-1);save();render();window.scrollTo(0,0)}
-function addGuardian(caseId){let o=ensureOnboarding(caseId);o.draft.guardians.push({name:'',relationship:'',dob:'',phone:'',legalAuthority:'',working:'',company:''});save();render()}
+function addGuardian(caseId){let o=ensureOnboarding(caseId);o.draft.guardians.push({name:'',relationship:'',dob:'',phone:'',legalAuthority:'',working:'',company:'',jobTitle:''});save();render()}
 function addSibling(caseId){let o=ensureOnboarding(caseId);o.draft.child.hasSiblings='Yes';o.draft.child.siblings.push({relationship:'Brother',dob:''});save();render()}
 function markPickupPhoto(caseId,index,name){syncOnboarding(caseId,3);let o=ensureOnboarding(caseId);o.draft.pickup[index].photo=true;o.draft.pickup[index].photoName=name||'uploaded-photo.jpg';save();render()}
 function markParentDocUploaded(caseId,name){syncOnboarding(caseId,5);let o=ensureOnboarding(caseId);o.draft.documents.birthCertificate=true;o.draft.documents.birthCertificateFile=name||'birth-certificate.pdf';save();render()}
 function addPickup(caseId){let o=ensureOnboarding(caseId);o.draft.pickup.push({name:'',relationship:'',photo:false});save();render()}
 function submitOnboarding(caseId){syncOnboarding(caseId,5);for(let step=1;step<=5;step++){if(!validateOnboardingStep(caseId,step))return}let c=db.admissions[caseId],o=c.onboarding;o.healthConfirmed=false;o.status='submitted';o.submittedAt=new Date().toISOString();if(o.snapshot){o.submissionHistory=o.submissionHistory||[];o.submissionHistory.push(JSON.parse(JSON.stringify(o.snapshot)))}o.snapshot=JSON.parse(JSON.stringify({submittedAt:o.submittedAt,data:o.draft}));c.childName=o.draft.child.legalName;c.dob=o.draft.child.dob;c.guardian=o.draft.guardians[0]?.name||c.guardian;c.phone=o.draft.guardians[0]?.phone||c.phone;addEvent(caseId,'onboarding_submitted','New Family Onboarding submitted','Parent-provided information awaiting staff review');ui().route='admissions';ui().admissionsCase=caseId;ui().admissionsTab='prestart';ui().parentOnboardingStep=1;save();render()}
-function guardianCard(g,i){return `<div class="card flat" style="margin-bottom:10px"><h3>Guardian ${i+1}</h3><div class="form-grid">${field('Full name',g.name,'text',false,`po_g${i}_name`)}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other'],g.relationship||'Select…',`po_g${i}_rel`)}${field('Date of birth',g.dob,'date',false,`po_g${i}_dob`)}${field('Registered WhatsApp / mobile',g.phone,'text',false,`po_g${i}_phone`)}${selectField('Legal decision-making authority',['Select…','Yes','No'],g.legalAuthority||'Select…',`po_g${i}_auth`)}${selectField('Currently working?',['Select…','Yes','No'],g.working||'Select…',`po_g${i}_work`)}${field('Workplace / company name',g.company,'text',false,`po_g${i}_company`)}</div></div>`}
+function guardianCard(g,i){return `<div class="card flat" style="margin-bottom:10px"><h3>Guardian ${i+1}</h3><div class="form-grid">${field('Full name',g.name,'text',false,`po_g${i}_name`)}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other'],g.relationship||'Select…',`po_g${i}_rel`)}${field('Date of birth',g.dob,'date',false,`po_g${i}_dob`)}${field('Registered WhatsApp / mobile',g.phone,'text',false,`po_g${i}_phone`)}${selectField('Legal decision-making authority',['Select…','Yes','No'],g.legalAuthority||'Select…',`po_g${i}_auth`)}${selectField('Currently working?',['Select…','Yes','No'],g.working||'Select…',`po_g${i}_work`)}${field('Workplace / company name',g.company,'text',false,`po_g${i}_company`)}${field('Job title',g.jobTitle||'','text',false,`po_g${i}_job_title`)}</div></div>`}
 function pickupCard(p,i,caseId){return `<div class="card flat" style="margin-bottom:10px"><h3>Authorised pickup person ${i+1}</h3><div class="form-grid">${typeof pickupGuardianLinkControl==='function'?pickupGuardianLinkControl(p,i,caseId):''}${field('Full name',p.name,'text',false,`po_p${i}_name`)}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other relative','Family friend','Neighbour','Nanny or caregiver','Driver','Other'],p.relationship||'Select…',`po_p${i}_rel`)}</div>${operationalPhotoInput('Pickup verification photo','pickup',caseId+':'+i,p.verificationPhoto||(p.photo?{name:p.photoName}:null))}</div>`}
-function parentFamilyFields(id,s){let c=db.admissions[id],d=ensureOnboarding(id).draft,body='';if(s===1)body=`${notice('Admissions information is prefilled. Complete or confirm the remaining pre-start family details.','info')}<div class="form-grid">${db.people?childPhotoInput(id,true):''}${field('Child full legal name',d.child.legalName,'text',false,'po_legal')}${field('Preferred / called name',d.child.preferred,'text',false,'po_pref')}${field('Date of birth',d.child.dob,'date',false,'po_dob')}${selectField('Gender',['Select…','Male','Female'],d.child.gender||'Select…','po_gender')}${field('Residential address',d.child.address,'text',false,'po_address')}<div class="field"><label>Primary language(s) spoken at home</label><div class="check-stack">${['Sinhala','English','Tamil'].map(x=>`<label class="check-row"><input data-home-language type="checkbox" value="${x}" ${checked((Array.isArray(d.child.languages)?d.child.languages:[d.child.languages]).includes(x))}> ${x}</label>`).join('')}</div></div></div>${selectField('Does the child have siblings?',['Select…','Yes','No'],d.child.hasSiblings||'Select…','po_has_siblings')}${d.child.hasSiblings==='Yes'?`<div class="section-title">Siblings</div>${d.child.siblings.map((x,i)=>`<div class="form-grid">${selectField(`Sibling ${i+1} relationship`,['Brother','Sister'],x.relationship,`po_sib${i}_rel`)}${field('Sibling date of birth',x.dob,'date',false,`po_sib${i}_dob`)}</div>`).join('')}${btn('+ Add sibling',`syncOnboarding('${id}',1);addSibling('${id}')`,'secondary','sm')}`:''}`;if(s===2)body=`${d.guardians.map(guardianCard).join('')}${btn('+ Add another guardian',`syncOnboarding('${id}',2);addGuardian('${id}')`,'secondary','sm')}<div class="section-title">Legal arrangements</div>${selectField('Are there any legal restrictions or special arrangements we should know about?',['Select…','No','Yes — provide details'],d.legalRestrictions?.answer||'Select…','po_legal_restrict')}${textArea('Details when Yes',d.legalRestrictions?.details||'','po_legal_details')}`;if(s===3)body=`<h3>Emergency contact</h3><div class="form-grid">${field('Name',d.emergency.name,'text',false,'po_em_name')}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other'],d.emergency.relationship||'Select…','po_em_rel')}${field('Phone',d.emergency.phone,'text',false,'po_em_phone')}</div><div class="section-title">Authorised pickup people</div>${d.pickup.map((p,i)=>pickupCard(p,i,id)).join('')}${btn('+ Add pickup person',`syncOnboarding('${id}',3);addPickup('${id}')`,'secondary','sm')}`;if(s===4)body=`${selectField('Allergies',['Select…','No','Yes'],d.health.allergies||'Select…','po_allergy')}${field('Allergy details when Yes',d.health.allergyDetails,'text',false,'po_allergy_detail')}${selectField('Medical conditions',['Select…','No','Yes'],d.health.conditions||'Select…','po_conditions')}${field('Medical condition details when Yes',d.health.conditionDetails||'','text',false,'po_condition_detail')}${selectField('Regular medication',['Select…','No','Yes'],d.health.medication||'Select…','po_medication')}${field('Medication details when Yes',d.health.medicationDetails||'','text',false,'po_medication_detail')}${selectField('Dietary restrictions relevant to care',['Select…','No','Yes'],d.health.dietary||'Select…','po_dietary')}${field('Dietary details when Yes',d.health.dietaryDetails||'','text',false,'po_dietary_detail')}${field('Emergency medical instructions (if applicable)',d.health.emergencyInstructions||'','text',false,'po_emergency_medical')}${selectField("Anything else about your child's health or care?",['Select…','No','Yes'],d.health.other||'Select…','po_other')}${field('Other health / care details when Yes',d.health.otherDetails||'','text',false,'po_other_detail')}${notice('This submission is parent-provided evidence. It does not overwrite authoritative Health until staff review.','warn')}`;if(s===5)body=`${selectField('Is it okay if your child appears in photos we post on our Facebook page?',['Select…','Yes, that\'s okay','No, please don\'t include my child'],d.facebook||'Select…','po_facebook')}<div class="field"><label>Who should receive communications from ${ORG}?</label>${onboardingRecipientFields(id)}</div><div class="field"><label>Birth certificate copy</label>${d.documents.birthCertificate?`<div class="notice ok">Attached · ${esc(d.documents.birthCertificateFile||'birth-certificate.pdf')}</div>`:''}<input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="markParentDocUploaded('${id}',this.files[0]?.name)"></div>${kv('Agreed daycare arrangement',c.service)}${selectField('Uniform size',['Select size…','Size 22','Size 24','Size 26','Size 28'],d.starter.uniform||'Select size…','po_uniform')}${selectField('Books / accessories status',['Pending collection','Collected'],d.starter.books,'po_books')}`;return body}
+function parentFamilyFields(id,s){let c=db.admissions[id],d=ensureOnboarding(id).draft,body='';if(s===1)body=`${notice('Admissions information is prefilled. Complete or confirm the remaining pre-start family details.','info')}<div class="form-grid">${db.people?childPhotoInput(id,true):''}${field('Child full legal name',d.child.legalName,'text',false,'po_legal')}${field('Preferred / called name',d.child.preferred,'text',false,'po_pref')}${field('Date of birth',d.child.dob,'date',false,'po_dob')}${selectField('Gender',['Select…','Male','Female'],d.child.gender||'Select…','po_gender')}${field('Residential address',d.child.address,'text',false,'po_address')}<div class="field"><label>Primary language(s) spoken at home</label><div class="check-stack">${['Sinhala','English','Tamil'].map(x=>`<label class="check-row"><input data-home-language type="checkbox" value="${x}" ${checked((Array.isArray(d.child.languages)?d.child.languages:[d.child.languages]).includes(x))}> ${x}</label>`).join('')}</div></div></div>${selectField('Does the child have siblings?',['Select…','Yes','No'],d.child.hasSiblings||'Select…','po_has_siblings')}${d.child.hasSiblings==='Yes'?`<div class="section-title">Siblings</div>${d.child.siblings.map((x,i)=>`<div class="form-grid">${selectField(`Sibling ${i+1} relationship`,['Brother','Sister'],x.relationship,`po_sib${i}_rel`)}${field('Sibling date of birth',x.dob,'date',false,`po_sib${i}_dob`)}</div>`).join('')}${btn('+ Add sibling',`syncOnboarding('${id}',1);addSibling('${id}')`,'secondary','sm')}`:''}`;if(s===2)body=`${d.guardians.map(guardianCard).join('')}${btn('+ Add another guardian',`syncOnboarding('${id}',2);addGuardian('${id}')`,'secondary','sm')}<div class="section-title">Legal arrangements</div>${selectField('Are there any legal restrictions or special arrangements we should know about?',['Select…','No','Yes — provide details'],d.legalRestrictions?.answer||'Select…','po_legal_restrict')}${textArea('Details when Yes',d.legalRestrictions?.details||'','po_legal_details')}`;if(s===3)body=`<h3>Emergency contact</h3><div class="form-grid">${field('Name',d.emergency.name,'text',false,'po_em_name')}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other'],d.emergency.relationship||'Select…','po_em_rel')}${field('Phone',d.emergency.phone,'text',false,'po_em_phone')}</div><div class="section-title">Authorised pickup people</div>${d.pickup.map((p,i)=>pickupCard(p,i,id)).join('')}${btn('+ Add pickup person',`syncOnboarding('${id}',3);addPickup('${id}')`,'secondary','sm')}`;if(s===4)body=`${selectField('Allergies',['Select…','No','Yes'],d.health.allergies||'Select…','po_allergy')}${field('Allergy details when Yes',d.health.allergyDetails,'text',false,'po_allergy_detail')}${selectField('Medical conditions',['Select…','No','Yes'],d.health.conditions||'Select…','po_conditions')}${field('Medical condition details when Yes',d.health.conditionDetails||'','text',false,'po_condition_detail')}${selectField('Regular medication',['Select…','No','Yes'],d.health.medication||'Select…','po_medication')}${field('Medication details when Yes',d.health.medicationDetails||'','text',false,'po_medication_detail')}${selectField('Dietary restrictions relevant to care',['Select…','No','Yes'],d.health.dietary||'Select…','po_dietary')}${field('Dietary details when Yes',d.health.dietaryDetails||'','text',false,'po_dietary_detail')}${field('Emergency medical instructions (if applicable)',d.health.emergencyInstructions||'','text',false,'po_emergency_medical')}${selectField("Anything else about your child's health or care?",['Select…','No','Yes'],d.health.other||'Select…','po_other')}${field('Other health / care details when Yes',d.health.otherDetails||'','text',false,'po_other_detail')}${notice('This submission is parent-provided evidence. It does not overwrite authoritative Health until staff review.','warn')}`;if(s===5)body=`${selectField('Is it okay if your child appears in photos we post on our Facebook page?',['Select…','Yes, that\'s okay','No, please don\'t include my child'],d.facebook||'Select…','po_facebook')}<div class="field"><label>Family communications</label><p class="field-help">Choose one or both authorised guardians for routine reports, invoices, receipts and preschool notices.</p>${onboardingRecipientFields(id)}</div><div class="field"><label>Birth certificate copy</label>${d.documents.birthCertificate?`<div class="notice ok">Attached · ${esc(d.documents.birthCertificateFile||'birth-certificate.pdf')}</div>`:''}<input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="markParentDocUploaded('${id}',this.files[0]?.name)"></div>${kv('Agreed daycare arrangement',c.service)}${selectField('Uniform size',['Select size…','Size 22','Size 24','Size 26','Size 28'],d.starter.uniform||'Select size…','po_uniform')}${selectField('Books / accessories status',['Pending collection','Collected'],d.starter.books,'po_books')}`;return body}
 function renderParentOnboarding(){let id=ui().parentOnboardingCase,c=db.admissions[id];if(!c){ui().route='admissions';save();return renderAdmissions()}let o=ensureOnboarding(id),d=o.draft,s=ui().parentOnboardingStep,body='';body=parentFamilyFields(id,s);return `<div class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>${ORG}</strong><p>New Family Onboarding · secure link · no parent account</p></div><div class="parent-content"><div class="stepper">${[1,2,3,4,5].map(i=>`<span class="${s>=i?'active':''}"></span>`).join('')}</div><div class="eyebrow">${esc(c.childName)} · pre-start</div><h2 style="color:var(--navy);font-size:20px;margin:5px 0 12px">${['Child & family','Guardians','Emergency & pickup','Health','Consent & starter'][s-1]}</h2>${body}<div class="parent-foot">${btn(s===1?'Back to MPS':'Back',s===1?`ui().route='admissions';ui().admissionsTab='prestart';save();render()`:`onboardingBack('${id}')`,'secondary')}${btn(s===5?'Submit onboarding':'Continue',s===5?`submitOnboarding('${id}')`:`onboardingNext('${id}')`,'primary')}</div></div></div></div>`}
 
-function todayActions(){let a=[];let dilan=db.attendance.dilan;if(dilan&&dilan.status==='present'&&activeTemporaryPickup('dilan')&&childInClassroomScope(db.people?.children?.dilan))a.push({sev:'red',icon:'!',title:'Dilan Jayasinghe still checked in',sub:'Temporary pickup instruction active · verify collector before handover',go:"setRoute('attendance')"});let sen=db.admissions.senuri;if(sen&&admissionDerived(sen).status==='Fee overdue'&&has('Admissions'))a.push({sev:'amber',icon:'₨',title:'Senuri Peris · admission fee overdue',sub:'Admissions decision required — Extend, Waive or Release place',go:"ui().admissionsCase='senuri';setRoute('admissions')"});let hu=Object.values(db.health.updates).find(x=>x.status==='pending');if(hu&&has('Head Teacher'))a.push({sev:'amber',icon:'♥',title:'Health update awaiting review',sub:`${hu.childName} · parent submitted new medical information`,go:`ui().healthChild='${hu?.childId||''}';setRoute('health')`});let n=db.admissions.nethmi;if(n&&admissionDerived(n).stage==='Tour'&&has('Admissions'))a.push({sev:'blue',icon:'◎',title:'Nethmi Silva · admissions follow-up due',sub:'Tour completed · family wants to proceed',go:"ui().admissionsCase='nethmi';setRoute('admissions')"});let p=currentPersona();if(has('Accounts')){let pend=Object.values(db.billing.payments).find(x=>x.status==='pending');if(pend)a.push({sev:'amber',icon:'₨',title:'Payment awaiting verification',sub:`${money(pend.amount)} · ${pend.reference}`,go:"setRoute('billing')"})}return a}
-function todayAttentionSection(actions){return `<div class="section-title today-attention-title">Needs your attention</div>${actions.length?`<div class="grid today-attention-list">${actions.map(x=>`<div class="span-6 action-card ${x.sev==='amber'?'warning':''}"><div class="icon">${x.icon}</div><div class="grow"><strong>${x.title}</strong><span>${x.sub}</span></div>${btn('Open',x.go,'secondary','sm')}</div>`).join('')}</div>`:'<p class="today-attention-clear">Nothing needs attention right now.</p>'}`}
+function todayActions(){let a=[];let dilan=db.attendance.dilan;if(dilan&&dilan.status==='present'&&activeTemporaryPickup('dilan')&&childInClassroomScope(db.people?.children?.dilan))a.push({sev:'red',icon:'!',title:'Dilan Jayasinghe still checked in',sub:'Temporary pickup instruction active · verify collector before handover',go:"setRoute('attendance')"});let sen=db.admissions.senuri;if(sen&&admissionDerived(sen).status==='Fee overdue'&&has('Admissions'))a.push({sev:'amber',icon:'receipt-text',title:'Senuri Peris · admission fee overdue',sub:'Admissions decision required — Extend, Waive or Release place',go:"ui().admissionsCase='senuri';setRoute('admissions')"});let hu=Object.values(db.health.updates).find(x=>x.status==='pending');if(hu&&has('Head Teacher'))a.push({sev:'amber',icon:'heart-pulse',title:'Health update awaiting review',sub:`${hu.childName} · parent submitted new medical information`,go:`ui().healthChild='${hu?.childId||''}';setRoute('health')`});let n=db.admissions.nethmi;if(n&&admissionDerived(n).stage==='Tour'&&has('Admissions'))a.push({sev:'blue',icon:'user-round-plus',title:'Nethmi Silva · admissions follow-up due',sub:'Tour completed · family wants to proceed',go:"ui().admissionsCase='nethmi';setRoute('admissions')"});let p=currentPersona();if(has('Accounts')){let pend=Object.values(db.billing.payments).find(x=>x.status==='pending');if(pend)a.push({sev:'amber',icon:'receipt-text',title:'Payment awaiting verification',sub:`${money(pend.amount)} · ${pend.reference}`,go:"setRoute('billing')",paymentId:pend.id})}return a}
+function todayAttentionIcon(icon){const names={"receipt-text":"receipt-text","₨":"receipt-text","heart-pulse":"heart-pulse","user-round-plus":"user-round-plus","users-round":"users-round","settings":"settings","⚙":"settings","◎":"user-round-plus"};return names[icon]?mpsLineIcon(names[icon]):'<span aria-hidden="true">!</span>'}
+function todayAttentionSection(actions){return `<div class="section-title today-attention-title">Needs your attention</div>${actions.length?`<div class="grid today-attention-list">${actions.map(x=>`<div class="span-6 action-card ${x.sev==='amber'?'warning':''}" ${x.medicationKey?`data-medication-due="${esc(x.medicationKey)}"`:''}><div class="icon" aria-hidden="true">${todayAttentionIcon(x.icon)}</div><div class="grow"><strong>${x.title}</strong><span>${x.sub}</span></div>${btn(x.actionLabel||'Open',x.go,x.actionStyle||'secondary','sm')}</div>`).join('')}</div>`:'<p class="today-attention-clear">Nothing needs attention right now.</p>'}`}
 function renderToday(){let p=currentPersona(),actions=todayActions();
   if(has('Social Media')&&!has('Head Teacher')){let assets=Object.values(db.media.approvedAssets);return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Your MPS view contains approved public-safe assets only.')}<div class="metric-row"><div class="metric"><strong>${assets.length}</strong><span>Approved assets</span><small>Available for publishing</small></div></div><div class="section-title">Approved assets</div>${assets.length?approvedAssets():`<div class="card"><p>No approved MarketingAssets are currently available. Private child photos, nominations, profiles, Health and assessment data are not exposed to this persona.</p></div>`}`)}
   if(has('Accounts')&&!has('Head Teacher')){let invs=Object.values(db.billing.invoices),out=invs.filter(i=>i.status==='issued').reduce((sum,i)=>sum+invoiceOutstanding(i),0);return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Finance-only action view. Child Health, teaching and private media are outside this persona.')}${todayAttentionSection(actions)}<div class="section-title">Summary</div><div class="metric-row"><div class="metric"><strong>${money(out)}</strong><span>Outstanding</span><small>Issued balances</small></div><div class="metric"><strong>${invs.filter(i=>invoiceStatus(i).text==='Overdue').length}</strong><span>Overdue</span><small>Staff-led follow-up</small></div><div class="metric"><strong>${Object.values(db.billing.payments).filter(x=>x.status==='pending').length}</strong><span>Payments to verify</span><small>Real-source check</small></div><div class="metric"><strong>${invs.filter(i=>i.status==='draft').length}</strong><span>Draft invoices</span><small>Editable before issue</small></div></div>`)}
   if(has('System Administration')){return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Organisation access and recovery work only; operational child data is not automatically exposed.')}<div class="metric-row"><div class="metric"><strong>${Object.values(db.staff.accounts).filter(x=>x.status==='active').length}</strong><span>Active accounts</span><small>Personal identities</small></div><div class="metric"><strong>${Object.values(db.staff.accounts).filter(x=>x.status==='inactive').length}</strong><span>Inactive</span><small>Historical attribution retained</small></div></div><div class="grid" style="margin-top:14px"><div class="span-6 card"><h3>Access governance</h3><p>Permission bundles are additive. One person uses one account; responsibilities do not require role switching.</p></div><div class="span-6 card"><h3>Recovery</h3><p>Ordinary staff → System Administrator reset. Last/only administrator → configured secure recovery; platform break-glass requires ownership/control verification.</p></div></div>`)}
-  let present=attendanceRoster().filter(x=>x.status==='present').length;let daycareCount=Object.values(db.daycare.bookings).filter(x=>x.date===TODAY).length;let lessonCount=mpsTodayState(ensureTeachingSelection())?.items.length||0;return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'One personalised operational view built from the permission bundles on this account.')}${todayAttentionSection(actions)}<div class="section-title">Today at ${ORG}</div><div class="grid"><div class="span-8 card soft-blue"><div class="card-header"><div class="grow"><h3>🚩 International Flags Day</h3><p>Whole preschool · staff-created calendar event · Normal Preschool Day</p></div>${badge('Context','blue')}</div><p>Planning context only. It does not change operating-day truth or invent a lesson.</p></div><div class="span-4 card"><h3>🎂 Birthday</h3><p>Amaya Perera · derived from DOB. Calm context, not an alert.</p></div></div><div class="section-title">Summary</div><div class="metric-row"><div class="metric"><strong>${present}</strong><span>Children present</span><small>Physical-presence truth</small></div><div class="metric"><strong>${daycareCount}</strong><span>Daycare today</span><small>Authorised bookings</small></div><div class="metric"><strong>${actions.length}</strong><span>Needs action</span><small>Source-backed work</small></div><div class="metric"><strong>${lessonCount}</strong><span>Lessons today</span><small>Assigned teaching scope</small></div></div><div class="section-title">Teaching today</div>${todayTeachingCard()}`)}
+  let present=attendanceRoster().filter(x=>x.status==='present').length;let daycareCount=daycareRoster().length;let lessonCount=mpsTodayState(ensureTeachingSelection())?.items.length||0;return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'One personalised operational view built from the permission bundles on this account.')}${todayAttentionSection(actions)}<div class="section-title">Today at ${ORG}</div><div class="grid"><div class="span-8 card soft-blue"><div class="card-header"><div class="grow"><h3>🚩 International Flags Day</h3><p>Whole preschool · staff-created calendar event · Normal Preschool Day</p></div>${badge('Context','blue')}</div><p>Planning context only. It does not change operating-day truth or invent a lesson.</p></div><div class="span-4 card"><h3>🎂 Birthday</h3><p>Amaya Perera · derived from DOB. Calm context, not an alert.</p></div></div><div class="section-title">Summary</div><div class="metric-row"><div class="metric"><strong>${present}</strong><span>Children present</span><small>Physical-presence truth</small></div><div class="metric"><strong>${daycareCount}</strong><span>Daycare expected</span><small>Recurring care and bookings</small></div><div class="metric"><strong>${actions.length}</strong><span>Needs action</span><small>Source-backed work</small></div><div class="metric"><strong>${lessonCount}</strong><span>Lessons today</span><small>Assigned teaching scope</small></div></div><div class="section-title">Teaching today</div>${todayTeachingCard()}`)}
 
 function currentWeek(){const id=ensureTeachingSelection();if(!id)return emptyClassWeek();const weeks=db.curriculum.weeks[id]||(db.curriculum.weeks[id]={});return weeks[ui().lessonWeek]||(weeks[ui().lessonWeek]=emptyClassWeek())}
 function className(){return classroomLabel(ui().lessonClass)}
 function weekKeys(){return [...new Set([...Object.keys(db.curriculum.weeks[ui().lessonClass]||{}),ui().lessonWeek||TODAY])].sort()}
 function changeLessonClass(v){if(!teachingRooms().some(r=>r.id===v))return;ui().lessonClass=v;save();render()}
-function changeWeek(delta){ui().lessonWeek=isoAddDays(ui().lessonWeek||TODAY,delta*7);save();render()}
+function changeWeek(delta){ui().lessonWeek=isoAddDays(mpsMondayForDate(ui().lessonWeek||TODAY)||TODAY,delta*7);save();render()}
 
 function planActivityByUid(uid){for(let cls of Object.keys(db.curriculum.weeks))for(let wk of Object.values(db.curriculum.weeks[cls]))for(let day of Object.keys(wk.days)){let a=wk.days[day].find(x=>x.uid===uid);if(a)return {a,wk,day,classroomId:cls}}return null}
-function renderLessons(){let w=currentWeek(),curriculum=mpsWeekCurriculumSnapshot(w);let classControl=educationRoomSelect('lessonClassSelect',ui().lessonClass,teachingRooms(),'changeLessonClass(this.value)');let publishAction=!w.published?(has('Head Teacher')?btn('Publish week',"publishWeek()",'primary','sm'):badge('Awaiting Head Teacher publication','amber')):btn('Published',"openModal('published-info')",'success','sm');let contextSummary=`${esc(teachingContext().replace('Configured age range: ','').replace('. Use individual development and source context when selecting activities.',''))} · ${esc(w.officialArea)}`;return shell(`${pageHead('Curriculum engine','Lessons & curriculum','Plan from structured framework context, reuse activities, teach from Today, and let evidence flow downstream.')}<div class="lesson-primary"><div class="card lesson-plan-card"><div class="lesson-plan-controls">${classControl}<div class="lesson-week-identity"><div class="card-header"><div class="grow"><h3>${w.label}</h3><p>${w.published?`Published by ${w.approvedBy||'Head Teacher'}`:'Working plan · not yet published'}</p></div>${badge(w.published?'Published':'Draft',w.published?'green':'amber')}</div><div class="lesson-week-actions">${btn('‹ Previous',"changeWeek(-1)",'secondary','sm')}${btn('Next ›',"changeWeek(1)",'secondary','sm')}<span class="grow"></span>${publishAction}</div></div></div><div class="tabs"><button class="tab ${ui().lessonTab==='week'?'active':''}" onclick="setLessonTab('week')">Week plan</button><button class="tab ${ui().lessonTab==='evidence'?'active':''}" onclick="setLessonTab('evidence')">Evidence & progress</button><button class="tab ${ui().lessonTab==='library'?'active':''}" onclick="setLessonTab('library')">Activity library</button></div>${ui().lessonTab==='week'?renderWeekBoard(w):ui().lessonTab==='evidence'?renderLessonEvidence():renderActivityLibrary()}</div><details class="card teaching-context"><summary><span><strong>Teaching context</strong><small>${contextSummary}</small></span></summary><div class="teaching-context-body"><p>${esc(teachingContext())}</p><div data-teaching-calendar-context></div><div class="section-title">Official source</div>${kv('Curriculum pack',esc(curriculum.packName))}${kv('Official version',`${esc(curriculum.versionLabel)} ${prov('Managed by Eliira','reused')}`)}${kv('Source',esc(curriculum.source))}${kv('Learning area',`<strong>${w.officialArea}</strong> ${prov('Official source structure','reused')}`)}${notice(`<strong>MPS teacher-friendly summary</strong><br>${esc(w.summary.replace('Teacher-friendly MPS summary: ',''))}`,'info')}${notice('MPS keeps official source structure, teacher-friendly summaries and preschool-created activity/adaptation text visually distinct.','ok')}</div></details></div>`)}
+function renderLessons(){let w=currentWeek(),curriculum=mpsWeekCurriculumSnapshot(w);let classControl=educationRoomSelect('lessonClassSelect',ui().lessonClass,teachingRooms(),'changeLessonClass(this.value)');let publishAction=!w.published?(has('Head Teacher')?btn('Publish week',"publishWeek()",'primary','sm'):badge('Awaiting Head Teacher publication','amber')):btn('Published',"openModal('published-info')",'success','sm');let contextSummary=`${esc(teachingContext().replace('Configured age range: ','').replace('. Use individual development and source context when selecting activities.',''))} · ${esc(w.officialArea)}`;return shell(`${pageHead('Curriculum engine','Lessons & curriculum','Plan from structured framework context, reuse activities, teach from Today, and let evidence flow downstream.')}<div class="lesson-primary"><div class="card lesson-plan-card"><div class="lesson-plan-controls">${classControl}<div class="lesson-week-identity"><div class="card-header"><div class="grow"><h3>${w.label}</h3><p>${w.published?`Published by ${w.approvedBy||'Head Teacher'}`:'Working plan · not yet published'}</p></div>${badge(w.published?'Published':'Draft',w.published?'green':'amber')}</div><div class="lesson-week-actions">${btn('‹ Previous',"changeWeek(-1)",'secondary','sm')}${btn('Next ›',"changeWeek(1)",'secondary','sm')}<span class="grow"></span>${publishAction}</div></div></div><div class="tabs"><button class="tab ${ui().lessonTab==='week'?'active':''}" onclick="setLessonTab('week')">Week plan</button><button class="tab ${ui().lessonTab==='evidence'?'active':''}" onclick="setLessonTab('evidence')">Evidence & progress</button></div>${ui().lessonTab==='evidence'?renderLessonEvidence():renderWeekBoard(w)}</div><details class="card teaching-context"><summary><span><strong>Teaching context</strong><small>${contextSummary}</small></span></summary><div class="teaching-context-body"><p>${esc(teachingContext())}</p><div data-teaching-calendar-context></div><div class="section-title">Official source</div>${kv('Curriculum pack',esc(curriculum.packName))}${kv('Official version',`${esc(curriculum.versionLabel)} ${prov('Managed by Eliira','reused')}`)}${kv('Source',esc(curriculum.source))}${kv('Learning area',`<strong>${w.officialArea}</strong> ${prov('Official source structure','reused')}`)}${notice(`<strong>MPS teacher-friendly summary</strong><br>${esc(w.summary.replace('Teacher-friendly MPS summary: ',''))}`,'info')}${notice('MPS keeps official source structure, teacher-friendly summaries and preschool-created activity/adaptation text visually distinct.','ok')}</div></details></div>`)}
 function lessonWeekDays(){return [{id:'Mon',label:'Monday'},{id:'Tue',label:'Tuesday'},{id:'Wed',label:'Wednesday'},{id:'Thu',label:'Thursday'},{id:'Fri',label:'Friday'}]}
 function lessonDayLabel(day){return lessonWeekDays().find(x=>x.id===day)?.label||''}
 function activityLibraryCards(action){return Object.values(db.curriculum.library).map(lib=>`<div class="lesson-card"><div class="title">${esc(lib.title)}</div><div class="meta">${esc(lib.sourceType)} · mapped to ${esc(lib.officialArea)}</div><p>${esc(lib.summary)}</p><div class="materials"><span class="material">${esc(lib.materials)}</span></div><div style="margin-top:8px">${btn('Use this activity',action(lib),'primary','sm')}</div></div>`).join('')}
@@ -48411,7 +48447,7 @@ function recordAttendanceArrival(childId){
   let r=db.attendance[child.id];
   if(!r)r=db.attendance[child.id]={id:child.id,name:child.legalName||child.preferred,className:childClass(child),corrections:[]};
   r.date=r.date||TODAY;r.arrivalActor=staffActor();r.arrivalRecordedAt=new Date().toISOString();r.status='present';
-  r.checkIn=r.checkIn||new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'});
+  r.checkIn=r.checkIn||new Date(r.arrivalRecordedAt).toLocaleTimeString('en-GB',{timeZone:mpsPreschoolClockTimezone(),hour:'2-digit',minute:'2-digit'});
   return true;
 }
 function checkInAttendanceRow(childId){
@@ -48435,53 +48471,85 @@ function checkout(childId,temp=false){
     if(collector==='Other authorised collector'||!collector&&profileCollectorOptions(childId).length===1){
       openModal('checkout-other-authorisation',{childId});return;
     }
-    if(!profileCollectorOptions(childId).slice(0,-1).includes(collector)){
+    if(!familyRecord(childId).pickup.some(p=>p.guardianId===collector)){
       alert('Select a recorded authorised collector.');return;
     }
     if(!pickupIdentityMethods.includes(val('routine_verify'))){alert('Complete the collector identity check before handover.');return}
   }
-  let r=db.attendance[childId];r.date=r.date||TODAY;r.checkoutDate=TODAY;r.checkoutRecordedAt=new Date().toISOString();r.checkoutActor=staffActor();r.status='checked_out';r.checkOut=new Date(r.checkoutRecordedAt).toLocaleTimeString('en-GB',{timeZone:mpsPreschoolClockTimezone(),hour:'2-digit',minute:'2-digit'});r.collector=temp?instruction.name:val('collectorSelect');
-  r.pickupVerification=temp?{instructionId:instruction.id,instruction:JSON.parse(JSON.stringify(instruction)),method:val('temp_verify'),at:new Date().toISOString(),actor:staffActor()}:{method:val('routine_verify'),at:new Date().toISOString(),actor:staffActor()};
+  const routineCollector=temp?null:familyRecord(childId).pickup.find(p=>p.guardianId===val('collectorSelect'));
+  let r=db.attendance[childId];r.date=r.date||TODAY;r.checkoutDate=TODAY;r.checkoutRecordedAt=new Date().toISOString();r.checkoutActor=staffActor();r.status='checked_out';r.checkOut=new Date(r.checkoutRecordedAt).toLocaleTimeString('en-GB',{timeZone:mpsPreschoolClockTimezone(),hour:'2-digit',minute:'2-digit'});r.collector=temp?instruction.name:routineCollector.name+' · '+routineCollector.relationship;
+  r.pickupVerification=temp?{instructionId:instruction.id,instruction:JSON.parse(JSON.stringify(instruction)),method:val('temp_verify'),at:new Date().toISOString(),actor:staffActor()}:{collectorId:val('collectorSelect'),method:val('routine_verify'),at:new Date().toISOString(),actor:staffActor()};
   // Persist verified departure before optional fee processing.
   if(!save())return;
   processCheckoutLatePickup(childId,r);
   closeOverlay();
 }
 
-function daycareRoster(){return Object.values(db.daycare.bookings).filter(b=>b.date===TODAY&&currentOperationalChild(b.childId))}
-function renderDaycare(){let roster=daycareRoster(),eligible=currentChildrenInScope(),allCurrent=Object.values(db.people.children).filter(c=>currentOperationalChild(c.id)),canBook=eligible.length&&offeredDaycarePlans().length,emptyCopy=!allCurrent.length?'No children are eligible for Daycare yet. Children appear after Admissions, enrolment and pre-start readiness.':!eligible.length?'No children are available in your Daycare scope.':'No Daycare bookings for today.',emptyAction=!allCurrent.length&&allowed('admissions')?btn('Open Admissions',"setRoute('admissions')",'secondary','sm'):'';return shell(`${pageHead('Extended care','Daycare','Bookings create the roster; physical attendance remains the single presence truth.',canBook?btn('Add ad-hoc booking',"openModal('daycare-booking')",'primary'):'')}<div class="metric-row"><div class="metric"><strong>${roster.length}</strong><span>Booked today</span><small>Derived roster</small></div><div class="metric"><strong>${db.daycare.capacity-roster.length}</strong><span>Places available</span><small>Configured capacity ${db.daycare.capacity}</small></div><div class="metric"><strong>${Object.keys(db.daycare.careRecords).length}</strong><span>Care records</span><small>Recorded today</small></div><div class="metric"><strong>${Object.values(db.daycare.latePickups).filter(x=>x.status==='pending').length}</strong><span>Late pickup review</span><small>Human decision required</small></div></div><div class="section-title">Today’s roster</div><div class="table-wrap operational-roster-wrap"><table class="table operational-roster daycare-roster"><thead><tr><th>Child</th><th>Care</th><th>Presence</th><th>Meal / rest / activity</th><th></th></tr></thead><tbody>${roster.map(b=>{let att=attendanceCurrentRecord(b.childId),cr=db.daycare.careRecords[b.childId];return `<tr data-child-id="${esc(b.childId)}"><td class="roster-identity"><div class="name">${attendanceChildIdentity(b.childId,profileChildName(b.childId,b.childName))}</div></td><td class="roster-care"><span class="operational-mobile-only">Care · </span>${esc(bookingCoverageLabel(b))}${b.date>TODAY?btn('Amend coverage',`openModal('amend-care',{id:'${b.id}'})`,'secondary','sm'):''}</td><td class="roster-status">${att?badge(attendanceStatusLabel(att.status),att.status==='present'?'green':'grey'):badge('Not checked in','grey')}</td><td class="roster-detail"><span class="operational-mobile-only">Care record · </span>${cr?`${cr.meal} · ${cr.rest} · ${cr.activity}`:'Not recorded'}</td><td class="roster-actions">${att?.status==='present'?btn(cr?'Edit care':'Record care',`openModal('care-entry',{childId:'${b.childId}'})`,'secondary','sm'):badge('Not present','grey')}</td></tr>`}).join('')}</tbody></table>${roster.length?'':`<div class="empty operational-empty"><strong>${emptyCopy}</strong>${emptyAction}</div>`}</div>${futureCareBookings()}${latePickupReviewCards()}`)}
-function authoriseDaycareBooking(){let childId=val('db_child'),planId=val('db_care'),care=planId==='extension'?'One-day Late Care extension':careLabel(planId),date=val('db_date')||TODAY;if(!offeredDaycarePlans().length||!(planId==='extension'||offeredDaycarePlan(planId))||!educationDate(date))return;let roster=Object.values(db.daycare.bookings).filter(b=>b.date===date);if(roster.length>=db.daycare.capacity){alert('Daycare capacity is full for this date.');return}if(roster.some(b=>b.childId===childId)){alert('This child already has an authorised daycare booking for this date.');return}if(!allowed('daycare')||!currentChildrenInScope().some(c=>c.id===childId))return;db.daycare.bookings['bk_'+childId+'_'+Date.now()]={id:'bk_'+Date.now(),childId:profileChildId(childId)||childId,childName:profileChildName(childId),date,care,daycarePlanId:planId,coverage:bookingCoverage(planId),recurring:false,actor:staffActor()};closeOverlay()}
+function daycareRoster(date=TODAY){
+  const dated=Object.values(db.daycare.bookings).filter(b=>b.date===date&&childDirectoryGroup(db.people.children[profileChildId(b.childId)||b.childId],date)==='current'&&!['cancelled','declined'].includes(b.status));
+  const covered=new Set(dated.map(b=>profileChildId(b.childId)||b.childId));
+  // A recurring enrolment supplies today's expected coverage without writing a daily booking.
+  // A date-specific authorisation takes precedence; Attendance alone supplies presence.
+  if(['Closed','Closed Day'].includes(operatingStatusForDate(date).text))return dated;
+  const recurring=Object.values(db.people.children).flatMap(child=>{
+    const enrolment=childEnrolment(child),planId=enrolment?.daycarePlanId,plan=planId&&daycarePlan(planId);
+    if(childDirectoryGroup(child,date)!=='current'||covered.has(child.id)||enrolment?.status!=='active'||enrolment.careReview||!plan)return [];
+    return [{id:`recurring_${date}_${child.id}`,childId:child.id,childName:profileChildName(child.id),date,care:plan.name,daycarePlanId:planId,coverage:{planId,label:plan.name,start:plan.start,end:plan.end},recurring:true}];
+  });
+  return [...dated,...recurring];
+}
+function renderDaycare(){let roster=daycareRoster(),eligible=currentChildrenInScope(),allCurrent=Object.values(db.people.children).filter(c=>currentOperationalChild(c.id)),canBook=eligible.length&&offeredDaycarePlans().length,emptyCopy=!allCurrent.length?'No children are eligible for Daycare yet. Children appear after Admissions, enrolment and pre-start readiness.':!eligible.length?'No children are available in your Daycare scope.':'No Daycare bookings for today.',emptyAction=!allCurrent.length&&allowed('admissions')?btn('Open Admissions',"setRoute('admissions')",'secondary','sm'):'';return shell(`${pageHead('Extended care','Daycare','Bookings create the roster; physical attendance remains the single presence truth.',canBook?btn('Add ad-hoc booking',"openModal('daycare-booking')",'primary'):'')}<div class="metric-row"><div class="metric"><strong>${roster.length}</strong><span>Booked today</span><small>Derived roster</small></div><div class="metric"><strong>${Object.keys(db.daycare.careRecords).length}</strong><span>Care records</span><small>Recorded today</small></div><div class="metric"><strong>${Object.values(db.daycare.latePickups).filter(x=>x.status==='pending').length}</strong><span>Late pickup review</span><small>Human decision required</small></div></div><div class="section-title">Today’s roster</div><div class="table-wrap operational-roster-wrap"><table class="table operational-roster daycare-roster"><thead><tr><th>Child</th><th>Care</th><th>Presence</th><th>Meal / rest / activity</th><th></th></tr></thead><tbody>${roster.map(b=>{let att=attendanceCurrentRecord(b.childId),cr=db.daycare.careRecords[b.childId];return `<tr data-child-id="${esc(b.childId)}"><td class="roster-identity"><div class="name">${attendanceChildIdentity(b.childId,profileChildName(b.childId,b.childName))}</div></td><td class="roster-care"><span class="operational-mobile-only">Care · </span>${esc(bookingCoverageLabel(b))}${b.date>TODAY?btn('Amend coverage',`openModal('amend-care',{id:'${b.id}'})`,'secondary','sm'):''}</td><td class="roster-status">${att?badge(attendanceStatusLabel(att.status),att.status==='present'?'green':'grey'):badge('Not checked in','grey')}</td><td class="roster-detail"><span class="operational-mobile-only">Care record · </span>${cr?`${cr.meal} · ${cr.rest} · ${cr.activity}`:'Not recorded'}</td><td class="roster-actions">${att?.status==='present'?btn(cr?'Edit care':'Record care',`openModal('care-entry',{childId:'${b.childId}'})`,'secondary','sm'):badge('Not present','grey')}</td></tr>`}).join('')}</tbody></table>${roster.length?'':`<div class="empty operational-empty"><strong>${emptyCopy}</strong>${emptyAction}</div>`}</div>${futureCareBookings()}${latePickupReviewCards()}`)}
+function authoriseDaycareBooking(){let childId=val('db_child'),planId=val('db_care'),care=planId==='extension'?'One-day Late Care extension':careLabel(planId),date=val('db_date')||TODAY;if(!offeredDaycarePlans().length||!(planId==='extension'||offeredDaycarePlan(planId))||!educationDate(date))return;const dated=Object.values(db.daycare.bookings).filter(b=>b.date===date&&!['cancelled','declined'].includes(b.status)),roster=daycareRoster(date);if(['Closed','Closed Day'].includes(operatingStatusForDate(date).text)){alert('Daycare is closed on this date.');return}if(dated.some(b=>b.childId===childId)){alert('This child already has an authorised daycare booking for this date.');return}if(!allowed('daycare')||!currentChildrenInScope().some(c=>c.id===childId))return;const id='bk_'+crypto.randomUUID();db.daycare.bookings[id]={id,childId:profileChildId(childId)||childId,childName:profileChildName(childId),date,care,daycarePlanId:planId,coverage:bookingCoverage(planId),recurring:false,actor:staffActor()};closeOverlay()}
 function saveCareRecord(childId){if(!currentOperationalChild(childId)||db.attendance[childId]?.status!=='present')return;db.daycare.careRecords[childId]={childId:profileChildId(childId)||childId,actor:staffActor(),meal:val('care_meal'),rest:val('care_rest'),activity:val('care_activity'),participation:val('care_participation'),note:val('care_note'),at:new Date().toISOString()};closeOverlay()}
 
 
-function renderHealth(){let privileged=has('Head Teacher'),selected=healthSelectedChild();if(!privileged){return shell(`${pageHead('Health & safety','Health & safety','Only the safety context needed for your role is visible here; authoritative Health review and medication authorisation stay restricted.',healthScopedChildren().length?btn('New incident',"openModal('incident')",'primary'):'')}${healthChildSelector()}<div class="grid"><div class="span-6 card health-current"><h3>Care information</h3>${selected?childHealthContext(selected):'<div class="empty">Select a child to view the care information available to your role.</div>'}${notice('Parent updates and authoritative Health editing are not available to this permission set.','info')}</div><div class="span-6">${healthIncidents()}</div></div>`)}let tab=ui().healthTab;let tabs=`<div class="tabs"><button class="tab ${tab==='updates'?'active':''}" onclick="setHealthTab('updates')">Health review</button><button class="tab ${tab==='medication'?'active':''}" onclick="setHealthTab('medication')">Medication</button><button class="tab ${tab==='incidents'?'active':''}" onclick="setHealthTab('incidents')">Incidents</button></div>`;let body=tab==='updates'?healthUpdates():tab==='medication'?healthMedication():healthIncidents();return shell(`${pageHead('Health & safety','Health & safety','One authoritative Health truth; parent input, medication authority and incidents remain separate workflows.',healthScopedChildren().length?btn('New incident',"openModal('incident')",'primary'):'')}${tabs}${body}`)}
-function healthUpdates(){let selected=healthSelectedChild(),children=healthScopedChildren(),all=Object.values(db.health.updates),ups=selected?all.filter(u=>u.childId===selected):all,empty=selected?`No Health updates recorded for ${esc(profileChildName(selected))}.`:'No pending updates.',currentEmpty=children.length?'Select a child or review a pending update to see the matching current Health record.':'No current Health record is available in your scope.';return `${healthChildSelector()}<div class="grid health-review-grid"><div class="span-7 card"><h3>Parent updates awaiting review</h3>${ups.map(u=>`<div class="child-row ${u.childId===selected?'is-selected':''}"><strong>${profileChildLink(u.childId,u.childName)}</strong><span>${badge(u.status,u.status==='pending'?'amber':'green')}</span><span class="hide-mobile">${esc(u.summary)}</span><span>${u.status==='pending'?btn('Review',`reviewHealthUpdate('${u.id}')`,'primary','sm'):'✓'}</span></div>`).join('')||`<div class="empty">${empty}</div>`}</div><div class="span-5 card health-current"><h3>Current Health record</h3>${selected?childHealthContext(selected):`<div class="empty">${currentEmpty}</div>`}</div></div>`}
-function healthMedication(){let auth=db.health.medAuth.minoli;return `<div class="grid"><div class="span-7 card"><div class="card-header"><div class="grow"><h3>${profileChildLink('minoli')} · prescribed inhaler</h3><p>Administration is allowed only while the authorisation is current.</p></div>${badge(auth.status,auth.status==='current'?'green':'red')}</div>${kv('Instruction',auth.instruction)}${kv('Authorised by',auth.authorisedBy)}${kv('Updated',auth.updated)}<div style="display:flex;gap:8px;flex-wrap:wrap">${auth.status==='current'?btn('Record administration',"openModal('medication',{authId:'ma1'})",'primary'):''}${btn(auth.status==='current'?'Replace authorisation':'Create current authorisation',"openModal('med-authorisation',{mode:'replace'})",'secondary')}${auth.status==='current'?btn('Withdraw',"withdrawMedicationAuth()",'danger'):''}</div></div><div class="span-5 card"><h3>Administration history</h3>${db.health.administrations.length?db.health.administrations.map(a=>`<div class="child-row"><strong>${profileChildLink(a.childId,a.childName)}</strong><span>${badge(a.outcome,a.outcome==='Administered'?'green':'amber')}</span><span>${a.time}</span><span>✓</span></div>`).join(''):'<div class="empty">No administrations recorded in this prototype state.</div>'}</div></div>`}
-function healthIncidents(){return `<div class="card"><div class="card-header"><div class="grow"><h3>Incident register</h3><p>Care first; factual record, guardian contact and follow-up.</p></div>${btn('New incident',"openModal('incident')",'primary','sm')}</div>${db.health.incidents.length?db.health.incidents.map(i=>`<div class="child-row"><strong>${i.category}</strong><span>${badge(i.status,'amber')}</span><span>${esc(i.what)}</span><span>${btn(i.status==='Closed'?'Closed':'Review',`openModal('incident-review',{id:'${i.id}'})`,'secondary','sm')}</span></div>`).join(''):'<div class="empty">No incidents recorded in this prototype state.</div>'}</div>`}
+function renderHealth(){let privileged=has('Head Teacher'),selected=healthSelectedChild();if(!privileged){return shell(`${pageHead('Health & safety','Health & safety','Only the safety context needed for your role is visible here; authoritative Health review and medication authorisation stay restricted.','')}${healthChildSelector()}<div class="grid"><div class="span-6 card health-current"><h3>Care information</h3>${selected?childHealthContext(selected):'<div class="empty">Select a child to view the care information available to your role.</div>'}${notice('Parent updates and authoritative Health editing are not available to this permission set.','info')}</div><div class="span-6">${healthIncidents()}</div></div>`)}let tab=ui().healthTab;let tabs=`<div class="tabs"><button class="tab ${tab==='updates'?'active':''}" onclick="setHealthTab('updates')">Health record</button><button class="tab ${tab==='medication'?'active':''}" onclick="setHealthTab('medication')">Medication</button><button class="tab ${tab==='incidents'?'active':''}" onclick="setHealthTab('incidents')">Incidents</button></div>`;let body=tab==='updates'?healthUpdates():tab==='medication'?healthMedication():healthIncidents();return shell(`${pageHead('Health & safety','Health & safety','One authoritative Health truth; parent input, medication authority and incidents remain separate workflows.',tab!=='incidents'&&healthScopedChildren().length?btn('New incident',"openModal('incident')",'secondary'):'')}${tabs}${body}`)}
+function healthUpdates(){
+  const selected=healthSelectedChild(),children=healthScopedChildren(),all=Object.values(db.health.updates),updates=selected?all.filter(u=>u.childId===selected):all;
+  const pending=updates.filter(u=>u.status==='pending'),earlier=updates.filter(u=>u.status!=='pending');
+  const currentEmpty=children.length?'Select a child or review a pending update to see the matching current Health record.':'No current Health record is available in your scope.';
+  const pendingRows=pending.map(u=>`<div class="child-row ${u.childId===selected?'is-selected':''}"><strong>${profileChildLink(u.childId,u.childName)}</strong><span>${badge('Pending','amber')}</span><span class="hide-mobile">${esc(u.summary)}</span><span>${btn('Review',`reviewHealthUpdate('${u.id}')`,'primary','sm')}</span></div>`).join('');
+  const earlierHistory=earlier.length?`<details class="health-earlier-updates"><summary>Earlier Health updates</summary>${earlier.map(u=>`<div class="child-row"><strong>${profileChildLink(u.childId,u.childName)}</strong><span>${badge(u.status,'green')}</span><span>${esc(u.summary)}</span></div>`).join('')}</details>`:'';
+  return `${healthChildSelector()}<div class="grid health-review-grid"><div class="${pending.length?'span-7':'span-12'} card health-current"><h3>Current Health record</h3>${selected?childHealthContext(selected):`<div class="empty">${currentEmpty}</div>`}</div>${pending.length?`<div class="span-5 card health-pending"><h3>Parent updates awaiting review</h3>${pendingRows}</div>`:''}</div>${!pending.length?'<p class="health-quiet-status">No parent Health updates awaiting review.</p>':''}${earlierHistory}`;
+}
+function healthMedication(){return mpsMedicationWorkspace()}
+function incidentChildIds(i){return Array.isArray(i?.childIds)?i.childIds:i?.childId?[i.childId]:[]}
+function incidentChildrenContext(i){const ids=incidentChildIds(i);return ids.length?ids.map(id=>profileChildLink(id,i.childSnapshots?.find(c=>c.childId===id)?.name)).join(', '):'No individual child linked'}
+const incidentCategories=['Accident / Injury','Illness / Medical event','Behaviour / Safeguarding concern','Safety / Facility incident','Uncollected Child','Other'];
+function incidentCategoryNeedsChild(category){return incidentCategories.slice(0,3).includes(category)||category==='Uncollected Child'}
+function incidentChildChoices(selected=[]){const choices=healthScopedChildren();return `<fieldset class="incident-children"><legend>Children involved</legend>${choices.length?choices.map(c=>`<label class="check-row"><input type="checkbox" data-incident-child value="${esc(c.id)}" ${selected.includes(c.id)?'checked':''}><span>${esc(profileChildName(c.id))}</span></label>`).join(''):'<p>No children are available in your Health scope.</p>'}<small id="incident_child_help">Select each child involved. A facility incident may have none.</small></fieldset>`}
+function incidentModal(data={}){const selected=healthScopedChildren().some(c=>c.id===(data?.childId||healthSelectedChild()))?[data?.childId||healthSelectedChild()]:[];return modal('New incident','Care first; record objective facts as soon as safely practical.',`${selectField('Category',incidentCategories,'Accident / Injury','inc_cat')}${incidentChildChoices(selected)}${textArea('What happened','','inc_what')}${textArea('Immediate action','','inc_action')}${selectField('Guardian contact',['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'],'Not yet contacted','inc_contact')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save incident','saveIncident()','primary')}`)}
+function healthIncidents(){return `<div class="card"><div class="card-header"><div class="grow"><h3>Incident register</h3><p>Care first; factual record, guardian contact and follow-up.</p></div>${btn('New incident',"openModal('incident')",'primary','sm')}</div>${db.health.incidents.length?db.health.incidents.map(i=>`<div class="child-row" data-incident-id="${esc(i.id)}"><strong>${esc(i.category)}</strong><span>${badge(i.status,'amber')}</span><span>${incidentChildrenContext(i)}</span><span>${esc(i.what)}</span><span>${btn(i.status==='Closed'?'Closed':'Review',`openModal('incident-review',{id:'${i.id}'})`,'secondary','sm')}</span></div>`).join(''):'<div class="empty">No incidents recorded in this prototype state.</div>'}</div>`}
 function confirmHealthUpdate(id){let u=db.health.updates[id];if(!u||!has('Head Teacher')||!canViewChildHealth(u.childId))return;u.confirmedActor=staffActor();u.status='confirmed';db.health.profiles[u.childId]=db.health.profiles[u.childId]||{};db.health.profiles[u.childId].instructions=u.summary;closeOverlay()}
-function withdrawMedicationAuth(){db.health.medAuth.minoli.withdrawnActor=staffActor();db.health.medAuth.minoli.status='withdrawn';save();render()}
-function replaceMedicationAuth(){let a=db.health.medAuth.minoli;a.replacedActor=staffActor();a.status='current';a.instruction=val('ma_instruction');a.updated=TODAY;closeOverlay()}
-function recordMedication(){let a=db.health.medAuth.minoli;if(a?.status!=='current'){alert('No current authorisation.');return}db.health.administrations.push({id:'med_'+Date.now(),childId:profileChildId('minoli'),childName:profileChildName('minoli'),actor:staffActor(),outcome:val('med_outcome'),time:val('med_time'),at:new Date().toISOString()});closeOverlay()}
-function saveIncident(){db.health.incidents.push({id:'inc_'+Date.now(),actor:staffActor(),category:val('inc_cat'),what:val('inc_what'),action:val('inc_action'),contact:val('inc_contact'),status:'Submitted',at:new Date().toISOString(),followup:null});closeOverlay()}
-function closeIncident(id){let i=db.health.incidents.find(x=>x.id===id);i.reviewActor=staffActor();let f=val('inc_followup');if(f==='Open follow-up'){i.status='Reviewed';i.followup='Open';closeOverlay();return}i.status='Closed';i.followup=f;closeOverlay()}
-function escalateUncollected(childId){let r=db.attendance[childId];db.health.incidents.push({id:'inc_'+Date.now(),childId:profileChildId(childId)||childId,actor:staffActor(),category:'Uncollected Child',what:`${r.name} remains on site after expected collection.`,action:'Child remains supervised and checked in; guardian / Head Teacher contact initiated.',contact:'Not yet contacted',status:'Submitted',at:new Date().toISOString(),followup:'Open'});closeOverlay();setRoute('health');ui().healthTab='incidents';save();render()}
+function withdrawMedicationAuth(){return mpsWithdrawMedicationAuthorisation()}
+function replaceMedicationAuth(){return mpsSaveMedicationAuthorisation()}
+function recordMedication(){return mpsRecordMedication()}
+function saveIncident(){
+ if(!allowed('health'))return;
+ const category=val('inc_cat'),allowedChildren=new Set(healthScopedChildren().map(c=>c.id)),childIds=[...new Set([...document.querySelectorAll('[data-incident-child]:checked')].map(e=>e.value))];
+ if(!incidentCategories.includes(category)||childIds.some(id=>!allowedChildren.has(id)))return;
+ if(incidentCategoryNeedsChild(category)&&!childIds.length){alert('Select at least one child for this incident category.');return}
+ const id='inc_'+crypto.randomUUID();db.health.incidents.push({id,childIds,childSnapshots:childIds.map(childId=>({childId,name:profileChildName(childId)})),actor:staffActor(),category,what:val('inc_what'),action:val('inc_action'),contact:val('inc_contact'),status:'Submitted',at:new Date().toISOString(),followup:null});closeOverlay();
+}
+function closeIncident(id){let i=db.health.incidents.find(x=>x.id===id);if(!allowed('health')||!i)return;i.reviewActor=staffActor();let f=val('inc_followup');if(f==='Open follow-up'){i.status='Reviewed';i.followup='Open';closeOverlay();return}i.status='Closed';i.followup=f;closeOverlay()}
+function escalateUncollected(childId){const id=profileChildId(childId)||childId,r=db.attendance[id];if(!r)return;db.health.incidents.push({id:'inc_'+crypto.randomUUID(),childId:id,childIds:[id],childSnapshots:[{childId:id,name:profileChildName(id)}],actor:staffActor(),category:'Uncollected Child',what:`${r.name} remains on site after expected collection.`,action:'Child remains supervised and checked in; guardian / Head Teacher contact initiated.',contact:'Not yet contacted',status:'Submitted',at:new Date().toISOString(),followup:'Open'});closeOverlay();setRoute('health');ui().healthTab='incidents';save();render()}
 
 function invoiceTotal(inv){return inv.lines.reduce((s,l)=>s+l.amount,0)}
 function invoicePaid(inv){return inv.allocations.reduce((s,a)=>s+a.amount,0)}
 function invoiceOutstanding(inv){return Math.max(0,invoiceTotal(inv)-invoicePaid(inv))}
-function invoiceStatus(inv){if(inv.status==='draft')return {text:'Draft',tone:'blue'};if(inv.status==='void')return {text:'Voided',tone:'grey'};let out=invoiceOutstanding(inv),paid=invoicePaid(inv);if(out===0)return {text:'Paid',tone:'green'};if(inv.due<TODAY)return {text:paid>0?'Overdue · partially paid':'Overdue',tone:'red'};if(paid>0)return {text:'Partially paid',tone:'amber'};return {text:'Unpaid',tone:'blue'}}
+function invoiceStatus(inv){if(inv.status==='draft')return {text:'Draft',tone:'blue'};if(inv.status==='void')return {text:'Voided',tone:'grey'};if(invoiceOutstanding(inv)===0)return {text:'Paid',tone:'green'};if(inv.due<TODAY)return {text:'Overdue',tone:'red'};return {text:'Outstanding',tone:'blue'}}
 function renderBilling(){let invs=Object.values(db.billing.invoices);let outstanding=invs.filter(i=>i.status==='issued').reduce((s,i)=>s+invoiceOutstanding(i),0);let overdue=invs.filter(i=>invoiceStatus(i).text.startsWith('Overdue')).length;let pendingPay=Object.values(db.billing.payments).filter(p=>p.status==='pending').length;let drafts=invs.filter(i=>i.status==='draft').length;return shell(`${pageHead('Accounts','Billing','Clear invoice states, verified payments and immutable issued history — without becoming a full accounting system.',btn('Create draft invoice',"openModal('draft-invoice',{newDraft:true})",'primary'))}${latePickupBillingAlerts()}<div class="metric-row"><div class="metric"><strong>${money(outstanding)}</strong><span>Outstanding</span><small>Issued balances</small></div><div class="metric"><strong>${overdue}</strong><span>Overdue</span><small>Staff-led follow-up</small></div><div class="metric"><strong>${pendingPay}</strong><span>Payment to verify</span><small>Real-source verification</small></div><div class="metric"><strong>${drafts}</strong><span>Draft invoices</span><small>Editable before issue</small></div></div><div class="section-title">Invoices</div><div class="table-wrap"><table class="table"><thead><tr><th>Invoice</th><th>Family</th><th>Issued / due</th><th>Total</th><th>Outstanding</th><th>Status</th><th></th></tr></thead><tbody>${invs.map(inv=>{let st=invoiceStatus(inv);return `<tr><td><div class="name">${inv.number}</div></td><td>${profileChildLink(inv.childId,inv.childName)}</td><td>${inv.status==='draft'?'Draft':`${fmtDate(inv.issued)} / ${fmtDate(inv.due)}`}</td><td>${money(invoiceTotal(inv))}</td><td>${inv.status==='draft'?'—':money(invoiceOutstanding(inv))}</td><td>${badge(st.text,st.tone)}</td><td>${btn(inv.status==='draft'?'Review':'Open',`openModal('invoice-detail',{id:'${inv.id}'})`,'secondary','sm')}</td></tr>`}).join('')}</tbody></table>${invs.length?'':'<div class="empty">No invoices yet.</div>'}</div><div class="grid" style="margin-top:14px"><div class="span-6 card"><h3>Pending payment verification</h3>${Object.values(db.billing.payments).filter(p=>p.status==='pending').map(p=>`<div class="child-row"><strong>${money(p.amount)}</strong><span>${badge(p.method,'blue')}</span><span class="hide-mobile">${p.reference}</span><span>${btn('Verify',`openModal('verify-payment',{id:'${p.id}'})`,'primary','sm')}</span></div>`).join('')||'<div class="empty">No pending payments.</div>'}</div><div class="span-6 card soft-amber"><h3>Pending operational charges</h3>${Object.values(db.billing.pendingCharges).map(pc=>`<div class="child-row"><strong>${esc(pc.childName)}</strong><span>${badge(pc.status,pc.status==='proposed'?'amber':'green')}</span><span class="hide-mobile">${esc(pc.description)} · ${money(pc.amount)}</span><span>${pc.status==='proposed'?`${btn('Add to next draft',`addChargeToDraft('${pc.id}')`,'primary','sm')}${btn('Standalone draft',`createChargeDraft('${pc.id}')`,'secondary','sm')}`:(pc.status==='held'?'Awaiting Head Teacher review':pc.status==='cancelled'?'Cancelled':'✓')}</span></div>`).join('')||'<p>No approved operational charge awaiting Accounts review.</p>'}</div></div>`)}
-function createSupplementaryInvoice(id,options={}){let pc=db.billing.pendingCharges[id];if(!allowed('billing')||!pc||pc.status!=='proposed')return;if(pc.source?.startsWith('LatePickupEvent'))return createChargeDraft(id);let nid='inv_sup_'+id;db.billing.invoices[nid]={id:nid,number:'SUPPLEMENTARY-DRAFT',childId:pc.childId,childName:pc.childName,recipientGuardianIds:linkedRecipientIds(pc.childId),status:'draft',issued:null,due:TODAY,lines:[{id:'l_'+Date.now(),description:pc.description,amount:pc.amount,sourceId:id}],allocations:[],history:[{actor:staffActor(),at:new Date().toISOString(),text:'Supplementary draft created from authorised charge'}],evidence:{}};pc.status='placed';if(!options.deferSave){save();render()}}
+function createSupplementaryInvoice(id,options={}){let pc=db.billing.pendingCharges[id];if(!allowed('billing')||!pc||pc.status!=='proposed'||billingLegacyRetiredCorrectionCharge(pc))return;if(pc.source?.startsWith('LatePickupEvent'))return createChargeDraft(id);let nid='inv_sup_'+crypto.randomUUID();db.billing.invoices[nid]={id:nid,number:'SUPPLEMENTARY-DRAFT',childId:pc.childId,childName:pc.childName,recipientGuardianIds:linkedRecipientIds(pc.childId),status:'draft',issued:null,createdAt:new Date().toISOString(),due:TODAY,lines:[{id:'l_'+Date.now(),description:pc.description,amount:pc.amount,sourceId:id}],allocations:[],history:[{actor:staffActor(),at:new Date().toISOString(),text:'Supplementary draft created from authorised charge'}],evidence:{}};pc.status='placed';if(!options.deferSave){save();render()}}
 function addChargeToDraft(id){
-  const pc=db.billing.pendingCharges[id];if(!allowed('billing')||!pc||pc.status!=='proposed')return;
-  const late=pc.source?.startsWith('LatePickupEvent'),inv=late?nextLatePickupInvoice(pc):Object.values(db.billing.invoices).find(i=>i.childId===pc.childId&&i.status==='draft'&&i.category!=='admission_fee');
+  const pc=db.billing.pendingCharges[id];if(!allowed('billing')||!pc||pc.status!=='proposed'||billingLegacyRetiredCorrectionCharge(pc))return;
+  const late=pc.source?.startsWith('LatePickupEvent'),inv=late?nextLatePickupInvoice(pc):Object.values(db.billing.invoices).find(i=>i.childId===pc.childId&&i.status==='draft'&&!i.manualDraft&&!['admission_fee','starter_pack'].includes(i.category));
   if(!inv){alert(late?'Create the next monthly draft before adding this charge.':'No suitable draft invoice exists. Create a draft first.');return}
   if(!inv.lines.some(l=>l.sourceId===id))inv.lines.push({id:'charge_'+id,description:pc.description,amount:pc.amount,currency:pc.currency,currencyDisplay:pc.currencyDisplay,policySnapshot:pc.policySnapshot?JSON.parse(JSON.stringify(pc.policySnapshot)):null,sourceId:id});
   pc.status='placed';pc.invoiceId=inv.id;inv.history.push({actor:staffActor(),at:new Date().toISOString(),text:`Operational charge added from ${pc.source}`});save();render();
 }
-function verifyPayment(id){let p=db.billing.payments[id],inv=Object.values(db.billing.invoices).find(i=>i.childId===p.childId&&i.status==='issued'&&invoiceOutstanding(i)>0&&billingSameCustomerPayment(p,i));if(!inv){alert('No outstanding issued invoice found.');return}p.status='verified';p.verification=val('pay_verification');p.verifiedBy=currentPersona().name;p.verifiedById=currentPersona().id;p.verifiedAt=new Date().toISOString();let amt=Math.min(p.amount,invoiceOutstanding(inv));inv.allocations.push({paymentId:id,amount:amt});p.receipt=`REC-${inv.number}-${id}.pdf`;inv.history.push({actor:staffActor(),at:'14 Sep',text:`Payment verified and allocated · ${money(amt)} · ${p.verification} · receipt ${p.receipt}`});closeOverlay()}
-function issueInvoice(id){let inv=db.billing.invoices[id];if(!allowed('billing')||!inv||inv.status!=='draft')return;if(inv?.category==='admission_fee')return issueAdmissionFee(inv.admissionsCaseId);const lateProblem=latePickupIssueProblem(inv);if(lateProblem){alert(lateProblem);return}let unresolved=Object.values(db.billing.pendingCharges).find(pc=>pc.childId===inv.childId&&pc.status==='proposed');if(unresolved){alert('Resolve/add the approved prior-period operational charge before issuing this invoice.');return}inv.recipientGuardianIds=inv.recipientGuardianIds||linkedRecipientIds(inv.childId);inv.recipientSnapshot=recipientSnapshots(inv.recipientGuardianIds);inv.status='issued';inv.issued=TODAY;inv.number=inv.number.includes('DRAFT')?'OCT-2026-024':inv.number;inv.evidence.invoicePdf=inv.number+'.pdf';inv.history.push({actor:staffActor(),at:'14 Sep',text:'Invoice issued · immutable PDF snapshot created'});closeOverlay()}
-function voidAndReplace(id){let inv=db.billing.invoices[id];if(inv.status!=='issued')return;if(invoicePaid(inv)>0){alert('This invoice has verified allocations. Reverse/reallocate the payment through an authorised finance correction before voiding the invoice.');return}inv.status='void';inv.history.push({actor:staffActor(),at:'14 Sep',text:'Voided for correction · original retained'});let nid='inv_'+Date.now();db.billing.invoices[nid]={id:nid,number:'REPLACEMENT-DRAFT',childId:inv.childId,childName:inv.childName,recipientGuardianIds:[...(inv.recipientGuardianIds||linkedRecipientIds(inv.childId))],status:'draft',issued:null,due:inv.due,lines:inv.lines.map(l=>({...l,id:'l_'+Math.random().toString(36).slice(2,7)})),allocations:[],history:[{actor:staffActor(),at:'14 Sep',text:`Replacement draft created from ${inv.number}`}],evidence:{}};closeOverlay()}
+function verifyPayment(id){let p=db.billing.payments[id],inv=p&&billingPaymentInvoice(p);if(!inv){alert('No outstanding issued invoice found.');return}p.status='verified';p.verification=val('pay_verification');p.verifiedBy=currentPersona().name;p.verifiedById=currentPersona().id;p.verifiedAt=new Date().toISOString();let amt=Math.min(p.amount,invoiceOutstanding(inv));inv.allocations.push({paymentId:id,amount:amt});p.receipt=`REC-${inv.number}-${id}.pdf`;p.receiptRecipientSnapshot=currentFamilyCommunicationSnapshots(inv);inv.history.push({actor:staffActor(),at:'14 Sep',text:`Payment verified and allocated · ${money(amt)} · ${p.verification} · receipt ${p.receipt}`});closeOverlay()}
+function issueInvoice(id){let inv=db.billing.invoices[id];if(!allowed('billing')||!inv||inv.status!=='draft')return;if(inv?.category==='admission_fee')return issueAdmissionFee(inv.admissionsCaseId);const lateProblem=latePickupIssueProblem(inv);if(lateProblem){alert(lateProblem);return}let unresolved=Object.values(db.billing.pendingCharges).find(pc=>pc.childId===inv.childId&&pc.status==='proposed'&&!billingLegacyRetiredCorrectionCharge(pc));if(unresolved){alert('Resolve/add the approved prior-period operational charge before issuing this invoice.');return}inv.recipientGuardianIds=linkedRecipientIds(inv.childId);inv.recipientSnapshot=currentFamilyCommunicationSnapshots(inv);inv.status='issued';inv.issued=TODAY;inv.number=inv.number.includes('DRAFT')||inv.number==='Monthly draft'?mpsPrototypeInvoiceReference('INV'):inv.number;inv.evidence.invoicePdf=inv.number+'.pdf';inv.history.push({actor:staffActor(),at:new Date().toISOString(),text:'Invoice issued · prototype PDF filename recorded'});closeOverlay()}
+function voidAndReplace(id){let inv=db.billing.invoices[id];if(inv.status!=='issued')return;if(invoicePaid(inv)>0){alert('This invoice has verified allocations. Reverse/reallocate the payment through an authorised finance correction before voiding the invoice.');return}inv.status='void';inv.history.push({actor:staffActor(),at:'14 Sep',text:'Voided for correction · original retained'});let nid='inv_'+crypto.randomUUID();db.billing.invoices[nid]={id:nid,number:'REPLACEMENT-DRAFT',childId:inv.childId,childName:inv.childName,recipientGuardianIds:[...(inv.recipientGuardianIds||linkedRecipientIds(inv.childId))],status:'draft',issued:null,createdAt:new Date().toISOString(),due:inv.due,lines:inv.lines.map(l=>({...l,id:'l_'+Math.random().toString(36).slice(2,7)})),allocations:[],history:[{actor:staffActor(),at:'14 Sep',text:`Replacement draft created from ${inv.number}`}],evidence:{}};closeOverlay()}
 function mpsBillingChildPlan(ref){const e=childEnrolment(db.people.children[ref]);return !e?.careReview?e?.daycarePlanId:undefined}
 function mpsDefaultInvoiceMonth(){const [year,month]=TODAY.slice(0,7).split('-').map(Number);return `${year+(month===12?1:0)}-${String(month===12?1:month+1).padStart(2,'0')}`}
 function mpsMonthlyDueDate(month,day){
@@ -48490,9 +48558,9 @@ function mpsMonthlyDueDate(month,day){
   if(day>new Date(Date.UTC(year,number,0)).getUTCDate())return null;
   return `${month}-${String(day).padStart(2,'0')}`;
 }
-function createDraftInvoice(){const ref=val('draft_child');if(!billingChildren().some(c=>c.id===ref))return;const quote=monthlyQuote(mpsBillingChildPlan(ref)),fees=mpsTenantFees(),invoiceMonth=val('draft_month'),due=mpsMonthlyDueDate(invoiceMonth,fees.monthlyDueDay);if(!quote){alert('Review the agreed care arrangement and fee settings before creating a monthly draft.');return}if(!due){alert('Choose an invoice month that contains the configured monthly due day.');return}const id='inv_'+Date.now();db.billing.invoices[id]={id,number:'NEW-DRAFT-'+String(Date.now()).slice(-5),childId:ref,childName:profileChildName(ref),recipientGuardianIds:linkedRecipientIds(ref),actor:staffActor(),status:'draft',issued:null,due,lines:quote.components.map((x,i)=>({id:id+'_'+i,description:x.description,amount:x.amount})),policySnapshot:{type:'monthly',...quote,invoiceMonth,dueDay:fees.monthlyDueDay,due},allocations:[],history:[{actor:staffActor(),at:new Date().toISOString(),text:'Monthly draft created from component fee settings'}],evidence:{}};closeOverlay()}
+function createDraftInvoice(){const ref=val('draft_child');if(!billingChildren().some(c=>c.id===ref))return;const quote=monthlyQuote(mpsBillingChildPlan(ref)),fees=mpsTenantFees(),invoiceMonth=val('draft_month'),due=mpsMonthlyDueDate(invoiceMonth,fees.monthlyDueDay);if(!quote){alert('Review the agreed care arrangement and fee settings before creating a monthly draft.');return}if(!due){alert('Choose an invoice month that contains the configured monthly due day.');return}const id='inv_'+crypto.randomUUID();db.billing.invoices[id]={id,number:'Monthly draft',childId:ref,childName:profileChildName(ref),recipientGuardianIds:linkedRecipientIds(ref),actor:staffActor(),status:'draft',issued:null,createdAt:new Date().toISOString(),due,lines:quote.components.map((x,i)=>({id:id+'_'+i,description:x.description,amount:x.amount})),policySnapshot:{type:'monthly',...quote,invoiceMonth,dueDay:fees.monthlyDueDay,due},allocations:[],history:[{actor:staffActor(),at:new Date().toISOString(),text:'Monthly draft created from component fee settings'}],evidence:{}};closeOverlay()}
 function updateDraftInvoice(id){let inv=db.billing.invoices[id];if(!inv||inv.status!=='draft'||inv.category==='admission_fee'){alert('Only an ordinary draft invoice can be edited here.');return}inv.due=val('edit_due');if(!inv.lines.length)inv.lines.push({id:'l_'+Date.now(),description:'Charge',amount:0});inv.lines[0].description=val('edit_desc');inv.lines[0].amount=Math.max(0,Number(val('edit_amount')||0));inv.history.push({actor:staffActor(),at:'14 Sep',text:'Draft invoice edited before issue'});closeOverlay()}
-function createChargeDraft(id){let pc=db.billing.pendingCharges[id];if(!allowed('billing')||!pc||pc.status!=='proposed')return;if(pc.source?.startsWith('LatePickupEvent')&&!confirm('Use a final standalone invoice only when no future monthly invoice will exist for this child. Confirm this is their final invoice?'))return;let suitable=Object.values(db.billing.invoices).find(i=>i.childId===pc.childId&&i.status==='draft'&&i.category!=='admission_fee');if(pc.source?.startsWith('LatePickupEvent')&&suitable){alert('A suitable future draft exists. The approved late-pickup charge should be carried to that draft rather than a standalone invoice.');return}let iid='inv_'+Date.now();db.billing.invoices[iid]={id:iid,number:'SUPPLEMENTARY-DRAFT',childId:pc.childId,childName:pc.childName,recipientGuardianIds:linkedRecipientIds(pc.childId),status:'draft',issued:null,due:'2026-09-25',lines:[{id:'l_'+Date.now(),description:pc.description,amount:pc.amount,sourceId:id}],allocations:[],history:[{actor:staffActor(),at:'14 Sep',text:`Standalone draft created from ${pc.source}`}],evidence:{}};pc.status='placed';save();render()}
+function createChargeDraft(id){let pc=db.billing.pendingCharges[id];if(!allowed('billing')||!pc||pc.status!=='proposed'||billingLegacyRetiredCorrectionCharge(pc))return;if(pc.source?.startsWith('LatePickupEvent')&&!confirm('Use a final standalone invoice only when no future monthly invoice will exist for this child. Confirm this is their final invoice?'))return;let suitable=Object.values(db.billing.invoices).find(i=>i.childId===pc.childId&&i.status==='draft'&&!i.manualDraft&&!['admission_fee','starter_pack'].includes(i.category));if(pc.source?.startsWith('LatePickupEvent')&&suitable){alert('A suitable future draft exists. The approved late-pickup charge should be carried to that draft rather than a standalone invoice.');return}let iid='inv_'+crypto.randomUUID();db.billing.invoices[iid]={id:iid,number:'SUPPLEMENTARY-DRAFT',childId:pc.childId,childName:pc.childName,recipientGuardianIds:linkedRecipientIds(pc.childId),status:'draft',issued:null,createdAt:new Date().toISOString(),due:'2026-09-25',lines:[{id:'l_'+Date.now(),description:pc.description,amount:pc.amount,sourceId:id}],allocations:[],history:[{actor:staffActor(),at:'14 Sep',text:`Standalone draft created from ${pc.source}`}],evidence:{}};pc.status='placed';save();render()}
 
 function reportCandidates(){const r=currentReport();if(!reportChildEligible(r))return {obs:[],ass:[]};const child=r.childId;let obs=Object.values(db.observations).filter(o=>profileChildKey(o.childId)===profileChildKey(child)&&o.visibility==='Parent-eligible candidate');let ass=Object.values(db.assessments).filter(a=>profileChildKey(a.childId)===profileChildKey(child)&&!['Not observed','Absent','Not applicable'].includes(a.result));return {obs,ass}}
 function reportCandidateMobileEvidence(o){
@@ -48536,7 +48604,7 @@ function sendReport(){
 }
 
 function renderMedia(){let socialOnly=has('Social Media')&&!has('Head Teacher')&&!has('Class Teacher');let canApprove=has('Head Teacher');if(socialOnly)ui().mediaTab='approved';if(!canApprove&&ui().mediaTab==='review')ui().mediaTab='private';let tabs=socialOnly?`<div class="tabs"><button class="tab active">Approved assets</button></div>`:`<div class="tabs"><button class="tab ${ui().mediaTab==='private'?'active':''}" onclick="setMediaTab('private')">Private library</button>${canApprove?`<button class="tab ${ui().mediaTab==='review'?'active':''}" onclick="setMediaTab('review')">Marketing review</button>`:''}<button class="tab ${ui().mediaTab==='approved'?'active':''}" onclick="setMediaTab('approved')">Approved assets</button></div>`;let body=ui().mediaTab==='review'&&canApprove?marketingReview():ui().mediaTab==='approved'?approvedAssets():privateMedia();let recycle=(has('Head Teacher')||has('System Administration'))?btn('Recycle bin',"openDrawer('recycle-bin')",'secondary'):'';return shell(`${pageHead('Photos & media','Photos & media',socialOnly?'Only approved public-safe MarketingAssets are visible to this persona.':'Private evidence stays private by default. Marketing and deletion are separate decisions.',socialOnly?'':recycle)}${tabs}${body}`)}
-function privateMedia(){let photos=Object.values(db.media.photos).filter(p=>!p.deletedAt&&canViewPrivatePhoto(p));return `<div class="media-grid">${photos.map(p=>`<div class="media-card"><div class="media-thumb">◩</div><div class="media-body"><strong>${p.title}</strong><span>${p.visibility} · ${p.date}</span><div>${p.childIds.map(id=>profileChildLink(id)).join(', ')}</div><div class="media-actions">${p.marketing.status==='not_nominated'?btn('Nominate',`nominatePhoto('${p.id}')`,'secondary','sm'):p.marketing.status==='pending'?badge('Marketing review','amber'):p.marketing.status==='approved'?badge('Approved asset','green'):badge(p.marketing.status,'grey')}<details class="media-item-menu"><summary class="btn secondary sm" role="button" aria-label="Photo actions for ${esc(p.title)}"><span aria-hidden="true">⋯</span></summary><div class="media-item-menu-options" role="menu"><button type="button" role="menuitem" onclick="openModal('delete-photo',{id:'${p.id}'})">Delete</button></div></details></div></div></div>`).join('')||'<div class="empty operational-empty"><strong>No photos are available here yet.</strong><span>Media capture is not included in this prototype.</span></div>'}</div>`}
+function privateMedia(){let photos=Object.values(db.media.photos).filter(p=>!p.deletedAt&&canViewPrivatePhoto(p));return `<div class="media-grid">${photos.map(p=>`<div class="media-card"><div class="media-thumb">${p.image?.data?.startsWith('data:image/jpeg;base64,')?`<img src="${esc(p.image.data)}" alt="${esc(p.title)}">`:'◩'}</div><div class="media-body"><strong>${p.title}</strong><span>${lessonEvidenceVisibility(p.visibility).text} · ${p.date}</span><div>${p.childIds.map(id=>profileChildLink(id)).join(', ')}</div><div class="media-actions">${p.observationId&&!mpsObservationPhotoPublicReady(p)?badge('Staff evidence','grey'):p.marketing.status==='not_nominated'?btn('Nominate',`nominatePhoto('${p.id}')`,'secondary','sm'):p.marketing.status==='pending'?badge('Marketing review','amber'):p.marketing.status==='approved'?badge('Approved asset','green'):badge(p.marketing.status,'grey')}<details class="media-item-menu"><summary class="btn secondary sm" role="button" aria-label="Photo actions for ${esc(p.title)}"><span aria-hidden="true">⋯</span></summary><div class="media-item-menu-options" role="menu"><button type="button" role="menuitem" onclick="openModal('delete-photo',{id:'${p.id}'})">Delete</button></div></details></div></div></div>`).join('')||'<div class="empty operational-empty"><strong>No photos are available here yet.</strong><span>Photo capture is not available here.</span></div>'}</div>`}
 function nominatePhoto(id){let p=db.media.photos[id];if(!canViewPrivatePhoto(p))return;p.marketing.nominatedActor=staffActor();p.marketing.status='pending';p.marketing.use='Facebook';ui().mediaTab='review';save();render()}
 function marketingReview(){let photos=Object.values(db.media.photos).filter(p=>!p.deletedAt&&p.marketing.status==='pending');return `<div class="card"><h3>Marketing queue</h3>${photos.map(p=>`<div class="child-row"><strong>${p.title}</strong><span>${badge('Awaiting review','amber')}</span><span class="hide-mobile">${p.marketing.use}</span><span>${btn('Review',`openModal('marketing-review',{id:'${p.id}'})`,'primary','sm')}</span></div>`).join('')||'<div class="empty">No items awaiting review.</div>'}</div>`}
 function approvedAssets(){let assets=Object.values(db.media.approvedAssets);return `<div class="media-grid">${assets.map(a=>`<div class="media-card"><div class="media-thumb">▧</div><div class="media-body"><strong>${a.title}</strong><span>${a.use} · approved ${a.approvedAt}</span><div class="media-actions">${badge('Public-safe asset','green')}</div></div></div>`).join('')||'<div class="empty operational-empty"><strong>No approved public-use photos yet.</strong></div>'}</div>`}
@@ -48566,14 +48634,20 @@ function modalView(m){let n=m.name,d=m.data||{};
   if(n==='complete-tour'){let c=db.admissions[d.caseId];return modal('Complete tour','Record what actually happened.',`${selectField('Outcome',['Family wants to proceed','Follow-up needed','Family not proceeding'],'Family wants to proceed','tour_outcome')}${textArea('Factual note','Family liked the classroom and wants to continue.','tour_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save outcome',`completeTour('${c.id}')`,'primary')}`)}
   if(n==='send-application'){let c=db.admissions[d.caseId];return modal('Send secure application','No parent account required.',`${kv('Recipient',`${c.guardian} · ${c.phone}`)}${kv('Expires','7 days from generation')}${kv('Prefill','Enquiry + Tour information')}${field('Secure link',`https://apply.mps.example/a/${c.id.toUpperCase()}-6V2K`,'text',true)}${textArea('Prepared WhatsApp message',`Hi ${c.guardian.split(' ')[0]}, thank you for visiting ${mpsOrganisationName()}. Please use this secure link to review the details we already have and submit ${c.childName.split(' ')[0]}’s application.`,'app_message')}${notice('Manual WhatsApp records Sent only — not Delivered or Read.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Copy & mark Sent',`sendApplication('${c.id}')`,'primary')}`)}
   if(n==='accept-application'){let c=db.admissions[d.caseId];return modal('Accept application','Acceptance freezes the placement facts for conversion.',`${selectField('Programme / class',['Baby Class','Upper Class'],c.service.includes('Upper')?'Upper Class':'Baby Class','accept_class')}${field('Start date',c.start,'date',false,'accept_start')}${notice('Accepted is not Enrolled. The admission-fee gate must be satisfied or waived before conversion.','warn')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Accept',`acceptApplication('${c.id}')`,'primary')}`)}
-  if(n==='waitlist-application'){return modal('Waitlist application','Keep the application active without pretending a place has been accepted.',`${field('Waitlist note','Awaiting class capacity confirmation.','text',false,'wait_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Waitlist',`waitlistApplication('${d.caseId}')`,'primary')}`)}
-  if(n==='decline-application'){return modal('Decline application','Record the real non-conversion reason.',`${selectField('Reason',lostReasons,'No suitable place / start date','decline_reason')}${textArea('Optional factual note','','decline_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Decline',`declineApplication('${d.caseId}')`,'danger')}`)}
+  if(n==='waitlist-application'){return modal('Waitlist application','Keep the application active without pretending a place has been accepted.',`${field('Waitlist note','Awaiting staff review.','text',false,'wait_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Waitlist',`waitlistApplication('${d.caseId}')`,'primary')}`)}
+  if(n==='decline-application'){return modal('Decline application','Record the real non-conversion reason.',`${selectField('Reason',lostReasons,'Requested start or service not offered','decline_reason')}${textArea('Optional factual note','','decline_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Decline',`declineApplication('${d.caseId}')`,'danger')}`)}
   if(n==='withdraw-application'){return modal('Record family withdrawal','The family chose to withdraw before enrolment.',`${selectField('Reason',['Family postponed preschool decision','No longer interested','Chose another preschool','Other'],'Family postponed preschool decision','withdraw_reason')}${textArea('Optional factual note','','withdraw_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record withdrawal',`withdrawApplication('${d.caseId}')`,'danger')}`);}
   if(n==='record-admission-payment'){let c=db.admissions[d.caseId],out=feeOutstanding(c.fee);return modal('Record admission-fee payment','Record what the family says was paid. It remains Pending Verification until an authorised real-source check.',`${kv('Family',c.childName)}${kv('Outstanding',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method')}${field('Amount',String(out),'number',false,'adm_record_amount')}${field('Reference','','text',false,'adm_record_reference')}${field('Optional evidence filename','','text',false,'adm_record_evidence')}${notice('A screenshot/file is optional. Verification against the real bank/cash source is still required.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record payment',`recordAdmissionPayment('${c.id}')`,'primary')}`)}
   if(n==='verify-admission-payment'){let c=db.admissions[d.caseId],p=c.fee.pending.find(x=>x.id===d.paymentId);return modal('Verify admission-fee payment','Check the real source before marking Verified.',`${kv('Family',c.childName)}${kv('Method',p.method)}${kv('Amount',money(p.amount))}${kv('Reference',p.reference)}${selectField('Verification method',['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'],'Bank app/account checked','adm_verification')}${notice('The optional screenshot is not the control. The authorised real-source check is.','info')}`,`${btn('Reject','closeOverlay()','secondary')}${btn('Verify payment',`verifyAdmissionPayment('${c.id}','${p.id}')`,'primary')}`)}
   if(n==='overdue-fee'){let c=db.admissions[d.caseId];return modal('Admission fee overdue','The place is not released automatically.',`${kv('Application',`${c.childName} · Accepted`)}${kv('Fee',money(c.fee.amount))}${kv('Due date',fmtDate(c.fee.due))}${selectField('Authorised action',['Extend deadline','Waive fee with reason','Release / close place with reason'],'Extend deadline','overdue_action')}${field('New deadline','2026-09-20','date',false,'overdue_date')}${textArea('Reason','Family requested a short extension while bank transfer is arranged.','overdue_reason')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record decision',`recordOverdueDecision('${c.id}')`,'primary')}`)}
   if(n==='create-enrolment'){let c=db.admissions[d.caseId];return modal('Create enrolment','Accepted Application + satisfied fee gate → real child/enrolment record.',`${kv('Child',c.childName)}${kv('Class',c.service.includes('Upper')?'Upper Class':'Baby Class')}${kv('Service',c.service)}${kv('Start date',fmtDate(c.start))}${notice('MPS reuses the existing family/application information. Staff do not create the family again.','ok')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create enrolment',`createEnrolment('${c.id}')`,'primary')}`)}
-  if(n==='review-health'){let c=db.admissions[d.caseId],o=ensureOnboarding(c.id);return modal('Review initial Health','Parent-submitted information becomes authoritative only after authorised review.',`${kv('Child',c.childName)}${kv('Parent declaration',o.draft.health.allergies==='Yes'?o.draft.health.allergyDetails:'No allergies declared')}${kv('Medical conditions',o.draft.health.conditions==='Yes'?`Yes · ${o.draft.health.conditionDetails}`:'No')}${kv('Regular medication',o.draft.health.medication==='Yes'?`Yes · ${o.draft.health.medicationDetails}`:'No')}${kv('Dietary restrictions',o.draft.health.dietary==='Yes'?`Yes · ${o.draft.health.dietaryDetails}`:'No')}${textArea('Authorised review note','Confirmed with guardian during onboarding review.','health_review_note')}`,`${btn('Keep pending','closeOverlay()','secondary')}${btn('Confirm Health',`confirmOnboardingHealth('${c.id}')`,'primary')}`)}
+  if(n==='review-health'){
+    const c=db.admissions[d.caseId],h=initialHealthSubmission(c)?.health||{};
+    const declaration=(answer,detail)=>answer==='Yes'?`Yes · ${esc(detail||'')}`:esc(answer||'Not supplied');
+    return modal('Review initial Health','Parent-submitted information becomes authoritative only after authorised review.',
+      `${kv('Child',esc(c.childName))}${kv('Allergies',declaration(h.allergies,h.allergyDetails))}${kv('Medical conditions',declaration(h.conditions,h.conditionDetails))}${kv('Regular medication',declaration(h.medication,h.medicationDetails))}${h.medication==='Yes'?selectField('Will the preschool need to give this medication while the child is in our care?',['Select…','Yes','No'],h.preschoolAdministration||'Select…','health_medication_at_preschool'):''}${kv('Dietary restrictions',declaration(h.dietary,h.dietaryDetails))}${kv('Other health / care',declaration(h.other,h.otherDetails))}${kv('Emergency instructions',esc(h.emergencyInstructions||'Not supplied'))}${textArea('Authorised review note','','health_review_note')}`,
+      `${btn('Keep pending','closeOverlay()','secondary')}${btn('Confirm Health',`confirmOnboardingHealth('${c.id}')`,'primary')}`);
+  }
   if(n==='rapid-arrival')return modal('Rapid arrival','Fast convenience; each selected child still becomes physically present individually.',attendanceRoster().filter(x=>x.status!=='present').map(r=>`<label class="check-row"><input data-arrival type="checkbox" value="${r.id}"> ${r.name}</label>`).join('')||notice('No eligible children need arrival recording.','info'),`${btn('Cancel','closeOverlay()','secondary')}${btn('Check in selected','rapidArrival()','primary')}`);
   if(n==='attendance-absence')return attendanceAbsenceModal(d.childId);
   if(n==='temporary-pickup-instruction')return temporaryPickupInstructionModal(d.childId,d.id);
@@ -48584,22 +48658,22 @@ function modalView(m){let n=m.name,d=m.data||{};
   if(n==='attendance-corrections')return attendanceCorrectionsModal();
   if(n==='child-attendance-history')return attendanceHistoryModal(d.childId);
   if(n==='amend-care')return amendCareModal(d.id);
-  if(n==='daycare-booking')return offeredDaycarePlans().length?modal('Ad-hoc daycare booking','Only enrolled/eligible children; capacity must allow it.',`${profileChildSelect('Child',currentChildrenInScope().map(c=>c.id),'ruvin','db_child')}${daycareBookingSelect()}${field('Date',TODAY,'date',false,'db_date')}${kv('Capacity',`${db.daycare.capacity-daycareRoster().length} places available`)}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Authorise booking','authoriseDaycareBooking()','primary')}`):modal('Ad-hoc daycare booking','',notice('No daycare is offered by this preschool.','info'),btn('Close','closeOverlay()','secondary'));
+  if(n==='daycare-booking')return offeredDaycarePlans().length?modal('Add one-day care','Choose an eligible enrolled child and care date.',`${profileChildSelect('Child',currentChildrenInScope().map(c=>c.id),'ruvin','db_child')}${daycareBookingSelect()}${field('Date',TODAY,'date',false,'db_date')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Authorise booking','authoriseDaycareBooking()','primary')}`):modal('Add one-day care','',notice('No daycare is offered by this preschool.','info'),btn('Close','closeOverlay()','secondary'));
   if(n==='care-entry')return modal('Record daycare care','Keep it factual and lightweight.',`${selectField('Meal outcome',['Offered','Refused','Ate some','Ate most','Ate all'],'Ate most','care_meal')}${selectField('Rest outcome',['Slept','Partially slept','Quiet rest','Did not settle'],'Quiet rest','care_rest')}${selectField('Activity',['Outdoor play','Colouring','Story time','Blocks','Music','Dancing','Puzzles','Free play','TV/movie time','Other'],'Outdoor play','care_activity')}${selectField('Participation',['Participated','Partially participated','Did not participate'],'Participated','care_participation')}${textArea('Meaningful care note','','care_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save care record',`saveCareRecord('${d.childId}')`,'primary')}`);
   if(n==='late-pickup')return latePickupReviewModal(d.id);
   if(n==='observation')return mpsObservationModal(d);
   if(n==='assessment')return mpsAssessmentModal(d);
   if(n==='published-info'){let w=currentWeek();return modal('Week is published','Teachers see this approved plan in Today.',`${kv('Published by',profileStaffLink(w.approvedById,w.approvedBy))}${kv('Week',w.label)}${kv('Status','Published')}`,btn('Close','closeOverlay()','secondary'))}
   if(n==='health-update'){let u=db.health.updates[d.id];if(!u||!has('Head Teacher')||!canViewChildHealth(u.childId))return modal('Health update unavailable','',notice('You do not have access to review this Health update.','warn'),btn('Close','closeOverlay()','secondary'));return modal('Review Health update','Do not overwrite authoritative Health until reviewed.',`${kv('Child',profileChildLink(u.childId,u.childName))}${kv('Parent submission',esc(u.summary))}<div class="section-title">Current Health record</div>${childHealthContext(u.childId)}${textArea('Review note','','hu_note')}`,`${btn('Keep pending','closeOverlay()','secondary')}${btn('Confirm into Health',`confirmHealthUpdate('${u.id}')`,'primary')}`)}
-  if(n==='medication'){return modal('Medication administration','Current valid authorisation required.',`${kv('Child',profileChildLink('minoli'))}${kv('Medication',db.health.medAuth.minoli.medication)}${kv('Authorisation',badge(db.health.medAuth.minoli.status,db.health.medAuth.minoli.status==='current'?'green':'red'))}${selectField('Outcome',['Administered','Refused','Child absent','Not administered — other'],'Administered','med_outcome')}${field('Actual time','14:03','time',false,'med_time')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record actual outcome','recordMedication()','primary')}`)}
-  if(n==='med-authorisation')return modal('Replace medication authorisation','A new valid instruction replaces the old current version.',`${field('Medication','Prescribed inhaler','text',true)}${textArea('Current instruction',db.health.medAuth.minoli.instruction,'ma_instruction')}${notice('Casual verbal/WhatsApp messages alone are not routine medication authorisation.','warn')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save replacement','replaceMedicationAuth()','primary')}`);
-  if(n==='incident')return modal('New incident','Care first; record objective facts as soon as safely practical.',`${selectField('Category',['Accident / Injury','Illness / Medical event','Behaviour / Safeguarding concern','Safety / Facility incident','Uncollected Child','Other'],'Accident / Injury','inc_cat')}${textArea('What happened','','inc_what')}${textArea('Immediate action','','inc_action')}${selectField('Guardian contact',['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'],'Not yet contacted','inc_contact')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save incident','saveIncident()','primary')}`);
-  if(n==='incident-review'){let i=db.health.incidents.find(x=>x.id===d.id);return modal('Review incident','Head Teacher review, guardian contact and follow-up before closure.',`${kv('Category',i.category)}${kv('What happened',esc(i.what))}${kv('Immediate action',esc(i.action))}${kv('Guardian contact',i.contact)}${selectField('Follow-up',['No further follow-up required','Follow-up complete','Open follow-up'],'No further follow-up required','inc_followup')}`,`${btn('Keep open','closeOverlay()','secondary')}${btn('Close incident',`closeIncident('${i.id}')`,'primary')}`);}
-  if(n==='invoice-detail'){let inv=db.billing.invoices[d.id],st=invoiceStatus(inv);let allocs=inv.allocations.map(a=>db.billing.payments[a.paymentId]).filter(Boolean);return modal(`Invoice ${inv.number}`,'Issued snapshot / draft lines, payments and audit history.',`${latePickupBillingAlerts(inv)}${kv('Status',badge(st.text,st.tone))}${inv.recipientGuardianIds?kv('Recipients',inv.recipientSnapshot?esc(inv.recipientSnapshot.map(x=>x.name).join(', ')||'No linked recipients confirmed'):recipientDisplay(inv.recipientGuardianIds)):''}${kv('Total',money(invoiceTotal(inv)))}${inv.status!=='draft'?kv('Verified paid',money(invoicePaid(inv))):''}${inv.status!=='draft'?kv('Outstanding',money(invoiceOutstanding(inv))):''}${billingInvoiceCreditContent(inv)}<div class="section-title">Lines</div>${inv.lines.map(l=>kv(esc(l.description),money(l.amount))).join('')}${allocs.length?`<div class="section-title">Verified payments / receipts</div>${allocs.map(p=>kv(`${money(p.amount)} · ${p.reference}`,`${p.verification||'Verified'} · ${p.receipt||'Receipt history retained'}`)).join('')}`:''}<div class="section-title">Evidence & history</div>${inv.evidence.invoicePdf?kv('Issued PDF snapshot',inv.evidence.invoicePdf):kv('Issued PDF snapshot','Not yet issued')}${inv.history.map(h=>`<div class="notice info">${h.at} · ${esc(h.text)}</div>`).join('')}${inv.status==='issued'?billingInvoiceCorrectionGuidance(inv):notice('Draft remains editable until issue.','info')}`,`${btn('Close','closeOverlay()','secondary')}${billingInvoiceCreditActions(inv)}${inv.status==='draft'?`${btn('Edit draft',`openModal('edit-draft',{id:'${inv.id}'})`,'secondary')}${btn('Issue invoice',`issueInvoice('${inv.id}')`,'primary')}`:`${invoiceOutstanding(inv)>0&&Object.values(db.billing.payments).some(p=>p.childId===inv.childId&&p.status==='pending')?btn('Record / verify payment',`closeOverlay();openModal('verify-payment',{id:'${Object.values(db.billing.payments).find(p=>p.childId===inv.childId&&p.status==='pending')?.id}'})`,'primary'):''}`}`)}
+  if(n==='medication')return mpsMedicationAdministrationModal(d);
+  if(n==='med-authorisation')return mpsMedicationAuthorisationModal(d);
+  if(n==='incident')return incidentModal(d);
+  if(n==='incident-review'){let i=db.health.incidents.find(x=>x.id===d.id);if(!i)return modal('Incident unavailable','',notice('This Incident record is not available.','warn'),btn('Close','closeOverlay()','secondary'));return modal('Review incident','Head Teacher review, guardian contact and follow-up before closure.',`${kv('Category',esc(i.category))}${kv('Children involved',incidentChildrenContext(i))}${kv('What happened',esc(i.what))}${kv('Immediate action',esc(i.action))}${kv('Guardian contact',esc(i.contact))}${selectField('Follow-up',['No further follow-up required','Follow-up complete','Open follow-up'],'No further follow-up required','inc_followup')}`,`${btn('Keep open','closeOverlay()','secondary')}${btn('Close incident',`closeIncident('${i.id}')`,'primary')}`);}
+  if(n==='invoice-detail'){let inv=db.billing.invoices[d.id],st=invoiceStatus(inv);let allocs=inv.allocations.map(a=>db.billing.payments[a.paymentId]).filter(Boolean);return modal(`Invoice ${inv.number}`,'Issued snapshot / draft lines, payments and audit history.',`${latePickupBillingAlerts(inv)}${kv('Status',badge(st.text,st.tone))}${invoiceRelatedContext(inv)}${invoiceRecipientContext(inv)}${kv('Total',money(invoiceTotal(inv)))}${inv.status!=='draft'?kv('Verified paid',money(invoicePaid(inv))):''}${inv.status!=='draft'?kv('Outstanding',money(invoiceOutstanding(inv))):''}${billingInvoiceCreditContent(inv)}<div class="section-title">Lines</div>${inv.lines.map(l=>kv(esc(l.description),money(l.amount))).join('')}${allocs.length?`<div class="section-title">Verified payments / receipts</div>${allocs.map(p=>kv(`${money(p.amount)} · ${p.reference}`,`${p.verification||'Verified'} · ${p.receipt||'No receipt file recorded'}`)).join('')}`:''}<div class="section-title">Evidence & history</div>${inv.evidence.invoicePdf?kv('Issued PDF snapshot',inv.evidence.invoicePdf):kv('Issued PDF snapshot',inv.status==='issued'?'Not recorded for this invoice':'Not yet issued')}${inv.history.map(h=>`<div class="notice info">${h.at} · ${esc(h.text)}</div>`).join('')}${inv.status==='issued'?billingInvoiceCorrectionGuidance(inv):notice('Draft remains editable until issue.','info')}`,`${btn('Close','closeOverlay()','secondary')}${billingInvoiceCreditActions(inv)}${inv.status==='draft'?`${btn('Edit draft',`openModal('edit-draft',{id:'${inv.id}'})`,'secondary')}${btn('Issue invoice',`issueInvoice('${inv.id}')`,'primary')}`:`${invoiceOutstanding(inv)>0&&billingInvoicePayments(inv).some(p=>!p.admissionsCaseId)?btn('Record / verify payment',`closeOverlay();openModal('verify-payment',{id:'${billingInvoicePayments(inv).find(p=>!p.admissionsCaseId)?.id}'})`,'primary'):''}`}`)}
   if(n==='draft-invoice'){return modal('Create monthly draft','The current care package determines the monthly fee.',`${profileChildSelect('Child',billingChildren().map(c=>c.id),'amaya','draft_child')}${field('Invoice month',mpsDefaultInvoiceMonth(),'month',false,'draft_month')}<small>Due on the ${mpsFeeOrdinalDay(mpsTenantFees().monthlyDueDay)} from Preschool settings.</small>`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create draft',"createDraftInvoice()",'primary')}`)}
   if(n==='edit-draft'){let inv=db.billing.invoices[d.id],l=inv.lines[0];return modal('Edit draft invoice','Only DRAFT invoices can be changed freely.',`${field('Due date',inv.due,'date',false,'edit_due')}${field('Line description',l?.description||'','text',false,'edit_desc')}${field('Line amount',String(l?.amount||0),'number',false,'edit_amount')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save draft changes',`updateDraftInvoice('${inv.id}')`,'primary')}`)}
   if(n==='verify-payment'){let p=db.billing.payments[d.id||'p2'];return modal('Verify payment','Every payment is checked against the real source before allocation.',`${kv('Method',p.method)}${kv('Amount',money(p.amount))}${kv('Reference',p.reference)}${kv('Evidence',p.evidence||'No proof file stored')}${selectField('Verification method',['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'],'Bank statement checked','pay_verification')}`,`${btn('Reject','closeOverlay()','secondary')}${btn('Verify & allocate',`verifyPayment('${p.id}')`,'primary')}`)}
-  if(n==='marketing-review'){let p=db.media.photos[d.id];return modal('Review final intended Facebook asset','Approve the exact asset/context, not a generic permission.',`${kv('Photo',p.title)}${kv('Identifiable children',p.childIds.map(x=>profileChildLink(x)).join(', '))}${kv('Consent check',p.childIds.includes('thehan')?'Blocked — Thehan has Facebook No':'Eligible — current Facebook Yes')}${kv('Intended use',p.marketing.use)}${notice('Reject for marketing does not delete the legitimate private classroom photo.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Reject for marketing',`rejectMarketing('${p.id}')`,'danger')}${btn('Approve asset',`approveMarketing('${p.id}')`,'primary')}`)}
+  if(n==='marketing-review'){let p=db.media.photos[d.id];return modal('Review final intended Facebook asset','Approve the exact asset/context, not a generic permission.',`${kv('Photo',p.title)}${kv('Identifiable children',p.childIds.map(x=>profileChildLink(x)).join(', '))}${kv('Consent check',mpsFacebookPhotoEligibility(p).ok?'Eligible — current Facebook Yes':'Blocked — one or more children lack current Facebook permission')}${kv('Intended use',p.marketing.use)}${notice('Reject for marketing does not delete the legitimate private classroom photo.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Reject for marketing',`rejectMarketing('${p.id}')`,'danger')}${btn('Approve asset',`approveMarketing('${p.id}')`,'primary')}`)}
   if(n==='delete-photo'){let p=db.media.photos[d.id];return modal('Delete photo','Deletion is different from marketing rejection.',`${kv('Photo',p.title)}${selectField('Reason',['Blurry / unusable','Accidental upload','Duplicate','Inappropriate / privacy concern','No useful documentation value'],'Blurry / unusable','delete_reason')}${notice('The photo leaves normal use immediately and remains in a restricted recycle bin for 30 days unless a retention hold applies.','warn')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Move to recycle bin',`deletePhoto('${p.id}')`,'danger')}`)}
   if(n==='calendar-exception'){let x=d.id?db.calendar.exceptions[d.id]:null;return modal(x?'Amend operating-day exception':'Operating-day exception','This changes operating truth; it is separate from ordinary calendar events.',`${field('Date',x?.date||'2026-09-25','date',false,'cal_date')}${selectField('Day type',['Closed Day','Daycare-Only Day','Special Opening Day'],x?.type||'Closed Day','cal_type')}${textArea('Reason',x?.reason||'Approved preschool closure.','cal_reason')}${x?notice('Amendment history is retained.','info'):''}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save exception',`saveCalendarException(${x?`'${x.id}'`:'null'})`,'primary')}`)}
   if(n==='calendar-event')return modal('Add important-date event','Events provide context without changing operating-day truth.',`${field('Title','International Flags Day','text',false,'evt_title')}${field('Date','2026-09-28','date',false,'evt_date')}${selectField('Scope',['Whole preschool','Baby Class','Upper Class'],'Whole preschool','evt_scope')}${textArea('Optional note','Planning context only.','evt_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save event','saveCalendarEvent()','primary')}`);
@@ -48625,11 +48699,11 @@ function editPendingEnquiry(){ui().modal={name:'new-enquiry',data:{editing:true}
 function openDuplicateRecord(){if(!ui().pendingEnquiry)return;ui().pendingEnquiry.duplicateReviewed=true;ui().modal=null;ui().drawer={name:'duplicate-existing-record',data:{id:'existing_amara'}};save();render()}
 function returnToDuplicateReview(){ui().drawer=null;ui().modal={name:'duplicate-candidate',data:null};save();render()}
 function closePendingAsDuplicate(){let p=ui().pendingEnquiry;if(!p)return closeOverlay();if(!confirm(`Close the unsaved enquiry for ${p.childName} as a duplicate of the existing record?`))return;ui().pendingEnquiry=null;ui().modal=null;ui().drawer=null;save();render()}
-function commitNewEnquiry(mode){let p=ui().pendingEnquiry;if(!p)return closeOverlay();if(!p.duplicateReviewed){alert('Inspect the possible existing record before proceeding as a new record.');return}let id='case_'+Date.now();db.admissions[id]={id,childName:p.childName,dob:p.dob,guardian:p.guardian,phone:p.phone,start:p.start,service:p.service,source:p.source,reason:'Other',events:[ev('enquiry','Enquiry created',`${p.source} · possible match reviewed; staff confirmed separate record`)],tour:null,application:{status:'not_sent',draft:null,snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null};ui().admissionsCase=id;ui().admissionsTab='overview';ui().pendingEnquiry=null;ui().modal=null;ui().drawer=null;save();render()}
+function commitNewEnquiry(mode){let p=ui().pendingEnquiry;if(!p)return closeOverlay();if(!p.duplicateReviewed){alert('Inspect the possible existing record before proceeding as a new record.');return}let id='case_'+crypto.randomUUID();db.admissions[id]={id,childName:p.childName,dob:p.dob,guardian:p.guardian,phone:p.phone,start:p.start,service:p.service,source:p.source,reason:'Other',events:[ev('enquiry','Enquiry created',`${p.source} · possible match reviewed; staff confirmed separate record`)],tour:null,application:{status:'not_sent',draft:null,snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null};ui().admissionsCase=id;ui().admissionsTab='overview';ui().pendingEnquiry=null;ui().modal=null;ui().drawer=null;save();render()}
 function qualifyCase(id){addEvent(id,'qualified','Marked Qualified Lead','Genuine family · relevant age/start · follow-up agreed');closeOverlay()}
 function scheduleTour(id){let c=db.admissions[id];c.tour={status:'scheduled',date:val('tour_date'),time:val('tour_time'),outcome:null};addEvent(id,'tour_scheduled','Tour scheduled',`${fmtDate(c.tour.date)} · ${c.tour.time}`);closeOverlay()}
 function completeTour(id){let c=db.admissions[id];if(!admissionCanClose(c))return;c.tour.status='completed';c.tour.outcome=val('tour_outcome');if(c.tour.outcome==='Family not proceeding'){if(!persistAdmissionsClosure(id,'Withdrawn','Family not proceeding',{type:'tour',title:'Tour completed',detail:`${c.tour.outcome} · ${val('tour_note')}`}))return;}else addEvent(id,'tour','Tour completed',`${c.tour.outcome} · ${val('tour_note')}`);closeOverlay()}
-function sendApplication(id){let c=db.admissions[id];if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start,note:''};c.application.status='sent';addEvent(id,'application_sent','Application link sent','Secure WhatsApp link · expires in 7 days');closeOverlay()}
+function sendApplication(id){let c=db.admissions[id];if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start};c.application.status='sent';addEvent(id,'application_sent','Application link sent','Secure WhatsApp link · expires in 7 days');closeOverlay()}
 function acceptApplication(id){let c=db.admissions[id];c.application.status='accepted';c.start=val('accept_start')||c.start;c.fee={amount:15000,due:'2026-09-21',verified:0,pending:[],status:'pending'};addEvent(id,'accepted','Application accepted',`${val('accept_class')} · ${fmtDate(c.start)}`);addEvent(id,'fee_invoice','Admission-fee invoice issued','LKR 15,000');closeOverlay()}
 function waitlistApplication(id){let c=db.admissions[id];c.application.status='waitlisted';addEvent(id,'waitlisted','Application waitlisted',val('wait_note'));closeOverlay()}
 function declineApplication(id){let c=db.admissions[id];if(!persistAdmissionsClosure(id,'Declined',val('decline_reason'),{type:'declined',title:'Application declined',detail:`${val('decline_reason')} · ${val('decline_note')}`}))return;c.application.status='declined';closeOverlay()}
@@ -48639,10 +48713,198 @@ function verifyAdmissionPayment(caseId,paymentId){let c=db.admissions[caseId],p=
 function recordOverdueDecision(id){
   if(!admissionCanClose(db.admissions[id]))return;let c=db.admissions[id],a=val('overdue_action'),reason=val('overdue_reason');if(a==='Extend deadline'){c.fee.due=val('overdue_date');c.fee.status='pending';addEvent(id,'fee_extended','Admission-fee deadline extended',`${fmtDate(c.fee.due)} · ${reason}`)}else if(a==='Waive fee with reason'){c.fee.verified=c.fee.amount;c.fee.status='satisfied';c.fee.waived=true;addEvent(id,'fee_waived','Admission fee waived',reason)}else{if(!persistAdmissionsClosure(id,'Released',reason,{type:'released',title:'Accepted place released',detail:reason}))return}closeOverlay()}
 function createEnrolment(id){let c=db.admissions[id];if(!c.fee||c.fee.verified<c.fee.amount){alert('Fee gate is not satisfied.');return}c.enrolment={status:'active',className:c.service.includes('Upper')?'Upper Class':'Baby Class',service:c.service,start:c.start};c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});addEvent(id,'enrolled','Enrolment created',`${c.enrolment.className} · ${fmtDate(c.start)}`);ui().admissionsTab='prestart';closeOverlay()}
-function confirmOnboardingHealth(id){if(!has('Head Teacher')){alert('Authorised Health review is required.');return}let c=db.admissions[id],o=ensureOnboarding(id);if(o.status!=='submitted'){alert('Review the submitted onboarding Health information first.');return}o.healthConfirmed=true;db.health.profiles[id]={allergies:o.draft.health.allergies==='Yes'?o.draft.health.allergyDetails:'None declared',instructions:'Confirmed from New Family Onboarding'};addEvent(id,'health_confirmed','Initial Health confirmed','Authorised staff review completed');closeOverlay()}
+function initialHealthSubmission(c){
+  const o=c?.onboarding;
+  if(o?.status!=='submitted')return null;
+  if(o.snapshot?.data?.health)return {health:o.snapshot.data.health,source:o.snapshot.source||'New Family Onboarding'};
+  if(c.application?.snapshot?.data?.family?.health)return {health:c.application.snapshot.data.family.health,source:c.application.snapshot.source||'Parent Application'};
+  // Older submitted records can lack a snapshot; retain their existing review path.
+  return o.draft?.health?{health:o.draft.health,source:'Earlier submitted onboarding record'}:null;
+}
+function initialHealthComplete(h){
+  return !!h&&['allergies','conditions','medication','dietary','other'].every((answer,index)=>{
+    const value=h[answer],detail=h[['allergyDetails','conditionDetails','medicationDetails','dietaryDetails','otherDetails'][index]];
+    return value==='No'||value==='Yes'&&!!String(detail||'').trim();
+  });
+}
+function confirmOnboardingHealth(id){
+  if(!has('Head Teacher')){alert('Authorised Health review is required.');return}
+  const c=db.admissions[id],o=c&&ensureOnboarding(id);
+  if(!o||o.status!=='submitted'){alert('Review the submitted onboarding Health information first.');return}
+  const submission=initialHealthSubmission(c),childId=profileChildId(id);
+  if(!submission||!childId||!c.enrolment||!db.people.children[childId].caseIds.includes(id)){
+    alert('A submitted Health declaration and linked child are required before confirmation.');return;
+  }
+  if(!initialHealthComplete(submission.health)){alert('Review the complete submitted Health declaration before confirmation.');return}
+  const h=submission.health,prior=db.health.profiles[childId]||{},reviewedAt=mpsPreschoolBusinessNow().toISOString();
+  const preschoolAdministration=h.medication==='Yes'?val('health_medication_at_preschool'):null;
+  if(h.medication==='Yes'&&!['Yes','No'].includes(preschoolAdministration)){alert('Confirm whether the preschool needs to give this medication.');return}
+  const reviewed={
+    ...prior,
+    allergies:h.allergies==='Yes'?h.allergyDetails:'None declared',
+    medicalConditions:h.conditions==='Yes'?h.conditionDetails:'',
+    reportedMedication:h.medication==='Yes'?h.medicationDetails:'',
+    preschoolAdministration,
+    dietaryRestrictions:h.dietary==='Yes'?h.dietaryDetails:'',
+    otherHealthCare:h.other==='Yes'?h.otherDetails:'',
+    emergencyInstructions:h.emergencyInstructions||'',
+    onboardingDeclaration:JSON.parse(JSON.stringify(h)),
+    review:{source:submission.source,actor:staffActor(),at:reviewedAt,note:val('health_review_note').trim()}
+  };
+  if(reviewed.instructions==='Confirmed from New Family Onboarding')delete reviewed.instructions;
+  db.health.profiles[childId]=reviewed;
+  o.healthConfirmed=true;
+  addEvent(id,'health_confirmed','Initial Health confirmed','Authorised staff review completed');closeOverlay();
+}
 
 function render(){if(educationBooting||educationSaveBlocked)return;let r=ui().route;if(!allowed(r)&&!['parent-application','parent-onboarding'].includes(r))r='today';let html=r==='parent-application'?renderParentApplication():r==='parent-onboarding'?renderParentOnboarding():r==='children'?renderChildren():r==='admissions'?renderAdmissions():r==='attendance'?renderAttendance():r==='daycare'?renderDaycare():r==='lessons'?renderLessons():r==='lesson-today'?renderLessonToday():r==='reports'?renderReports():r==='health'?renderHealth():r==='billing'?renderBilling():r==='media'?renderMedia():r==='calendar'?renderCalendar():r==='staff'?renderStaff():r==='preschool-settings'?renderPreschoolSettings():renderToday();document.getElementById('root').innerHTML=html;document.getElementById('overlay').innerHTML=overlay()}
 render();
+// Medication authority is child-specific; administration is a separate actual record.
+function mpsMedicationAuthorisation(childId){
+  const records=db.health?.medAuth||{};
+  return records[childId]||Object.values(records).find(record=>record?.childId===childId)||null;
+}
+function mpsMedicationValid(authorisation,date=TODAY){
+  return !!authorisation&&authorisation.status==='current'&&
+    (!authorisation.validFrom||authorisation.validFrom<=date)&&
+    (!authorisation.validUntil||date<=authorisation.validUntil);
+}
+function mpsMedicationCanWrite(childId){
+  return !ui().signedOut&&mpsCurrentAccount()?.status==='active'&&has('Head Teacher')&&healthScopedChildren().some(child=>child.id===childId)&&
+    ['pending_start','active'].includes(childEnrolment(db.people.children[childId])?.status);
+}
+function mpsMedicationRequirement(childId){
+  const h=db.health?.profiles?.[childId];
+  if(!h?.reportedMedication)return 'not_reported';
+  if(h.preschoolAdministration==='No')return 'home_only';
+  if(h.preschoolAdministration==='Yes')return 'required';
+  return 'clarify';
+}
+function openMedicationForChild(childId){
+  if(!allowed('health')||!canViewChildHealth(childId))return false;
+  ui().healthChild=childId;ui().healthTab='medication';setRoute('health');
+  document.getElementById('medication-authorisation')?.focus();return true;
+}
+function mpsMedicationCanAdminister(childId){
+  return !ui().signedOut&&mpsCurrentAccount()?.status==='active'&&has('Medication administration')&&
+    healthScopedChildren().some(child=>child.id===childId)&&
+    childEnrolment(db.people.children[childId])?.status==='active';
+}
+function mpsMedicationGuardians(childId){
+  return childLinks(childId).filter(mpsEffectiveGuardianAuthority);
+}
+function mpsMedicationCurrentLabel(authorisation){
+  if(authorisation?.status==='awaiting_signed_form')return 'Awaiting signed form';
+  if(authorisation?.status==='draft')return 'Draft';
+  if(authorisation?.status==='withdrawn')return 'Withdrawn';
+  if(authorisation?.status==='replaced')return 'Replaced';
+  if(authorisation?.status==='current'&&authorisation.validUntil&&authorisation.validUntil<TODAY)return 'Expired';
+  return mpsMedicationValid(authorisation)?'Current':'Not current';
+}
+function mpsMedicationWorkspace(){
+  const children=healthScopedChildren(),childId=healthSelectedChild();
+  if(!children.length)return `${healthChildSelector()}<div class="card"><div class="empty">No children are available for Medication yet.</div></div>`;
+  if(!childId)return `${healthChildSelector()}<div class="card"><div class="empty">Select a child to see medication authorisation and administration history.</div></div>`;
+  const auth=mpsMedicationAuthorisation(childId),pending=auth?.pendingReplacement||auth?.status==='awaiting_signed_form'&&auth,current=mpsMedicationValid(auth),canWrite=mpsMedicationCanWrite(childId),canAdminister=mpsMedicationCanAdminister(childId),requirement=mpsMedicationRequirement(childId);
+  const history=(db.health.administrations||[]).filter(item=>item.childId===childId);
+  const h=db.health.profiles?.[childId],reported=h?.reportedMedication?`<div class="medication-reported"><strong>Medication reported by family</strong><p>${esc(h.reportedMedication)}</p></div>`:'';
+  const status=requirement==='not_reported'?'No medication reported':requirement==='home_only'?'Preschool administration not required':requirement==='clarify'?'Confirm whether preschool administration is needed':current?'Current medication authorisation':pending?'Medication authorisation awaiting signed form':auth?`Medication authorisation ${mpsMedicationCurrentLabel(auth).toLowerCase()}`:'Medication authorisation required';
+  const explanation=requirement==='required'&&!current&&!pending?'<p>The preschool cannot administer this medication until a current authorisation is recorded.</p>':requirement==='clarify'?'<p>The submitted Health information does not say whether the preschool will give this medication. Clarify this through authorised Health review.</p>':'';
+  const create=canWrite&&(requirement==='required'||auth)&&!pending?btn(auth?'Replace authorisation':'Create medication authorisation',`openModal('med-authorisation',{childId:'${childId}'})`,current?'secondary':'primary'):'';
+  const reviewNeed=canWrite&&h?.reportedMedication?btn('Review care need',`openModal('medication-care-need',{childId:'${childId}'})`,'ghost','utility-action'):'';
+  const pendingActions=pending&&canWrite?`${mpsUtilityAction('Download PDF',`mpsDownloadMedicationAuthorisationPdf('${childId}','${pending.id}')`,'download')}${btn('Mark received',`openModal('med-authorisation-receipt',{childId:'${childId}',versionId:'${pending.id}'})`,'primary','sm')}`:'';
+  const scheduledDue=auth?.triggerMode==='scheduled'?mpsMedicationDueOccurrences().some(item=>item.childId===childId&&item.authId===auth.id&&item.state!=='upcoming'):true;
+  const currentActions=current?`${auth.evidenceMethod==='signed_paper'?mpsUtilityAction('Download PDF',`mpsDownloadMedicationAuthorisationPdf('${childId}','${auth.id}')`,'download'):''}${canAdminister&&scheduledDue?btn('Record administration',`openModal('medication',{childId:'${childId}',authId:'${auth.id}'})`,'primary'):''}${canWrite?btn('Withdraw',`withdrawMedicationAuth()`,'secondary'):''}`:'';
+  const details=auth?`${kv('Medication',esc(auth.medication||'Not recorded'))}${kv('Dose / instruction',esc(auth.instruction||'Not recorded'))}${mpsMedicationTriggerDetails(auth)}${auth.directions?kv('Important directions',esc(auth.directions)):''}${kv('Validity',auth.validFrom||auth.validUntil?`${esc(auth.validFrom?fmtDate(auth.validFrom):'Not recorded')} – ${esc(auth.validUntil?fmtDate(auth.validUntil):'Not recorded')}`:'Dates not recorded in this earlier authorisation')}${kv('Authorising Guardian',esc(auth.authorisedBy||'Not recorded'))}${auth.authoritySource?kv('Authority source',esc(auth.authoritySource)):''}${auth.receivedAt?kv('Signed form received',`${esc(auth.receivedByName||'Staff')} · ${esc(attendanceRecordedTime(auth.receivedAt))}`):''}`:'';
+  const pendingDetails=pending&&pending!==auth?`<div class="medication-pending"><h4>Replacement awaiting signed form</h4>${kv('Medication',esc(pending.medication))}${kv('Dose / instruction',esc(pending.instruction))}${mpsMedicationTriggerDetails(pending)}${kv('Validity',`${esc(fmtDate(pending.validFrom))} – ${esc(fmtDate(pending.validUntil))}`)}</div>`:'';
+  const versions=auth?.history?.length?`<details><summary>Earlier authorisations</summary>${auth.history.map(item=>`<div class="medication-history-entry"><strong>${esc(item.medication||'Medication')}</strong> · ${esc(item.status||'Replaced')} · ${esc(item.instruction||'')} · ${esc(item.updated||'')}${item.evidenceMethod==='signed_paper'?mpsUtilityAction('Download PDF',`mpsDownloadMedicationAuthorisationPdf('${childId}','${item.id}')`,'download'):''}</div>`).join('')}</details>`:'';
+  return `${healthChildSelector()}<div class="grid"><section id="medication-authorisation" tabindex="-1" class="span-7 card medication-authorisation-card"><div class="card-header"><div class="grow"><h3>${profileChildLink(childId)} · Medication</h3><p>${esc(status)}</p></div>${auth?badge(mpsMedicationCurrentLabel(auth),current?'green':'grey'):''}</div>${explanation}${reported}${details}${pendingDetails}${!auth&&requirement==='required'?'<p>No current medication authorisation exists for this child.</p>':''}<div class="medication-actions">${create}${pendingActions}${currentActions}${reviewNeed}</div>${versions}</section><section class="span-5 card"><h3>Administration history</h3>${history.length?history.slice().reverse().map(item=>`<div class="medication-administration-entry"><strong>${esc(item.outcome)}</strong><span>${esc(item.date?fmtDate(item.date):'Date not recorded')} · ${esc(item.time?staffTimeLabel(item.time):'Time not recorded')}</span><span>${esc(item.actualMedicineDose||[item.medication,item.authorisedInstruction].filter(Boolean).join(' · '))}</span>${item.scheduledFor?`<small>Scheduled for ${esc(fmtDate(item.scheduledFor.date))} · ${esc(staffTimeLabel(item.scheduledFor.time))}</small>`:''}${item.actor?.name?`<small>Recorded by ${esc(item.actor.name)}${item.at?` · ${esc(attendanceRecordedTime(item.at))}`:''}</small>`:''}${item.note?`<small>${esc(item.note)}</small>`:''}</div>`).join(''):'<div class="empty">No administration outcomes recorded for this child.</div>'}</section></div>`;
+}
+function mpsMedicationUnavailable(){return modal('Medication unavailable','',notice('Medication administration access and a current valid authorisation are required.','warn'),btn('Close','closeOverlay()','secondary'))}
+function mpsMedicationAuthorisationModal(data){
+  const childId=data.childId||healthSelectedChild(),auth=mpsMedicationAuthorisation(childId);
+  if(!mpsMedicationCanWrite(childId)||mpsMedicationRequirement(childId)!=='required'&&!auth||auth?.pendingReplacement||auth?.status==='awaiting_signed_form')return modal('Medication authorisation unavailable','',notice('This child is not available for a new medication authorisation.','warn'),btn('Close','closeOverlay()','secondary'));
+  const guardians=mpsMedicationGuardians(childId);
+  if(!guardians.length)return modal('Medication authorisation unavailable','',notice('Confirm a guardian with legal authority in the child’s Family record before recording medication authorisation.','warn'),btn('Close','closeOverlay()','secondary'));
+  const guardianOptions=`<div class="field"><label for="ma_guardian">Authorising guardian</label><select id="ma_guardian"><option value="">Select authorised guardian</option>${guardians.map(link=>`<option value="${esc(link.guardianId)}" ${link.guardianId===auth?.guardianId?'selected':''}>${esc(db.people.guardians[link.guardianId].name)}</option>`).join('')}</select></div>`;
+  return modal(auth?'Prepare replacement authorisation':'Create medication authorisation','Prepare the exact signed form. It becomes current only after the signed original is received.',`${kv('Child',profileChildLink(childId))}${field('Medication',auth?.medication||'','text',false,'ma_medication')}${textArea('Exact dose / instruction',auth?.instruction||'','ma_instruction')}${mpsMedicationTriggerFields(auth)}${textArea('Important directions, if applicable',auth?.directions||'','ma_directions')}${field('Valid from',TODAY,'date',false,'ma_from')}${field('Valid until','','date',false,'ma_until')}${guardianOptions}${field('Instruction source / reference','','text',false,'ma_source')}${notice('The authorised Guardian signs the printed form. Preparing or downloading it does not authorise administration.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Prepare signed form','replaceMedicationAuth()','primary')}`);
+}
+function mpsSaveMedicationAuthorisation(){
+  const childId=ui().modal?.data?.childId||healthSelectedChild();
+  if(!mpsMedicationCanWrite(childId)||mpsMedicationRequirement(childId)!=='required'&&!mpsMedicationAuthorisation(childId))return false;
+  const guardianId=val('ma_guardian'),guardian=mpsMedicationGuardians(childId).find(link=>link.guardianId===guardianId);
+  const medication=val('ma_medication').trim(),instruction=val('ma_instruction').trim(),trigger=mpsMedicationFormTrigger(),directions=val('ma_directions').trim(),validFrom=val('ma_from'),validUntil=val('ma_until'),authoritySource=val('ma_source').trim();
+  if(!guardian||!medication||!instruction||!trigger||!authoritySource||!educationDate(validFrom)||!educationDate(validUntil)||validFrom>validUntil||validUntil<TODAY){alert('Enter the authorised Guardian, medicine, exact dose, scheduled time or authorised condition, validity dates and instruction source.');return false}
+  const previous=mpsMedicationAuthorisation(childId);
+  if(previous?.pendingReplacement||previous?.status==='awaiting_signed_form')return false;
+  const prepared={id:'ma_'+crypto.randomUUID(),childId,childName:profileChildName(childId),preschoolName:mpsOrganisationName(),medication,status:'awaiting_signed_form',instruction,...trigger,directions,validFrom,validUntil,guardianId,authorisedBy:db.people.guardians[guardianId].name,authoritySource,authorityBasis:mpsFamilyLegalAuthorityBasis(childId),evidenceMethod:'signed_paper',preparedAt:mpsPreschoolBusinessNow().toISOString(),preparedBy:staffActor(),updated:TODAY};
+  if(previous){previous.pendingReplacement=prepared}else db.health.medAuth[childId]=prepared;
+  if(!save()){if(previous)delete previous.pendingReplacement;else delete db.health.medAuth[childId];return false}
+  closeOverlay();return true;
+}
+function mpsWithdrawMedicationAuthorisation(){
+  const childId=healthSelectedChild(),auth=mpsMedicationAuthorisation(childId);
+  if(!mpsMedicationCanWrite(childId)||!mpsMedicationValid(auth))return;
+  auth.status='withdrawn';auth.withdrawnActor=staffActor();auth.withdrawnAt=mpsPreschoolBusinessNow().toISOString();save();render();
+}
+function mpsMedicationAdministrationModal(data){
+  const childId=data.childId||healthSelectedChild(),current=mpsMedicationAuthorisation(childId),auth=data.authId?mpsMedicationVersion(childId,data.authId):current;
+  if(!mpsMedicationCanAdminister(childId)||!auth||auth.childId!==childId)return mpsMedicationUnavailable();
+  const scheduled=auth.triggerMode==='scheduled',due=scheduled?mpsMedicationDueOccurrences().filter(item=>item.childId===childId&&item.authId===auth.id&&item.state!=='upcoming'):[];
+  if(scheduled&&(!due.length||data.scheduleKey&&!due.some(item=>item.key===data.scheduleKey)))return modal('No scheduled dose to record','',notice('The child must have a due scheduled dose in Attendance before an outcome can be recorded.','info'),btn('Close','closeOverlay()','secondary'));
+  if(!scheduled&&!mpsMedicationValid(auth))return mpsMedicationUnavailable();
+  const currentValid=mpsMedicationValid(auth),selected=data.scheduleKey||due[0]?.key;
+  const fixedDue=due.find(item=>item.key===selected);
+  const dueChoice=due.length>1&&!data.scheduleKey?`<div class="field"><label for="med_schedule_key">Scheduled dose</label><select id="med_schedule_key" onchange="mpsMedicationScheduledDoseChanged()">${due.map(item=>`<option value="${esc(item.key)}" ${item.key===selected?'selected':''}>${esc(fmtDate(item.date))} · ${esc(staffTimeLabel(item.time))}</option>`).join('')}</select></div>`:fixedDue?kv('Scheduled dose',`${esc(fmtDate(fixedDue.date))} · ${esc(staffTimeLabel(fixedDue.time))}`)+`<input id="med_schedule_key" type="hidden" value="${esc(selected)}">`:'';
+  const absentApplicable=!scheduled||due.find(item=>item.key===selected)?.state==='late';
+  const outcomes=[...(currentValid?['Administered']:[]),'Refused',...(absentApplicable?['Child absent']:[]),'Not administered — other'];
+  const initialTime=auth.triggerMode?mpsMedicationLocalClock():'14:03';
+  const previous=[...(db.health.administrations||[])].reverse().find(item=>item.childId===childId);
+  const recent=previous?kv('Most recent outcome',`${esc(previous.outcome)} · ${esc(previous.date?fmtDate(previous.date):'Date not recorded')} · ${esc(previous.time?staffTimeLabel(previous.time):'Time not recorded')}`):'';
+  return modal('Medication administration','Record only what actually happened.',`<div class="medication-administration-context">${kv('Child',profileChildLink(childId))}${kv('Medication',esc(auth.medication))}${kv('Authorised instruction',esc(auth.instruction))}${mpsMedicationTriggerDetails(auth)}${kv('Authorisation',esc(mpsMedicationCurrentLabel(auth)))}${kv('Validity',`${esc(auth.validFrom?fmtDate(auth.validFrom):'Not recorded')} – ${esc(auth.validUntil?fmtDate(auth.validUntil):'Not recorded')}`)}${dueChoice}${recent}</div>${scheduled?`<div id="med_late_note" ${fixedDue?.state==='late'?'':'hidden'}>${notice('The child arrived after the scheduled time. Review the current instruction before recording an outcome.','info')}</div>`:''}${!currentValid?notice('This earlier authorisation cannot be used for a new dose. Record only the factual non-administration outcome.','warn'):''}${selectField('Outcome',outcomes,outcomes[0],'med_outcome','mpsMedicationOutcomeChanged()')}<div id="med_actual_wrap" ${currentValid?'':'hidden'}>${field('Medicine / dose actually given',`${auth.medication} · ${auth.instruction}`,'text',false,'med_actual')}</div>${field('Actual time',initialTime,'time',false,'med_time')}${textArea('Factual note, if needed','','med_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record actual outcome','recordMedication()','primary')}`);
+}
+function mpsMedicationOutcomeChanged(){const wrap=byId('med_actual_wrap');if(wrap)wrap.hidden=val('med_outcome')!=='Administered'}
+function mpsMedicationScheduledDoseChanged(){
+  const selected=mpsMedicationDueOccurrences().find(item=>item.key===val('med_schedule_key'));
+  const outcome=byId('med_outcome');if(!outcome)return;
+  const lateNote=byId('med_late_note');if(lateNote)lateNote.hidden=selected?.state!=='late';
+  const absent=[...outcome.options].find(option=>option.value==='Child absent');
+  if(selected?.state==='late'&&!absent)outcome.insertBefore(new Option('Child absent'),outcome.lastElementChild);
+  if(selected?.state!=='late'&&absent){if(outcome.value==='Child absent')outcome.value='Refused';absent.remove()}
+  mpsMedicationOutcomeChanged();
+}
+function mpsRecordMedication(){
+  const data=ui().modal?.data||{},childId=data.childId||healthSelectedChild(),current=mpsMedicationAuthorisation(childId),auth=data.authId?mpsMedicationVersion(childId,data.authId):current;
+  const outcome=val('med_outcome'),time=val('med_time'),actualMedicineDose=val('med_actual').trim(),note=val('med_note').trim(),administered=outcome==='Administered';
+  if(!mpsMedicationCanAdminister(childId)||!auth||auth.childId!==childId||administered&&!mpsMedicationValid(auth)||auth.triggerMode!=='scheduled'&&!mpsMedicationValid(auth)){
+    alert('Medication administration authority and a current valid authorisation are required.');return false;
+  }
+  if(!['Administered','Refused','Child absent','Not administered — other'].includes(outcome)||mpsMedicationClockMinutes(time)===null||administered&&!actualMedicineDose){alert('Record the actual outcome, time and medicine/dose given.');return false}
+  const scheduled=auth.triggerMode==='scheduled',key=scheduled?val('med_schedule_key'):null;
+  const due=scheduled?mpsMedicationDueOccurrences().find(item=>item.key===key&&item.childId===childId&&item.authId===auth.id&&item.state!=='upcoming'):null;
+  if(scheduled&&!due){alert('This scheduled dose is not currently due or was already resolved.');return false}
+  if(scheduled&&outcome==='Child absent'&&due.state!=='late'){alert('Child absent applies only when the child arrived after this scheduled dose.');return false}
+  if(administered&&due){
+    const attendance=attendanceRecordsForChild(childId).find(item=>item.date===due.date)?.record;
+    const actual=mpsMedicationClockMinutes(time),arrival=mpsMedicationClockMinutes(attendance?.checkIn),checkout=mpsMedicationClockMinutes(attendance?.checkOut);
+    if(due.date!==TODAY||arrival===null||actual<arrival||attendance?.status==='checked_out'&&checkout!==null&&actual>checkout||actual>mpsMedicationClockMinutes(mpsMedicationLocalClock())){
+      alert('Record an actual dose only when its time falls within the child’s recorded presence today.');return false;
+    }
+  }
+  const record={id:'med_'+crypto.randomUUID(),childId,childName:profileChildName(childId),authId:auth.id,medication:auth.medication,authorisedInstruction:auth.instruction,actualMedicineDose:administered?actualMedicineDose:'',actor:staffActor(),outcome,note,time,date:TODAY,at:mpsPreschoolBusinessNow().toISOString(),...(due?{scheduleKey:key,scheduledFor:{date:due.date,time:due.time,authId:auth.id}}:{})};
+  db.health.administrations.push(record);
+  if(!save()){db.health.administrations.pop();return false}
+  closeOverlay();return true;
+}
+
+// A staff member with explicit administration access can use Medication in
+// their existing Health scope; authorisation editing stays with the Head Teacher.
+const mpsMedicationBaseRenderHealth=renderHealth;
+renderHealth=function(){
+  if(has('Head Teacher')||!has('Medication administration'))return mpsMedicationBaseRenderHealth();
+  const medication=ui().healthTab!=='incidents';
+  return shell(`${pageHead('Health & safety','Health & safety','Medication and incidents for children in your care.',medication&&healthScopedChildren().length?btn('New incident',"openModal('incident')",'secondary'):'')}<div class="tabs"><button class="tab ${medication?'active':''}" onclick="setHealthTab('medication')">Medication</button><button class="tab ${!medication?'active':''}" onclick="setHealthTab('incidents')">Incidents</button></div>${medication?mpsMedicationWorkspace():healthIncidents()}`);
+};
 // BQ-068 planning with BQ-114 catalogue references. The picker filter is
 // browsing state; source links and their revisions belong to the activity.
 function lessonCurriculumSnapshot(w=currentWeek()){return mpsWeekCurriculumSnapshot(w)}
@@ -48692,7 +48954,7 @@ function lessonClassAge(){const room=educationRoom(ui().lessonClass),level=room&
 function lessonClassControl(){return `<div class="lesson-class-control">${educationRoomSelect('lessonClassSelect',ui().lessonClass,teachingRooms(),'changeLessonClass(this.value)')}${lessonClassAge()?`<small>${esc(lessonClassAge())}</small>`:''}</div>`}
 function viewCurriculumDetails(){openDrawer('curriculum-details')}
 function canPlanCurrentWeek(w=currentWeek()){return !!w&&allowed('lessons')&&teachingRooms().some(room=>room.id===ui().lessonClass)&&(!w.published||has('Head Teacher'))}
-function lessonDayDate(day){const index=lessonWeekDays().findIndex(item=>item.id===day);return index<0?null:isoAddDays(ui().lessonWeek||TODAY,index)}
+function lessonDayDate(day){const index=lessonWeekDays().findIndex(item=>item.id===day);return index<0?null:isoAddDays(mpsLessonWeekStart(),index)}
 function lessonDayChoiceLabel(day){const date=lessonDayDate(day.id);return '<span class="activity-choice-day">'+esc(day.label)+(date?' ·':'')+'</span>'+(date?' <span class="activity-choice-date">'+esc(new Date(date+'T12:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}))+'</span>':'')}
 function lessonDayCanReceiveActivity(day,w=currentWeek()){const date=lessonDayDate(day);return !!date&&canPlanCurrentWeek(w)&&(!w.published||date>=TODAY)}
 function lessonPlanningDestinationDays(w=currentWeek()){return lessonWeekDays().filter(day=>!w.published||lessonDayCanReceiveActivity(day.id,w))}
@@ -48702,18 +48964,26 @@ function plannedActivityFacts(p,day=p?.day){if(!p)return null;const lib=mpsResol
 function recordPublishedPlanAmendment(w,type,before,after){if(!w?.published)return;const actor=staffActor();w.amendments=w.amendments||[];w.amendments.push({id:'wpa_'+Date.now()+'_'+Math.random().toString(36).slice(2,6),type,activityUid:after?.uid||before?.uid||null,before:before?JSON.parse(JSON.stringify(before)):null,after:after?JSON.parse(JSON.stringify(after)):null,actor,by:actor?.name||currentPersona().name,byId:actor?.staffId||currentPersona().id,at:new Date().toISOString()})}
 function lessonPlanningContext(w){const curriculum=lessonCurriculumSnapshot(w);return `<section class="lesson-planning-context"><div class="lesson-curriculum-identity"><span>Curriculum</span><strong>${esc(curriculum.packName)}</strong><small>Planning version: ${esc(curriculum.versionLabel)}</small></div>${btn('View curriculum details','viewCurriculumDetails()','secondary','sm')}</section>`}
 function lessonShortDate(date,options){return date.toLocaleDateString('en-GB',{...options,timeZone:'UTC'}).replace('Sept','Sep')}
+function mpsLessonWeekStart(){const selected=ui().lessonWeek||TODAY;return mpsMondayForDate(selected)||selected}
+function mpsEnsureLessonWeekStart(){
+ const selected=ui().lessonWeek||TODAY,monday=mpsMondayForDate(selected);
+ if(!monday||selected===monday)return;
+ const retained=db.curriculum.weeks?.[ui().lessonClass]?.[selected];
+ // Leave a populated older record at its original key; never move its occurrences while correcting the normal selection.
+ if(retained&&(retained.published||Object.values(retained.days||{}).some(items=>items.length)||retained.amendments?.length))return;
+ ui().lessonWeek=monday;save();
+}
 function lessonWeekDisplayLabel(w){
- const start=ui().lessonWeek;if(!educationDate(start))return w?.label||'';
+ const start=mpsLessonWeekStart();if(!educationDate(start))return w?.label||'';
  const end=isoAddDays(start,4),first=new Date(start+'T12:00:00Z'),last=new Date(end+'T12:00:00Z');
  const short=date=>lessonShortDate(date,{day:'numeric',month:'short'});
  const firstLabel=first.getUTCFullYear()===last.getUTCFullYear()?(first.getUTCMonth()===last.getUTCMonth()?String(first.getUTCDate()):short(first)):lessonShortDate(first,{day:'numeric',month:'short',year:'numeric'});
  return `Week of ${firstLabel}–${lessonShortDate(last,{day:'numeric',month:'short',year:'numeric'})}`;
 }
-function goToCurrentLessonWeek(){const start=mpsMondayForDate(TODAY);if(!start||ui().lessonWeek===start)return;ui().lessonWeek=start;save();render()}
+function goToCurrentLessonWeek(){const start=mpsMondayForDate(TODAY);if(!start||mpsLessonWeekStart()===start)return;ui().lessonWeek=start;save();render()}
 function lessonWeekDayHeading(day){const date=lessonDayDate(day);return `<strong>${esc(day)} <time datetime="${esc(date||'')}">${esc(date?lessonShortDate(new Date(date+'T12:00:00Z'),{day:'numeric',month:'short'}):'')}</time>${date===TODAY?' <span class="lesson-today-label">Today</span>':''}</strong>`}
 
-renderLessons=function(){let w=currentWeek();const weekView=ui().lessonTab==='week';let publishAction=!w.published?(has('Head Teacher')?btn('Publish week',"publishWeek()",'primary','sm'):badge('Awaiting Head Teacher publication','amber')):'';return shell(`${pageHead('Teaching','Lesson planning','Prepare the week for your class.')}<div class="lesson-primary"><div class="card lesson-plan-card">${weekView?`<div class="lesson-plan-controls">${lessonClassControl()}<div class="lesson-week-identity"><div class="card-header"><div class="grow"><h3>${esc(lessonWeekDisplayLabel(w))}</h3><p>${w.published?`Published by ${w.approvedBy||'Head Teacher'}`:'Working plan · not yet published'}</p></div>${badge(w.published?'Published':'Draft',w.published?'green':'amber')}</div><div class="lesson-week-actions">${btn('‹ Previous',"changeWeek(-1)",'secondary','sm')}${btn('Next ›',"changeWeek(1)",'secondary','sm')}${ui().lessonWeek!==mpsMondayForDate(TODAY)?btn('Go to current week','goToCurrentLessonWeek()','secondary','sm'):''}<span class="grow"></span>${publishAction}</div></div></div>${mpsMonthContextHtml()}${mpsTermContextHtml()}`:ui().lessonTab==='evidence'?`<div class="lesson-progress-scope">${lessonClassControl()}</div>`:''}<div class="tabs"><button class="tab ${ui().lessonTab==='week'?'active':''}" onclick="setLessonTab('week')">Week plan</button><button class="tab ${ui().lessonTab==='evidence'?'active':''}" onclick="setLessonTab('evidence')">Evidence & progress</button><button class="tab ${ui().lessonTab==='library'?'active':''}" onclick="openThemeActivityLibraryTab()">Activity library</button></div>${ui().lessonTab==='week'?renderWeekBoard(w):ui().lessonTab==='evidence'?renderLessonEvidence():renderActivityLibrary()}${weekView?'<div data-teaching-calendar-context></div>':''}</div></div>`) }
-function openThemeActivityLibraryTab(){ui().lessonThemeBrowseAll=false;setLessonTab('library')}
+renderLessons=function(){mpsEnsureLessonWeekStart();if(!['week','evidence'].includes(ui().lessonTab))ui().lessonTab='week';let w=currentWeek();const weekView=ui().lessonTab==='week';let publishAction=!w.published&&canPlanCurrentWeek(w)?btn('Publish week',"publishWeek()",'primary','sm'):'';return shell(`${pageHead('Teaching','Planning','Prepare the week for this Level.')}<div class="lesson-primary"><div class="card lesson-plan-card">${weekView?`<div class="lesson-plan-controls"><div class="lesson-level-context">${lessonClassControl()}${mpsLevelAppliesHtml()}</div><div class="lesson-week-identity"><div class="card-header"><div class="grow"><h3>${esc(lessonWeekDisplayLabel(w))}</h3><p>${w.published?`Published by ${w.approvedBy||'Head Teacher'}`:'Working plan · not yet published'}</p></div>${badge(w.published?'Published':'Draft',w.published?'green':'amber')}</div><div class="lesson-week-actions ui-action-group">${btn('‹ Previous',"changeWeek(-1)",'secondary','sm')}${btn('Next ›',"changeWeek(1)",'secondary','sm')}${mpsLessonWeekStart()!==mpsMondayForDate(TODAY)?btn('Go to current week','goToCurrentLessonWeek()','secondary','sm'):''}${publishAction}</div>${mpsTermContextHtml()}</div></div>${mpsMonthContextHtml()}`:ui().lessonTab==='evidence'?`<div class="lesson-progress-scope">${lessonClassControl()}</div>`:''}<div class="tabs"><button class="tab ${ui().lessonTab==='week'?'active':''}" onclick="setLessonTab('week')">Week plan</button><button class="tab ${ui().lessonTab==='evidence'?'active':''}" onclick="setLessonTab('evidence')">Evidence & progress</button></div>${weekView?renderWeekBoard(w):renderLessonEvidence()}${weekView?'<div data-teaching-calendar-context></div>':''}</div></div>`) }
 
 function createOwnActivityAction(day=null){return btn('+ Create your own activity',`openDrawer('create-activity',{day:${day?`'${day}'`:'null'}})`,'secondary','sm')}
 
@@ -48784,29 +49054,31 @@ saveAdaptation=function(uid){let p=planActivityByUid(uid);if(!plannedActivityCan
 function mpsPlannedExperiencePreview(activity){const snapshot=activity?.guidanceSnapshot;if(!snapshot?.offers?.length)return '';const chosen=snapshot.offers.filter(offer=>offer.code==='C'||snapshot.themeBands?.includes(offer.band)||snapshot.bands?.length===1&&offer.code==='O'),first=chosen.find(offer=>typeof offer.offer==='string'&&offer.offer.trim());return first?`<p class="planned-experience-preview" data-planned-experience><strong>For ages ${esc(first.band)}:</strong> ${esc(first.offer)}</p>${chosen.length>1?'<small class="planned-experience-more">Other age guidance in detail</small>':''}`:''}
 function mpsPlannedActivityArea(lib){const areas=mpsLearningAreas(lib);return `<div class="planned-learning-area" data-planned-learning-area>${areas.length?`<strong>${areas.length===1?'Learning area':'Learning areas'}:</strong> ${areas.slice(0,2).map(esc).join(' · ')}${areas.length>2?` · +${areas.length-2} more`:''}`:'Learning area not recorded'}</div>`}
 function mpsOriginalActivityHtml(lib,snapshot=null,includeOther=true){return `<details class="planned-original-source" data-original-activity-source><summary>Original activity & source</summary>${includeOther?mpsB09OtherGuidanceHtml(snapshot):''}${mpsActivitySourceHtml(lib,mpsB09VisibleTexts(snapshot))}</details>`}
-activityCard=function(a,day){let p=planActivityByUid(a.uid),lib=mpsResolveActivity(mpsLibraryActivity(a.libId,p?.wk),a);if(!lib)return `<div class="lesson-card"><div class="title">Activity unavailable</div></div>`;let editable=plannedActivityCanChange(p),hasSavedClassOffer=!!a.guidanceSnapshot?.offers?.some(offer=>typeof offer?.offer==='string'&&offer.offer.trim());return `<div class="lesson-card planned-lesson-card" data-source-activity="${esc(lib.id)}"><div class="title">${esc(lib.title)}</div>${mpsPlannedActivityArea(lib)}${mpsPlannedExperiencePreview(a)}${a.adaptation?`<div class="planned-teacher-change" data-planned-teacher-change><strong>Your change:</strong> ${esc(a.adaptation)}</div>`:''}${a.materialsAdaptation?`<div class="materials"><span class="material">Materials change: ${esc(a.materialsAdaptation)}</span></div>`:''}${!hasSavedClassOffer&&lib.materials?`<div class="materials"><span class="material">${esc(lib.materials)}</span></div>`:''}<div class="lesson-card-actions">${btn(editable?'Open / adapt':'View details',`openDrawer('activity-detail',{uid:'${a.uid}'})`,'secondary','sm')}${mpsActualStatus(p)?badge(mpsActualLabel(mpsActualStatus(p).outcome),mpsActualTone(mpsActualStatus(p).outcome)):''}</div></div>`}
+activityCard=function(a,day){let p=planActivityByUid(a.uid),lib=mpsResolveActivity(mpsLibraryActivity(a.libId,p?.wk),a);if(!lib)return `<div class="lesson-card"><div class="title">Activity unavailable</div></div>`;let editable=plannedActivityCanChange(p),hasSavedClassOffer=!!a.guidanceSnapshot?.offers?.some(offer=>typeof offer?.offer==='string'&&offer.offer.trim());return `<div class="lesson-card planned-lesson-card" data-source-activity="${esc(lib.id)}"><div class="title">${esc(lib.title)}</div>${mpsPlannedActivityArea(lib)}${mpsPlannedExperiencePreview(a)}${a.adaptation?`<div class="planned-teacher-change" data-planned-teacher-change><strong>Your change:</strong> ${esc(a.adaptation)}</div>`:''}${a.materialsAdaptation?`<div class="materials"><span class="material">Materials change: ${esc(a.materialsAdaptation)}</span></div>`:''}${!hasSavedClassOffer&&lib.materials?`<div class="materials"><span class="material">${esc(lib.materials)}</span></div>`:''}<div class="lesson-card-actions">${btn(editable?'Open / adapt':'View details',`openDrawer('activity-detail',{uid:'${a.uid}'})`,'secondary','sm')}${!p?.levelId&&mpsActualStatus(p)?badge(mpsActualLabel(mpsActualStatus(p).outcome),mpsActualTone(mpsActualStatus(p).outcome)):''}</div></div>`}
 
 renderWeekBoard=function(w){
  const days=lessonWeekDays().map(x=>x.id),count=days.reduce((n,day)=>n+w.days[day].length,0),canAdd=canAddToCurrentWeek(w);
- const empty=count||!canAdd?'':'<div class="lesson-week-empty"><strong>No activities planned for this week yet.</strong><span>Add the first activity to a day below.</span></div>';
- const board=days.map(day=>'<div class="day-col"><div class="day-head">'+lessonWeekDayHeading(day)+'<span>'+w.days[day].length+' activities</span></div>'+(w.days[day].map(a=>activityCard(a,day)).join('')||'<div class="empty">No activity yet</div>')+(lessonDayCanReceiveActivity(day,w)?'<div style="margin-top:8px">'+btn('+ Add activity',"openActivityPicker('"+day+"')",'secondary','sm')+'</div>':'')+'</div>').join('');
+ const empty=count||!canAdd?'':'<div class="lesson-week-empty">No activities planned this week. Add an activity to a day below.</div>';
+ const board=days.map(day=>{const date=lessonDayDate(day);return `<div class="day-col${date===TODAY?' is-today':''}" data-lesson-date="${esc(date||'')}"${date===TODAY?' aria-current="date"':''}><div class="day-head">${lessonWeekDayHeading(day)}</div>${w.days[day].map(a=>activityCard(a,day)).join('')||'<div class="empty">No activity yet</div>'}${lessonDayCanReceiveActivity(day,w)?'<div class="day-add-action">'+btn('+ Add activity',"openActivityPicker('"+day+"')",'secondary','sm')+'</div>':''}</div>`}).join('');
  return empty+'<div class="week-board">'+board+'</div>';
 }
-activityLibraryCards=function(action,day=null,items=filteredActivityLibrary(day)){const context=mpsB09Context(day),actualChooser=ui().drawer?.name==='actual-activity-picker',correctionChooser=ui().drawer?.name==='actual-correction-picker';return items.map(item=>{const lib=mpsResolveActivity(item),guidance=mpsB09CardGuidance(item,context);return `<div class="lesson-card" data-source-activity="${esc(lib.id)}"><div class="title">${esc(lib.title)}</div>${guidance||(!mpsB09Guidance.activities[item.id]&&context?'<small>Preschool activity · choose for your class</small>':'')}${lessonActivityMeta(lib)}${!guidance&&lib.summary?`<p>${esc(lib.summary)}</p>`:''}<div class="lesson-card-action">${action?btn('Use this activity',action(item),'primary','sm'):''}${btn('View details',`openDrawer('activity-library-detail',{libId:'${lib.id}',day:${day?`'${day}'`:'null'}${actualChooser?',actualChooser:true':''}${correctionChooser?',correctionChooser:true':''}})`,'secondary','sm')}</div></div>`}).join('')}
+activityLibraryCards=function(action,day=null,items=filteredActivityLibrary(day)){const context=mpsB09Context(day),actualChooser=ui().drawer?.name==='actual-activity-picker',correctionChooser=ui().drawer?.name==='actual-correction-picker';return items.map(item=>{const lib=mpsResolveActivity(item),guidance=mpsB09CardGuidance(item,context,!!day&&!!ui().lessonThemeBrowseAll);return `<div class="lesson-card" data-source-activity="${esc(lib.id)}"><div class="title">${esc(lib.title)}</div>${guidance||(!mpsB09Guidance.activities[item.id]&&context?'<small>Preschool activity · choose for your class</small>':'')}${lessonActivityMeta(lib)}${!guidance&&lib.summary?`<p>${esc(lib.summary)}</p>`:''}<div class="lesson-card-action">${action?btn('Use this activity',action(item),'primary','sm'):''}${btn('View details',`openDrawer('activity-library-detail',{libId:'${lib.id}',day:${day?`'${day}'`:'null'}${actualChooser?',actualChooser:true':''}${correctionChooser?',correctionChooser:true':''}})`,'secondary','sm')}</div></div>`}).join('')}
 function activityTypeHelp(){return `<details class="activity-type-help" data-activity-type-help><summary>About activity types</summary><div><p><strong>Structured activity</strong><br>Objectives and practical guidance are already provided. Use or adapt it for your class.</p><p><strong>Quick activity idea</strong><br>A short suggestion that the teacher can adapt into the day's learning.</p><p><strong>Theme-based learning</strong><br>Connected learning experiences organised around one theme across several Learning Areas.</p></div></details>`}
-function activityBrowserCount(day=null){const count=filteredActivityLibrary(day).length;return `${count} ${count===1?'activity':'activities'}`}
+function activityPickerNeedsTerm(day){const room=educationRoom(ui().lessonClass),level=room&&educationLevel(room.levelId);return !!day&&!ui().lessonThemeBrowseAll&&!!level&&!!mpsB09BandsForRange(level.minMonths,level.maxMonths)&&!mpsB09Context(day)&&mpsSchoolTermState(lessonDayDate(day)).kind==='missing'}
+function activityBrowserCount(day=null){const count=activityPickerNeedsTerm(day)?0:filteredActivityLibrary(day).length;return `${count} ${count===1?'activity':'activities'}`}
 function activityDiscoveryActive(){return !!(activitySearchValue().trim()||selectedActivityArea()||selectedActivityType()||selectedActivityOrigin()||selectedActivitySubarea())}
 function activitySelectedFilters(){const area=selectedActivityArea(),subarea=selectedActivitySubarea();return [[area?'Learning Area':'',area],[subarea?'Sub-area':'',activitySubareaOptions().find(item=>item.id===subarea)?.label||''],[selectedActivityType()?'Activity type':'',mpsActivityTypeLabels[selectedActivityType()]||''],[selectedActivityOrigin()?'From':'',selectedActivityOrigin()]].filter(([label])=>label)}
 function activityFilterSummary(){const filters=activitySelectedFilters();return `<span data-activity-filter-count>Filters${filters.length?` · ${filters.length} active`:''}</span>`}
 function activityFilterChips(){const filters=activitySelectedFilters();return filters.length?`<div class="activity-active-filters" data-activity-active-filters>${filters.map(([label,value])=>`<span>${esc(label)}: ${esc(value)}</span>`).join('')}<button type="button" class="btn secondary sm" onclick="clearActivityFilters(this)">Clear filters</button></div>`:''}
 function activityBrowserHeader(day=null){const suffix=day?'Picker':'',canAdd=day?lessonDayCanReceiveActivity(day):canAddToCurrentWeek(),subarea=`<div class="activity-subarea-container" data-activity-subarea-container data-options="${esc(JSON.stringify([selectedActivityArea(),activitySubareaOptions().map(c=>c.id)]))}">${activitySubareaFilter(suffix)}</div>`,filters=`<div class="activity-browser-filters">${activityAreaFilter(suffix)}${subarea}${activityTypeFilter(suffix)}${activityOriginFilter(suffix)}</div>`,search=`<div class="field activity-search-field"><label for="activitySearch${suffix}" class="sr-only">Search activity name or keyword</label><input id="activitySearch${suffix}" data-activity-search type="search" autocomplete="off" placeholder="Search activity name or keyword…" value="${esc(activitySearchValue())}" oninput="setActivitySearch(this.value)"></div>`;
- if(day)return `<div class="activity-browser-controls activity-picker-controls">${mpsThemeBrowserIntro(day)}<div class="activity-picker-search-row">${search}<details class="activity-filter-disclosure" data-activity-filters><summary>${activityFilterSummary()}</summary><div class="activity-filter-body">${filters}${activityTypeHelp()}</div></details></div><div data-activity-filter-chips>${activityFilterChips()}</div><div class="activity-picker-search-clear"><button type="button" class="btn secondary sm" data-activity-search-clear onclick="clearActivityPickerSearch(this)" ${activitySearchValue().trim()?'':'hidden'}>Clear search</button></div><div class="activity-picker-secondary" data-activity-picker-secondary>${activityPickerSecondary(day,canAdd)}</div><span class="sr-only" data-activity-results-count role="status" aria-live="polite" aria-atomic="true">${activityBrowserCount(day)}</span></div>`;
+ if(day)return `<div class="activity-browser-controls activity-picker-controls">${mpsThemeBrowserIntro(day)}<div class="activity-picker-search-row" ${activityPickerNeedsTerm(day)?'hidden':''}>${search}<details class="activity-filter-disclosure" data-activity-filters><summary>${activityFilterSummary()}</summary><div class="activity-filter-body">${filters}${activityTypeHelp()}</div></details></div><div data-activity-filter-chips ${activityPickerNeedsTerm(day)?'hidden':''}>${activityFilterChips()}</div><div class="activity-picker-search-clear" ${activityPickerNeedsTerm(day)?'hidden':''}><button type="button" class="btn secondary sm" data-activity-search-clear onclick="clearActivityPickerSearch(this)" ${activitySearchValue().trim()?'':'hidden'}>Clear search</button></div><div class="activity-picker-secondary" data-activity-picker-secondary>${activityPickerSecondary(day,canAdd)}</div><span class="sr-only" data-activity-results-count role="status" aria-live="polite" aria-atomic="true">${activityBrowserCount(day)}</span></div>`;
  return `<div class="activity-browser-controls activity-picker-controls activity-undated-controls">${mpsThemeBrowserIntro(day)}<div class="activity-picker-search-row">${search}<details class="activity-filter-disclosure" data-activity-filters><summary>${activityFilterSummary()}</summary><div class="activity-filter-body">${filters}${activityTypeHelp()}</div></details></div><div data-activity-filter-chips>${activityFilterChips()}</div><div class="activity-library-head"><div class="activity-result-summary"><span data-activity-results-count role="status" aria-live="polite" aria-atomic="true">${activityBrowserCount(day)}</span><button type="button" class="btn secondary sm" data-activity-search-clear onclick="clearActivitySearch(this)" ${activityDiscoveryActive()?'':'hidden'}>Clear search and filters</button></div>${canAdd&&!['actual-activity-picker','actual-correction-picker'].includes(ui().drawer?.name)?createOwnActivityAction(day):''}</div></div>`}
 function mpsB09BrowseArea(item){const lib=mpsResolveActivity(item),areas=lessonLearningAreas(),selected=selectedActivityArea();return selected&&mpsLearningAreas(lib).includes(selected)?selected:areas.find(area=>area===lib.officialArea)||areas.find(area=>(lib.learningAreas||[]).includes(area))||'Integrated projects'}
 function activityBrowserResults(day=null){const actualChooser=ui().drawer?.name==='actual-activity-picker',correctionChooser=ui().drawer?.name==='actual-correction-picker',canAdd=day?lessonDayCanReceiveActivity(day):canAddToCurrentWeek(),action=correctionChooser?lib=>`selectCorrectionAlternative('${lib.id}')`:actualChooser?lib=>`selectActualAlternative('${lib.id}')`:canAdd?(day?lib=>`addActivity('${day}','${lib.id}')`:lib=>`chooseActivityDay('${lib.id}')`):null,groups=activityBrowseSections(day),theme=mpsThemeForBrowseDay(day);
  const section=(label,items,kind)=>items.length?`<section class="activity-discovery-section" data-discovery-section="${kind}"><h4>${esc(label)} ${kind==='theme'?`<small>${items.length} ${items.length===1?'activity':'activities'}</small>`:''}</h4><div class="grid activity-library-grid">${activityLibraryCards(action,day,items)}</div></section>`:'';
  const coreAreas=[...lessonLearningAreas(),'Integrated projects'].map(area=>({area,items:groups.core.filter(item=>mpsB09BrowseArea(item)===area)})).filter(group=>group.items.length);
  const core=groups.core.length?`<section class="activity-discovery-section" data-discovery-section="core"><h4>Core choices for this Term <small>${groups.core.length} activities</small></h4>${coreAreas.map(({area,items})=>`<details class="b09-area" data-b09-area data-b09-area-name="${esc(area)}"><summary>${esc(area)} ${coreAreas.length>1?`<small>${items.length}</small>`:''}</summary><div class="grid activity-library-grid">${activityLibraryCards(action,day,items)}</div></details>`).join('')}</section>`:'';
+ if(activityPickerNeedsTerm(day))return '';
  const body=ui().lessonThemeBrowseAll||!groups.context?section('Full library',groups.all,'all'):core+section(theme?`Theme additions · ${theme.name}`:'Theme additions',groups.theme,'theme');
  return body||`<div class="empty activity-search-empty" data-activity-search-empty><p>${activitySearchValue().trim()?'No activities match your search and filters.':'No activities match these filters. Browse the full library to keep looking.'}</p></div>`
 }
@@ -48819,6 +49091,7 @@ function refreshActivityBrowsers(){document.querySelectorAll('[data-activity-bro
  const context=browser.querySelector('[data-activity-subarea-container]'),options=JSON.stringify([selectedActivityArea(),activitySubareaOptions().map(c=>c.id)]);if(context&&context.dataset.options!==options){context.innerHTML=activitySubareaFilter(browser.dataset.activityDay?'Picker':'');context.dataset.options=options}
  const subarea=browser.querySelector('[data-activity-subarea-filter]');if(subarea)subarea.value=selectedActivitySubarea();
  const day=browser.dataset.activityDay||null,intro=browser.querySelector('[data-theme-intro]'),results=browser.querySelector('[data-activity-browser-results]'),count=browser.querySelector('[data-activity-results-count]'),clear=browser.querySelector('[data-activity-search-clear]'),chips=browser.querySelector('[data-activity-filter-chips]'),filterCount=browser.querySelector('[data-activity-filter-count]'),secondary=browser.querySelector('[data-activity-picker-secondary]');if(intro)intro.outerHTML=mpsThemeBrowserIntro(day);if(results)results.innerHTML=activityBrowserResults(day);if(count)count.textContent=activityBrowserCount(day);if(clear)clear.hidden=day?!activitySearchValue().trim():!activityDiscoveryActive();if(chips)chips.innerHTML=activityFilterChips();if(filterCount)filterCount.textContent=`Filters${activitySelectedFilters().length?` · ${activitySelectedFilters().length} active`:''}`;if(secondary)secondary.innerHTML=activityPickerSecondary(day);
+ const pending=activityPickerNeedsTerm(day);for(const selector of ['.activity-picker-search-row','[data-activity-filter-chips]','.activity-picker-search-clear']){const node=browser.querySelector(selector);if(node)node.hidden=pending}
 })}
 function clearActivitySearch(button){const browser=button?.closest('[data-activity-browser]');ui().lessonActivitySearch='';ui().lessonActivityArea='';ui().lessonActivityType='';ui().lessonActivityOrigin='';ui().lessonActivitySubarea='';refreshActivityBrowsers();browser?.querySelector('[data-activity-area-filter]')?.focus()}
 function clearActivityPickerSearch(button){ui().lessonActivitySearch='';refreshActivityBrowsers();button?.closest('[data-activity-browser]')?.querySelector('[data-activity-search]')?.focus()}
@@ -48855,7 +49128,7 @@ drawerView=function(d){
   const area=selectedActivityArea();return drawer('Create your own activity',day?`Save and add it to ${lessonDayLabel(day)}.`:'Save it to the reusable library, then choose its day.',`<div id="custom_activity_error" class="form-error" role="alert" hidden></div>${customActivityForm(area,day)}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save activity','saveCustomActivity()','primary')}`);
  }
  if(d.name==='activity-library-detail'){
-  if(!allowed('lessons')||!teachingRooms().some(room=>room.id===ui().lessonClass))return drawer('Activity library','',notice('Teaching access is required.','info'));
+  if(!(d.data?.actualChooser?mpsTeachingAccess(ui().lessonClass):allowed('lessons'))||!teachingRooms().some(room=>room.id===ui().lessonClass))return drawer('Activity library','',notice('Teaching access is required.','info'));
   const item=mpsLibraryActivity(d.data?.libId,currentWeek()),day=d.data?.day;
   if(!item||!lessonActivityBelongsToPack(item))return drawer('Activity unavailable','',notice('This activity is not available for this week.','info'));
   const lib=mpsResolveActivity(item),actualChooser=!!d.data?.actualChooser&&!!mpsActualExperienceDraft,correctionChooser=!!d.data?.correctionChooser&&!!mpsCorrectionDraft,canAdd=correctionChooser?mpsCurrentAccount()?.status==='active'&&has('Head Teacher')&&mpsTeachingAccess(mpsCorrectionDraft.roomId):actualChooser?mpsTeachingAccess(mpsActualExperienceDraft.roomId):day?lessonDayCanReceiveActivity(day):canAddToCurrentWeek(),back=correctionChooser?`openDrawer('actual-correction-picker',{day:${day?`'${day}'`:'null'}})`:actualChooser?`openDrawer('actual-activity-picker',{day:${day?`'${day}'`:'null'}})`:day?`openActivityPicker('${day}')`:'closeOverlay()',use=correctionChooser?`selectCorrectionAlternative('${item.id}')`:actualChooser?`selectActualAlternative('${item.id}')`:day?`addActivity('${day}','${item.id}')`:`chooseActivityDay('${item.id}')`;
@@ -48923,7 +49196,7 @@ function mpsRecordActual({classroomId,date,plannedUid=null,outcome,experienceLib
  const planned=plannedUid?mpsPlannedForDate(plannedUid,classroomId,date):null;
  if(plannedUid&&!planned||planned&&!!mpsActualStatus(planned))return false;
  if(!plannedUid&&outcome!=='DONE')return false;
- if(planned&&outcome==='NOT_DONE'&&mpsActualHasLinkedEvidence(plannedUid))return false;
+ if(planned&&outcome==='NOT_DONE'&&mpsActualHasLinkedEvidence(plannedUid,classroomId))return false;
  // Re-selecting the planned Library identity alone does not describe a change.
  if(planned&&outcome==='CHANGED'&&experienceLibId&&mpsLibraryActivity(experienceLibId,context.week)?.id===planned.a.libId)return false;
  const experience=outcome==='CHANGED'||!plannedUid?mpsActualExperience(experienceLibId,description,context.week||{curriculumSnapshot:mpsCurriculumSnapshot(date)}):null;
@@ -48948,7 +49221,7 @@ function mpsCorrectActual(id,{outcome,experienceLibId='',description='',note='',
  if(!actual||mpsCurrentAccount()?.status!=='active'||!has('Head Teacher')||!mpsTeachingAccess(actual.classroomId)||!educationDate(actual.date)||!['DONE','CHANGED','NOT_DONE'].includes(outcome))return false;
  reason=String(reason||'').trim();note=String(note||'').trim();if(!reason||reason.length>240||note.length>300)return false;
  if(!actual.plannedUid&&outcome!=='DONE'||actual.plannedUid&&!mpsPlannedForDate(actual.plannedUid,actual.classroomId,actual.date))return false;
- if(actual.plannedUid&&outcome==='NOT_DONE'&&mpsActualHasLinkedEvidence(actual.plannedUid))return false;
+ if(actual.plannedUid&&outcome==='NOT_DONE'&&mpsActualHasLinkedEvidence(actual.plannedUid,actual.classroomId))return false;
  const context=mpsTeachingDay(actual.classroomId,actual.date),needsExperience=outcome==='CHANGED'||!actual.plannedUid;
  const experience=needsExperience?mpsActualExperience(experienceLibId,description,context?.week||{curriculumSnapshot:mpsCurriculumSnapshot(actual.date)}):null;
  if(needsExperience&&!experience||!needsExperience&&(experienceLibId||description))return false;
@@ -48975,28 +49248,32 @@ function mpsTodayPlannedGuidance(activity){
  return `<section class="b09-detail teaching-planned-guidance" data-planned-guidance><h3>Planned for your class</h3>${context.length?`<p class="b09-context">${esc(context.join(' · '))}</p>`:''}${shown.map(item=>`<div class="b09-offer" data-b09-band="${esc(item.band||'')}">${item.band?`<strong>For ages ${esc(item.band)}</strong>`:''}<p>${esc(item.offer)}</p></div>`).join('')}${snapshot.safeguards?`<div class="teaching-planned-safeguards"><strong>Preparation and safeguards</strong><p>${esc(snapshot.safeguards)}</p></div>`:''}</section>`;
 }
 function mpsTodayGuidance(lib,snapshot){return mpsOriginalActivityHtml(lib,snapshot).replace('data-local-guidance open','data-local-guidance')}
+function mpsTeachingObservations(roomId,date,linked){
+ const observations=Object.values(db.observations||{}).filter(o=>o.classroomId===roomId&&o.date===date&&mpsEvidenceChildAllowed(o.childId,roomId)&&linked(o));
+ return observations.length?`<details class="teaching-observation-history"><summary>Observations (${observations.length})</summary><div class="lesson-evidence-list">${observations.map(lessonEvidenceObservation).join('')}</div></details>`:'';
+}
 function mpsTodayCard(p){const lib=mpsResolveActivity(mpsLibraryActivity(p.a.libId,p.wk),p.a),actual=mpsActualStatus(p);if(!lib)return '';
- return `<article class="card teaching-today-item" data-planned-uid="${esc(p.a.uid)}"><div class="card-header"><div class="grow"><h3>${esc(lib.title)}</h3>${!mpsTodayPlannedGuidance(p.a)&&lib.materials?`<p>${esc(lib.materials)}</p>`:''}</div>${badge(actual?mpsActualLabel(actual.outcome):'To record',actual?mpsActualTone(actual.outcome):'blue')}</div>${mpsTodayPlannedGuidance(p.a)}${p.a.adaptation?kv('Your activity change',esc(p.a.adaptation)):''}${p.a.materialsAdaptation?kv('Materials change',esc(p.a.materialsAdaptation)):''}${mpsTodayGuidance(lib,p.a.guidanceSnapshot)}${actual?mpsActualHistoryHtml(actual):`<div class="delivery" aria-label="Record what happened">${btn('Done',`recordDelivery('${p.a.uid}','Done')`,'primary')}${btn('Changed',`openModal('actual-teaching',{uid:'${p.a.uid}',outcome:'CHANGED'})`)}${btn('Not done',`openModal('actual-teaching',{uid:'${p.a.uid}',outcome:'NOT_DONE'})`)}</div><div class="teaching-note-action">${btn('Done with note',`openModal('actual-teaching',{uid:'${p.a.uid}',outcome:'DONE'})`,'secondary','sm')}</div>`}${actual&&actual.outcome!=='NOT_DONE'?`<div class="teaching-evidence-actions">${btn('Add observation',`openModal('observation',{uid:'${p.a.uid}'})`,'secondary','sm')}${btn('Assess selected children',`openModal('assessment',{uid:'${p.a.uid}'})`,'secondary','sm')}</div>`:''}</article>`;
+ return `<article class="card teaching-today-item" data-planned-uid="${esc(p.a.uid)}"><div class="card-header"><div class="grow"><h3>${esc(lib.title)}</h3>${!mpsTodayPlannedGuidance(p.a)&&lib.materials?`<p>${esc(lib.materials)}</p>`:''}</div>${badge(actual?mpsActualLabel(actual.outcome):'To record',actual?mpsActualTone(actual.outcome):'blue')}</div>${mpsTodayPlannedGuidance(p.a)}${p.a.adaptation?kv('Your activity change',esc(p.a.adaptation)):''}${p.a.materialsAdaptation?kv('Materials change',esc(p.a.materialsAdaptation)):''}${mpsTodayGuidance(lib,p.a.guidanceSnapshot)}${actual?mpsActualHistoryHtml(actual):`<div class="delivery" aria-label="Record what happened">${btn('Done',`recordDelivery('${p.a.uid}','Done')`,'primary')}${btn('Changed',`openModal('actual-teaching',{uid:'${p.a.uid}',outcome:'CHANGED'})`)}${btn('Not done',`openModal('actual-teaching',{uid:'${p.a.uid}',outcome:'NOT_DONE'})`)}</div><div class="teaching-note-action">${btn('Done with note',`openModal('actual-teaching',{uid:'${p.a.uid}',outcome:'DONE'})`,'secondary','sm')}</div>`}${actual&&actual.outcome!=='NOT_DONE'?`<div class="teaching-evidence-actions">${btn('Add observation',`openModal('observation',{uid:'${p.a.uid}'})`,'secondary','sm')}${btn('Assess selected children',`openModal('assessment',{uid:'${p.a.uid}'})`,'secondary','sm')}</div>`:''}${mpsTeachingObservations(p.classroomId,p.date,o=>o.activityUid===p.a.uid)}</article>`;
 }
 function mpsTodayState(roomId,date=TODAY){const context=mpsTeachingDay(roomId,date);if(!context)return null;return {...context,items:context.planned.map(a=>({a,wk:context.week,day:context.day,classroomId:roomId,date})),emergent:Object.values(mpsActualTeaching()).filter(item=>item.classroomId===roomId&&item.date===date&&!item.plannedUid)} }
 function mpsTeachingTodayDetail(day){if(day.draft)return 'Week plan not published';const count=day.items.length;if(!count)return 'No published activities today';const recorded=day.items.filter(item=>mpsActualStatus(item)).length;return `${count} ${count===1?'activity':'activities'} · ${recorded} recorded`}
 function todayTeachingCard(){const room=ensureTeachingSelection(),day=mpsTodayState(room);if(!day)return '';const count=day.items.length,recorded=day.items.filter(item=>mpsActualStatus(item)).length;
  const detail=day.draft?'This week’s plan has not been published yet.':count?`${count} ${count===1?'activity':'activities'} · ${recorded} recorded`:'No published activity planned today.';
- return `<div class="card teaching-summary" data-teaching-room="${esc(room)}"><h3>${esc(className())}</h3><p>${esc(detail)}</p>${btn('Open teaching today',"openTeachingTodayForClassroom(this.closest('[data-teaching-room]').dataset.teachingRoom)",'primary')}</div>${todayLearningSafety()}`}
+ return `<div class="card teaching-summary" data-teaching-room="${esc(room)}"><h3>${esc(className())}</h3><p>${esc(detail)}</p>${btn('Open teaching today',"openTeachingTodayForClassroom(this.closest('[data-teaching-room]').dataset.teachingRoom)",!day.draft&&count>recorded?'primary':'secondary')}</div>${todayLearningSafety()}`}
 function openTeachingTodayForClassroom(roomId){if(!mpsTeachingAccess(roomId))return false;ui().lessonClass=roomId;ui().teachingClassroomChoice=false;setRoute('lesson-today');return true}
 function showTeachingClassroomChoice(){if(teachingRooms().filter(room=>mpsTeachingAccess(room.id)).length<2)return false;ui().teachingClassroomChoice=true;setRoute('lesson-today');return true}
-function mpsTeachingClassroomOverview(rooms){return shell(`${pageHead('Teaching','Teaching today',`Choose a Classroom for ${fmtDate(TODAY)}.`)}<div class="teaching-classroom-list">${rooms.map(room=>{const day=mpsTodayState(room.id);if(!day)return '';return `<section class="card teaching-classroom-choice" data-teaching-room="${esc(room.id)}"><h3>${esc(classroomLabel(room.id,true))}</h3><p>${esc(mpsTeachingTodayDetail(day))}</p>${btn('Open teaching today',"openTeachingTodayForClassroom(this.closest('[data-teaching-room]').dataset.teachingRoom)",'primary')}</section>`}).join('')}</div>`)}
+function mpsTeachingClassroomOverview(rooms){return shell(`${pageHead('Teaching','Teaching today',`Choose a Classroom for ${fmtDate(TODAY)}.`)}<div class="teaching-classroom-list">${rooms.map(room=>{const day=mpsTodayState(room.id);if(!day)return '';const actionNeeded=!day.draft&&day.items.some(item=>!mpsActualStatus(item));return `<section class="card teaching-classroom-choice" data-teaching-room="${esc(room.id)}"><h3>${esc(classroomLabel(room.id,true))}</h3><p>${esc(mpsTeachingTodayDetail(day))}</p>${btn('Open teaching today',"openTeachingTodayForClassroom(this.closest('[data-teaching-room]').dataset.teachingRoom)",actionNeeded?'primary':'secondary')}</section>`}).join('')}</div>`)}
 function openTeachingWeekPlan(){
  const room=ensureTeachingSelection(),day=mpsTeachingDay(room,TODAY);
- if(!day||!allowed('lessons'))return false;
+ if(!day||!allowed('lessons')||!has('Head Teacher'))return false;
  ui().lessonClass=room;ui().lessonWeek=day.monday;ui().lessonTab='week';setRoute('lessons');return true;
 }
 function renderLessonToday(){const rooms=teachingRooms().filter(room=>mpsTeachingAccess(room.id));if(rooms.length>1&&(ui().teachingClassroomChoice||!rooms.some(room=>room.id===ui().lessonClass)))return mpsTeachingClassroomOverview(rooms);const room=rooms.length===1?rooms[0].id:ui().lessonClass,day=mpsTodayState(room);if(!day)return shell(`${pageHead('Teaching','Teaching today','Teaching access is required.')}<div class="card">No teaching access for this classroom.</div>`);
  if(rooms.length===1)ui().lessonClass=room;
- const title=`${className()} · ${fmtDate(TODAY)}`,action=(rooms.length>1?btn('Change Classroom','showTeachingClassroomChoice()','secondary'):'')+(day.draft?'':btn('Open week plan','openTeachingWeekPlan()','secondary'));
+ const title=`${className()} · ${fmtDate(TODAY)}`,action=(rooms.length>1?btn('Change Classroom','showTeachingClassroomChoice()','secondary'):'')+(!has('Head Teacher')||day.draft?'':btn('Open week plan','openTeachingWeekPlan()','secondary'));
  const message=day.draft?'This week’s plan has not been published yet.':day.items.length?'Record what happened when it is useful.':'No published activities planned today.';
- const draft=day.draft?`<div class="card teaching-draft"><h3>Week plan not published</h3><p>${has('Head Teacher')?'Open the week plan to review and publish it.':'The Head Teacher has not published this week’s plan yet.'} Draft activities are not shown here.</p>${btn('Open week plan','openTeachingWeekPlan()',has('Head Teacher')?'primary':'secondary')}</div>`:'';
- return shell(`${pageHead('Teaching',title,message,action)}${draft}<div class="teaching-today-list">${day.items.map(mpsTodayCard).join('')}</div>${day.emergent.length?`<section class="card"><h3>Other experiences today</h3>${day.emergent.map(mpsActualHistoryHtml).join('')}</section>`:''}<div class="teaching-day-action">${btn('Add spontaneous observation',"openModal('observation',{})",'secondary')}${btn('Record another experience',"openModal('actual-teaching',{outcome:'DONE'})",'secondary')}</div>`)}
+ const draft=day.draft?`<div class="card teaching-draft"><h3>Week plan not published</h3><p>${has('Head Teacher')?'Open the week plan to review and publish it.':'The Head Teacher has not published this week’s plan yet.'} Draft activities are not shown here.</p>${has('Head Teacher')?btn('Open week plan','openTeachingWeekPlan()','primary'):''}</div>`:'';
+ return shell(`${pageHead('Teaching',title,message,action)}${draft}<div class="teaching-today-list">${day.items.map(mpsTodayCard).join('')}</div>${day.emergent.length?`<section class="card"><h3>Other experiences today</h3>${day.emergent.map(mpsActualHistoryHtml).join('')}</section>`:''}<div class="teaching-day-action ui-action-group">${btn('Add spontaneous observation',"openModal('observation',{})",'secondary')}${btn('Record another experience',"openModal('actual-teaching',{outcome:'DONE'})",'secondary')}</div>${mpsTeachingObservations(room,TODAY,o=>!o.activityUid)}`)}
 let mpsActualExperienceDraft=null;
 function openActualActivityPicker(){
  const data=ui().modal?.name==='actual-teaching'?ui().modal.data:null,p=data?.uid?planActivityByUid(data.uid):null,roomId=p?.classroomId||ui().lessonClass,context=data&&mpsTeachingDay(roomId,TODAY);
@@ -49053,7 +49330,7 @@ function removeCorrectionAlternative(){
  ui().modal.data={...data,outcome:val('actual_correct_outcome'),selectedLibId:'',description:val('actual_correct_description'),note:val('actual_correct_note'),reason:val('actual_correct_reason')};save();render();byId('actual_correct_description')?.focus();
 }
 function mpsActualCorrectionModal(data){const actual=mpsActualTeaching()[data?.id];if(!actual||mpsCurrentAccount()?.status!=='active'||!has('Head Teacher')||!mpsTeachingAccess(actual.classroomId))return modal('Correction unavailable','',notice('Only the Head Teacher can correct this record.','info'),btn('Close','closeOverlay()'));
- const week=db.curriculum.weeks?.[actual.classroomId]?.[mpsMondayForDate(actual.date)]||{curriculumSnapshot:mpsCurriculumSnapshot(actual.date)},experience=actual.experience,selectedOutcome=data?.outcome||actual.outcome,shown=!actual.plannedUid||selectedOutcome==='CHANGED',selectedId=Object.hasOwn(data||{},'selectedLibId')?data.selectedLibId:experience?.kind==='library'?experience.libId:'',description=Object.hasOwn(data||{},'description')?data.description:experience?.kind==='local'?experience.description:'',selected=selectedId&&mpsLibraryActivity(selectedId,week),selectedTitle=selected&&mpsResolveActivity(selected)?.title;
+ const week=mpsWeekForClassroom(actual.classroomId,mpsMondayForDate(actual.date))||{curriculumSnapshot:mpsCurriculumSnapshot(actual.date)},experience=actual.experience,selectedOutcome=data?.outcome||actual.outcome,shown=!actual.plannedUid||selectedOutcome==='CHANGED',selectedId=Object.hasOwn(data||{},'selectedLibId')?data.selectedLibId:experience?.kind==='library'?experience.libId:'',description=Object.hasOwn(data||{},'description')?data.description:experience?.kind==='local'?experience.description:'',selected=selectedId&&mpsLibraryActivity(selectedId,week),selectedTitle=selected&&mpsResolveActivity(selected)?.title;
  const outcome=actual.plannedUid?`<div class="field"><label for="actual_correct_outcome">Corrected outcome</label><select id="actual_correct_outcome" onchange="updateActualCorrectionOutcome()">${['DONE','CHANGED','NOT_DONE'].map(value=>`<option value="${value}" ${selectedOutcome===value?'selected':''}>${mpsActualLabel(value)}</option>`).join('')}</select></div>`:'<input id="actual_correct_outcome" type="hidden" value="DONE">';
  const selectedCard=selectedTitle?`<div class="actual-selected-activity" data-actual-selected-activity><span>${esc(selectedTitle)}</span>${btn('Change activity','openCorrectionActivityPicker()','secondary','sm')}${btn('Use a description instead','removeCorrectionAlternative()','secondary','sm')}</div>`:'';
  const factual=`<div id="actual_correct_experience" ${shown?'':'hidden'}>${selectedCard?`<div class="actual-choice">${selectedCard}</div>`:`<div class="field"><label for="actual_correct_description">What happened?</label><textarea id="actual_correct_description">${esc(description||'')}</textarea></div><div class="actual-library-alternative">${btn('Choose an activity from the Library instead','openCorrectionActivityPicker()','secondary','sm')}</div>`}<input id="actual_correct_library" type="hidden" value="${esc(selectedTitle?selectedId:'')}"></div>`;
@@ -49313,7 +49590,7 @@ function mpsThemeBrowserIntro(day){
  if(!day)return '';
  const date=lessonDayDate(day),month=date?.slice(0,7),theme=mpsThemeForDate(date),context=mpsB09Context(day),room=educationRoom(ui().lessonClass),level=room&&educationLevel(room.levelId),unsupported=!!level&&!mpsB09BandsForRange(level.minMonths,level.maxMonths),all=!!ui().lessonThemeBrowseAll,state=mpsSchoolTermState(date),missing=!context&&!unsupported&&state.kind==='missing';
  const heading=context?(all?'Full library':'Recommended for this class'):unsupported?'Level planning band needs review':state.kind==='gap'?'Between school terms':state.kind==='missing'?'School terms need setup':'Classroom guidance unavailable';
- return `<div class="activity-theme-intro ${context&&!all?'activity-theme-intro-guided':''}" data-theme-intro><div class="activity-theme-main"><div><strong>${esc(heading)}</strong>${context?`<span>${esc(mpsMonthLabel(month))} · ${esc(room?.name||'Classroom')} · Ages ${esc(context.range)} · ${esc(context.termName)} · ${theme?esc(theme.name):'No month theme'}</span>`:`<span>${esc(mpsMonthLabel(month))} · ${theme?esc(theme.name):'No month theme'}</span><small>${esc(mpsB09GuidanceState(day))}</small>`}</div><div class="activity-theme-actions">${unsupported&&has('Head Teacher')&&allowed('preschool-settings')?btn('Choose planning band',`mpsOpenLevelPlanningSetup('${day}')`,'primary','sm'):''}${missing&&mpsCanManageSchoolTerms()?btn('Set up school terms',`mpsOpenSchoolTermSetup('${day}')`,'primary','sm'):''}${context&&all?btn('Back to recommendations','setActivityThemeBrowseAll(false)','secondary','sm'):context?'':btn('Browse full library','jumpToAllActivities()','secondary','sm')}</div></div></div>`;
+ return `<div class="activity-theme-intro ${context&&!all?'activity-theme-intro-guided':''}" data-theme-intro><div class="activity-theme-main"><div><strong>${esc(heading)}</strong>${context?`<span>${esc(mpsMonthLabel(month))} · ${esc(level?.name||'Level')} · Ages ${esc(context.range)} · ${esc(context.termName)} · ${theme?esc(theme.name):'No month theme'}</span>`:`<span>${esc(mpsMonthLabel(month))} · ${theme?esc(theme.name):'No month theme'}</span><small>${esc(missing&&mpsCanManageSchoolTerms()?'Set up the school term so Eliira can suggest activities for this class.':mpsB09GuidanceState(day))}</small>`}</div><div class="activity-theme-actions">${unsupported&&has('Head Teacher')&&allowed('preschool-settings')?btn('Choose planning band',`mpsOpenLevelPlanningSetup('${day}')`,'primary','sm'):''}${missing&&mpsCanManageSchoolTerms()?btn('Set up school terms',`mpsOpenSchoolTermSetup('${day}')`,'primary','sm'):''}${context&&all?btn('Back to recommendations','setActivityThemeBrowseAll(false)','secondary','sm'):context?'':missing?btn(all?'Hide full library':'Browse all activities','setActivityThemeBrowseAll('+(!all)+')','secondary','sm'):btn('Browse full library','jumpToAllActivities()','secondary','sm')}</div></div></div>`;
 }
 function jumpToAllActivities(){document.querySelector('[data-discovery-section="all"]')?.scrollIntoView({block:'start'})}
 function setActivityThemeBrowseAll(show){ui().lessonThemeBrowseAll=!!show;save();refreshActivityBrowsers()}
@@ -49410,14 +49687,45 @@ journey=function(c){let steps=['Enquiry','Confirmed Interest','Visit','Applicati
 function admissionsFilteredCases(){let filter=ui().admissionsStageFilter||'All';return Object.values(db.admissions).filter(c=>filter==='All'||admissionDisplayStage(c)===filter)}
 function setAdmissionsStageFilter(stage){ui().admissionsStageFilter=stage;let matches=admissionsFilteredCases();if(matches.length&&!matches.some(c=>c.id===ui().admissionsCase))ui().admissionsCase=matches[0].id;save();render()}
 admissionsMetrics=function(){let all=Object.values(db.admissions),active=ui().admissionsStageFilter||'All';let stages=['All',...admissionStageLabels];return `<div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${stages.map(stage=>{let count=stage==='All'?all.length:all.filter(c=>admissionDisplayStage(c)===stage).length;return `<button class="tab ${active===stage?'active':''}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`}).join('')}</div>`};
-admissionsList=function(){let cases=admissionsFilteredCases();return `<div class="case-list"><div class="case-search"><input placeholder="Search admissions…" oninput="filterAdmissions(this.value)"></div><div id="admissionsCaseItems">${cases.length?cases.map(caseListItem).join(''):(ui().admissionsStageFilter==='Duplicates'?'<div class="empty" style="padding:16px">No resolved duplicates.</div>':Object.keys(db.admissions).length===0?'<div class="empty" style="padding:16px">No enquiries yet.</div>':'<div class="empty" style="padding:16px">No families in this stage.</div>')}</div></div>`};
+admissionsList=function(){let cases=admissionsFilteredCases();return `<div class="case-list"><div class="case-search"><input placeholder="Search admissions…" oninput="filterAdmissions(this.value)"></div><div id="admissionsCaseItems">${cases.length?cases.map(caseListItem).join(''):(ui().admissionsStageFilter==='Completed admissions'?'<div class="empty" style="padding:16px">No completed admissions yet.</div>':ui().admissionsStageFilter==='Duplicates'?'<div class="empty" style="padding:16px">No resolved duplicates.</div>':Object.keys(db.admissions).length===0?'<div class="empty" style="padding:16px">No enquiries yet.</div>':'<div class="empty" style="padding:16px">No families in this stage.</div>')}</div></div>`};
 caseListItem=function(c){let stage=admissionDisplayStage(c),condition=admissionCondition(c);return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="${esc(stage)}" data-search="${esc((c.childName+' '+c.guardian+' '+stage+' '+condition).toLowerCase())}" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${c.childName}</strong><span style="margin-left:auto">${badge(stage,admissionStageTone(c))}</span></div><div class="meta">${c.guardian} · ${c.service}${condition?`<br>${esc(condition)}`:''}</div></div>`};
 filterAdmissions=function(q){q=(q||'').toLowerCase();document.querySelectorAll('#admissionsCaseItems .case-item').forEach(el=>el.style.display=el.dataset.search.includes(q)?'block':'none')};
 admissionHero=function(c){let stage=admissionDisplayStage(c);return `<div class="case-hero"><div class="case-hero-row"><div class="case-avatar">${c.childName.split(' ').map(x=>x[0]).slice(0,2).join('')}</div><div class="case-title"><h2>${c.childName}</h2><p>${c.guardian} · ${c.phone} · Start ${fmtDate(c.enrolment?c.enrolment.start:c.start)}<br>${c.service}</p></div><div class="case-status">${badge(stage,admissionStageTone(c))}</div></div>${journey(c)}</div>`};
-renderAdmissions=function(){let matches=admissionsFilteredCases(),filter=ui().admissionsStageFilter||'All',hasCases=Object.keys(db.admissions).length>0,c=matches.find(x=>x.id===ui().admissionsCase)||matches[0]||null;if(c)ui().admissionsCase=c.id;let workspace=c?`${admissionHero(c)}${c.closed?.type==='Duplicate'||admissionIsHistorical(c)?'':admissionTabs()}${renderAdmissionTab(c)}`:(filter==='Duplicates'?'<div class="card"><h3>No resolved duplicates</h3><p>Confirmed duplicate records will appear here.</p></div>':!hasCases?'<div class="card operational-empty"><h3>No enquiries yet</h3><p>Start with New enquiry when a family contacts the preschool.</p></div>':'<div class="card"><h3>No families in this stage</h3><p>Choose another admission stage to continue.</p></div>');return shell(`${pageHead('Admissions','Admissions','One clear admission journey. Choose a stage, open a family, and do the next real job.',btn('New enquiry',"openModal('new-enquiry')",'primary')).replace('class="page-head"','class="page-head admissions-page-head"')}${hasCases?`${admissionsMetrics()}<div style="height:14px"></div>${admissionsCaseSwitcher(c)}<div class="case-layout">${admissionsList()}<div class="case-workspace">${workspace}</div></div>`:`<div class="case-workspace admissions-empty-workspace">${workspace}</div>`}`)};
+function admissionCaseWorkspace(c){
+  let content=renderAdmissionTab(c);
+  const tabContent=html=>ui().admissionsTab==='application'?`<div class="admissions-application-stack ui-peer-stack">${html}</div>`:html;
+  const tabs=c.closed?.type==='Duplicate'||admissionIsHistorical(c)?'':admissionTabs();
+  if(c.closed||admissionIsHistorical(c))return `${admissionHero(c)}${tabs}${tabContent(content)}`;
+  // The existing Overview action is the case action. Move that same control
+  // above the tabs so it stays available while staff inspect other tabs.
+  const actionSource=document.createElement('div');
+  actionSource.innerHTML=ui().admissionsTab==='overview'?content:admissionOverview(c);
+  const first=actionSource.firstElementChild;
+  const action=first?.classList.contains('action-card')?first.outerHTML:'';
+  if(action&&ui().admissionsTab==='overview'){
+    first.remove();
+    content=actionSource.innerHTML;
+  }
+  return `${admissionHero(c)}${action}${tabs}${tabContent(content)}`;
+}
+renderAdmissions=function(){let matches=admissionsFilteredCases(),filter=ui().admissionsStageFilter||'All',hasCases=Object.keys(db.admissions).length>0,c=matches.find(x=>x.id===ui().admissionsCase)||matches[0]||null;if(c)ui().admissionsCase=c.id;let workspace=c?admissionCaseWorkspace(c):(filter==='Duplicates'?'<div class="card"><h3>No resolved duplicates</h3><p>Confirmed duplicate records will appear here.</p></div>':!hasCases?'<div class="card operational-empty"><h3>No enquiries yet</h3><p>Start with New enquiry when a family contacts the preschool.</p></div>':'<div class="card"><h3>No families in this stage</h3><p>Choose another admission stage to continue.</p></div>');return shell(`${pageHead('Admissions','Admissions','One clear admission journey. Choose a stage, open a family, and do the next real job.',btn('New enquiry',"openModal('new-enquiry')",c?'secondary':'primary')).replace('class="page-head"','class="page-head admissions-page-head"')}${hasCases?`${admissionsMetrics()}<div style="height:14px"></div>${admissionsCaseSwitcher(c)}<div class="case-layout">${admissionsList()}<div class="case-workspace">${workspace}</div></div>`:`<div class="case-workspace admissions-empty-workspace">${workspace}</div>`}`)};
 applicationSummary=function(c){let s=c.application.status;let labels={not_sent:'Not sent',sent:'Sent · waiting for parent',submitted:'Submitted · needs review',accepted:'Accepted',waitlisted:'Waitlisted',declined:'Declined'};return labels[s]||s};
+function admissionVisitTimeField(value){
+  const choices=Array.from({length:48},(_,i)=>`${String(Math.floor(i/2)).padStart(2,'0')}:${i%2?'30':'00'}`),other=!!value&&!choices.includes(value);
+  return `<div class="field"><label for="tour_time_choice">Visit time</label><input id="tour_time" type="hidden" value="${esc(value)}"><select id="tour_time_choice" onchange="admissionVisitTimeChanged()">${choices.map(time=>`<option value="${time}" ${time===value?'selected':''}>${staffTimeLabel(time)}</option>`).join('')}<option value="other" ${other?'selected':''}>Another time…</option></select><div id="tour_time_custom_wrap" ${other?'':'hidden'}><label for="tour_time_custom">Enter visit time</label><input id="tour_time_custom" type="text" inputmode="text" placeholder="e.g. 10:17 AM" value="${other?esc(staffTimeLabel(value)):''}" oninput="admissionVisitTimeChanged()"></div><small id="tour_time_error" class="form-error" hidden>Choose a valid Visit time.</small></div>`;
+}
+function admissionVisitTimeChanged(){
+  const other=val('tour_time_choice')==='other',custom=byId('tour_time_custom_wrap');custom.hidden=!other;
+  byId('tour_time').value=other?staffTimeValue(val('tour_time_custom')):val('tour_time_choice');
+  byId('tour_time_error').hidden=true;
+  if(other)byId('tour_time_custom')?.focus();
+}
+function admissionScheduleVisit(id){
+  if(!val('tour_time')){byId('tour_time_error').hidden=false;byId('tour_time_custom')?.focus();return false}
+  return scheduleTour(id);
+}
 admissionOverview=function(c){
-  let d=admissionDerived(c),stage=admissionDisplayStage(c),action='';
+  let d=admissionDerived(c),action='';
   if(d.stage==='Enquiry')action=actionCard('Next action · Confirm interest','Confirm this is a genuine admission enquiry, the child fits the intake, and the family wants us to continue.',btn('Confirm interest',`openModal('qualify-lead',{caseId:'${c.id}'})`,'primary','sm'));
   else if(d.stage==='Qualified')action=actionCard('Next action · Arrange visit','Keep the visit on the same family admission record.',btn('Schedule visit',`openModal('schedule-tour',{caseId:'${c.id}'})`,'primary','sm'));
   else if(d.stage==='Tour'&&c.tour?.status==='scheduled')action=actionCard('Next action · Complete visit',`${fmtDate(c.tour.date)} · ${c.tour.time}. Record what actually happened after the visit.`,btn('Complete visit',`openModal('complete-tour',{caseId:'${c.id}'})`,'primary','sm'));
@@ -49427,15 +49735,21 @@ admissionOverview=function(c){
   else if(d.status==='Fee overdue')action=actionCard('Admission Fee · Payment overdue','The place is not released automatically. An authorised decision is required.',btn('Review overdue',`openModal('overdue-fee',{caseId:'${c.id}'})`,'primary','sm'),'warning');
   else if(d.status==='Admission fee')action=actionCard('Admission Fee · Payment pending',`${money(c.fee.amount-c.fee.verified)} verified balance remaining.`,btn('Open payments',"setAdmissionTab('payments')",'primary','sm'));
   else if(d.status==='Fee satisfied')action=actionCard('Admission Fee · Payment complete','Create the enrolment from the accepted application; do not retype the family.',btn('Create enrolment',`openModal('create-enrolment',{caseId:'${c.id}'})`,'primary','sm'));
-  else if(d.stage==='Enrolled'&&stage==='Ready to Start')action=actionCard('Ready to Start','Safety and operational onboarding is complete.',btn('Open pre-start',"setAdmissionTab('prestart')",'secondary','sm'));
-  else if(d.stage==='Enrolled')action=actionCard(`Pre-start · ${admissionCondition(c)}`,'Staff review reuses the submitted Application; safety readiness is separate from practical checklist completion.',btn('Open pre-start',"setAdmissionTab('prestart')",'primary','sm'),d.status==='Pre-start review'?'warning':'');
+  else if(d.stage==='Enrolled'){
+    const ready=admissionRequiredReadinessComplete(c);
+    const activation=ready&&typeof mpsSignedApplicationActivationAction==='function'?mpsSignedApplicationActivationAction(c):'';
+    const reviewAction=!ready&&ui().admissionsTab!=='prestart'?btn('Review pre-start',"setAdmissionTab('prestart')",'primary','sm'):'';
+    action=ready
+      ?actionCard(c.enrolment?.status==='pending_start'?'Ready to start':'Start requirements met',c.enrolment?.status==='pending_start'?`Starts ${fmtDate(c.enrolment.start)} · Safety and required start checks are complete.`:'Safety and required start checks are complete.',activation)
+      :actionCard('Pre-start needs attention','Required start checks still need attention.',reviewAction,'warning');
+  }
   return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${kv('Visit',c.tour?`${c.tour.status} · ${fmtDate(c.tour.date)} ${c.tour.time||''}`:'Not yet scheduled')}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.enrolment?c.enrolment.start:c.start))}</div>`
 };
 
 const _mpsAdmissionPlainModalView=modalView;
 modalView=function(m){let n=m.name,d=m.data||{};
   if(n==='qualify-lead'){let c=db.admissions[d.caseId];return modal('Confirm interest','Confirm this is a genuine admission enquiry and the family wants us to continue.',`${kv('Family',`${c.guardian} / ${c.childName}`)}${kv('Age / desired start','Relevant for intake')}${kv('Admission interest','Confirmed')}${kv('Follow-up permission','Yes')}${notice('A visit is not required to confirm interest. Ability to pay is not part of this decision.','info')}`,`${btn('Keep as enquiry','closeOverlay()','secondary')}${btn('Confirm interest',`qualifyCase('${c.id}')`,'primary')}`)}
-  if(n==='schedule-tour'){let c=db.admissions[d.caseId];return modal('Schedule visit','Keep the visit on the same admission record.',`${field('Date','2026-09-18','date',false,'tour_date')}${field('Time','10:30','time',false,'tour_time')}${field('Attending contact',c.guardian,'text',false,'tour_contact')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Schedule visit',`scheduleTour('${c.id}')`,'primary')}`)}
+  if(n==='schedule-tour'){let c=db.admissions[d.caseId];return modal('Schedule visit','Keep the visit on the same admission record.',`<div class="form-grid admission-visit-fields">${field('Visit date',c.tour?.date||'2026-09-18','date',false,'tour_date')}${admissionVisitTimeField(c.tour?.time||'10:30')}</div>${field('Attending contact',c.tour?.contact||c.guardian,'text',false,'tour_contact')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Schedule visit',`admissionScheduleVisit('${c.id}')`,'primary')}`)}
   if(n==='complete-tour'){let c=db.admissions[d.caseId];return modal('Complete visit','Record what actually happened.',`${selectField('Outcome',['Family wants to proceed','Follow-up needed','Family not proceeding'],'Family wants to proceed','tour_outcome')}${textArea('Factual note','Family liked the classroom and wants to continue.','tour_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save outcome',`completeTour('${c.id}')`,'primary')}`)}
   if(n==='send-application'){let c=db.admissions[d.caseId];return modal('Send secure application','No parent account required.',`${kv('Recipient',`${c.guardian} · ${c.phone}`)}${kv('Expires','7 days from generation')}${kv('Prefill','Enquiry + Visit information')}${field('Secure link',`https://apply.mps.example/a/${c.id.toUpperCase()}-6V2K`,'text',true)}${textArea('Prepared WhatsApp message',`Hi ${c.guardian.split(' ')[0]}, thank you for visiting ${mpsOrganisationName()}. Please use this secure link to review the details we already have and submit ${c.childName.split(' ')[0]}’s application.`,'app_message')}${notice('Manual WhatsApp records Sent only — not Delivered or Read.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Copy & mark Sent',`sendApplication('${c.id}')`,'primary')}`)}
   return _mpsAdmissionPlainModalView(m)
@@ -49446,10 +49760,10 @@ function exitParentPreview(){ui().route='admissions';ui().parentApplicationStep=
 renderParentApplication=function(){
   let id=ui().parentApplicationCase,c=db.admissions[id];
   if(!c){ui().route='admissions';save();return renderAdmissions()}
-  let d=c.application.draft||(c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start,note:''});
+  let d=c.application.draft||(c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start});
   let s=ui().parentApplicationStep;
   let explainer=notice("This application only confirms the basic details needed to review your child's application. If your child is enrolled, we'll send a separate secure New Family Onboarding form before their first day for family, emergency, pickup and Health information.",'info');
-  let body=s===1?`${explainer}<div class="form-grid">${field('Child full name',d.childName,'text',false,'pa_childName')}${field('Date of birth',d.dob,'date',false,'pa_dob')}${field('Parent / guardian',d.guardian,'text',false,'pa_guardian')}${field('Registered phone',d.phone,'text',false,'pa_phone')}</div>${selectField('Interested service',['Baby Class','Upper Class','Baby Class + Standard Daycare','Baby Class + Extended Daycare','Upper Class + Standard Daycare','Upper Class + Extended Daycare'],d.service,'pa_service')}${field('Desired start',d.start,'date',false,'pa_start')}`:`${notice("If your child is enrolled, the separate New Family Onboarding form will collect the remaining family, emergency, authorised pickup, Health, communication and consent information.",'ok')}${textArea('Anything the preschool should know for this application?',d.note||'','pa_note')}${selectField('Please confirm the information above is accurate',['Yes — submit','No — I need to correct something'],'Yes — submit','pa_confirm')}`;
+  let body=s===1?`${explainer}<div class="form-grid">${field('Child full name',d.childName,'text',false,'pa_childName')}${field('Date of birth',d.dob,'date',false,'pa_dob')}${field('Parent / guardian',d.guardian,'text',false,'pa_guardian')}${field('Registered phone',d.phone,'text',false,'pa_phone')}</div>${selectField('Interested service',['Baby Class','Upper Class','Baby Class + Standard Daycare','Baby Class + Extended Daycare','Upper Class + Standard Daycare','Upper Class + Extended Daycare'],d.service,'pa_service')}${field('Desired start',d.start,'date',false,'pa_start')}`:`${notice("If your child is enrolled, the separate New Family Onboarding form will collect the remaining family, emergency, authorised pickup, Health, communication and consent information.",'ok')}${selectField('Please confirm the information above is accurate',['Yes — submit','No — I need to correct something'],'Yes — submit','pa_confirm')}`;
   let footer=s===1?`<span></span>${btn('Continue',`appContinue('${id}')`,'primary')}`:`${btn('Back',`syncApplicationDraft('${id}');ui().parentApplicationStep=1;save();render()`,'secondary')}${btn('Submit application',`submitApplication('${id}')`,'primary')}`;
   return `<div class="parent-view"><div style="max-width:680px;margin:0 auto 8px;display:flex;justify-content:flex-end;align-items:center;gap:8px"><span style="font-size:11px;color:#60758a">Prototype review only</span>${btn('Exit parent preview','exitParentPreview()','secondary','sm')}</div><div class="parent-card"><div class="parent-brand"><strong>${ORG}</strong><p>Secure Application · no MPS account required</p></div><div class="parent-content"><div class="stepper"><span class="active"></span><span class="${s===2?'active':''}"></span></div><div class="eyebrow">Application for ${esc(c.childName)}</div><h2 style="color:var(--navy);font-size:20px;margin:5px 0 12px">${s===1?'Review your details':'Confirm & submit'}</h2>${body}<div class="parent-foot">${footer}</div></div></div></div>`
 };
@@ -49614,13 +49928,14 @@ mobileNav=function(){
   const secondary=mobileSecondaryRoutes();
   const primary=secondary.length?all.filter(r=>!secondary.includes(r)).slice(0,4):all;
   const currentIsMore=secondary.includes(ui().route);
-  const items=primary.map(r=>`<button class="${ui().route===r?'active':''}" onclick="openWorkspace('${r}')"><span class="mi">${routes[r].icon}</span>${routes[r].label.split(' ')[0]}</button>`).join('');
-  const more=secondary.length?`<button class="${currentIsMore?'active':''}" onclick="openModal('mobile-more')"><span class="mi">•••</span>More</button>`:'';
-  return `<div class="mobile-nav" style="grid-template-columns:repeat(${Math.max(1,primary.length+(secondary.length?1:0))},1fr)">${items}${more}</div>`;
+  const items=primary.map(r=>`<button class="${ui().route===r?'active':''}" onclick="openWorkspace('${r}')"><span class="mi">${mpsLineIcon(routes[r].icon)}</span>${routes[r].label.split(' ')[0]}</button>`).join('');
+  const showMore=secondary.length||headTeacherReview||prototypeReviewToolsActive;
+  const more=showMore?`<button class="${currentIsMore?'active':''}" onclick="openModal('mobile-more')"><span class="mi">${mpsLineIcon('ellipsis')}</span>More</button>`:'';
+  return `<div class="mobile-nav" style="grid-template-columns:repeat(${Math.max(1,primary.length+(showMore?1:0))},1fr)">${items}${more}</div>`;
 };
 function mobileMoreModal(){
   const xs=mobileSecondaryRoutes();
-  return modal('More','Open any other area available to this staff member.',`<div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px">${xs.map(r=>`<button class="btn secondary" style="width:100%" onclick="openWorkspace('${r}')"><span>${routes[r].icon}</span>${esc(routes[r].label)}</button>`).join('')}</div>${headTeacherReview?`<div style="margin-top:16px"><button class="btn secondary" onclick="resetDemo()">↺ Reset prototype</button></div>`:''}`,btn('Close','closeOverlay()','secondary'));
+  return modal('More','Open any other area available to this staff member.',`<div class="mobile-more-routes">${xs.map(r=>`<button class="btn secondary" onclick="openWorkspace('${r}')"><span class="ico">${mpsLineIcon(routes[r].icon)}</span>${esc(routes[r].label)}</button>`).join('')}</div>${headTeacherReview||prototypeReviewToolsActive?`<div class="mobile-review-tools"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="btn secondary" onclick="resetDemo()">${mpsLineIcon('rotate-ccw')} Reset review data</button></div>`:''}`,btn('Close','closeOverlay()','secondary'));
 }
 const mobileNavigationBaseModalView=modalView;
 modalView=function(m){if(m?.name==='mobile-more')return mobileMoreModal();return mobileNavigationBaseModalView(m)};
@@ -50124,10 +50439,10 @@ calendarDayModal = function(date){
   const active=calendarActiveExceptionOn(date);
   const canManage=calendarCanManage();
   const context=[
-    ...holidays.map(h=>`<div class="calendar-detail-row"><span>${badge('Holiday reference','purple')}</span><div><strong>${esc(h.name)}</strong><div class="sub">${esc(h.category||'Public holiday reference')} · provided automatically by MPS · does not decide whether MPS is open</div></div></div>`),
+    ...holidays.map(h=>`<div class="calendar-detail-row"><span>${badge('Sri Lankan public holiday','purple')}</span><div><strong>${esc(h.name)}</strong><div class="sub">${esc(h.category||'Public holiday')}</div></div></div>`),
     ...events.map(e=>`<div class="calendar-detail-row"><span>${badge('Event','blue')}</span><div><strong>${esc(e.title)}</strong><div class="sub">${esc(e.scope)}${e.note?` · ${esc(e.note)}`:''}</div></div></div>`),
-    ...tours.map(t=>`<div class="calendar-detail-row"><span>${badge('Admissions visit','blue')}</span><div><strong>◎ ${esc(t.childName)} · ${esc(t.time||'Time not set')}</strong><div class="sub">Prospective family: ${esc(t.guardian)} · reused from Admissions</div><div style="margin-top:6px">${btn('Open Admissions',`openAdmissionsCaseFromCalendar('${t.caseId}')`,'secondary','sm')}</div></div></div>`),
-    ...birthdays.map(c=>`<div class="calendar-detail-row"><span>${badge('Child birthday','green')}</span><div><strong>🎂 ${esc(c.name)}</strong><div class="sub">Derived from Child DOB already held in MPS</div></div></div>`),
+    ...tours.map(t=>`<div class="calendar-detail-row"><span>${badge('Admissions visit','blue')}</span><div><strong>◎ ${esc(t.childName)} · ${esc(t.time||'Time not set')}</strong><div class="sub">Prospective family: ${esc(t.guardian)}</div><div style="margin-top:6px">${btn('Open Admissions',`openAdmissionsCaseFromCalendar('${t.caseId}')`,'secondary','sm')}</div></div></div>`),
+    ...birthdays.map(c=>`<div class="calendar-detail-row"><span>${badge('Child birthday','green')}</span><div><strong>🎂 ${esc(c.name)}</strong></div></div>`),
     ...guardianBirthdays.map(g=>`<div class="calendar-detail-row"><span>${badge('Guardian birthday','green')}</span><div><strong>🎂 ${esc(g.name)}</strong><div class="sub">${esc(g.childName)} · ${esc(g.relationship)} · birthday only; age and birth year are not shown</div></div></div>`)
   ].join('');
   let history='';
@@ -50140,7 +50455,7 @@ calendarDayModal = function(date){
     const editData=record?`{id:'${record.id}',date:'${date}'}`:`{date:'${date}'}`;
     foot=`${btn('Close','closeOverlay()','secondary')}${btn('Add event',`openModal('calendar-event',{date:'${date}'})`,'secondary')}${btn('Change operating status',`openModal('calendar-exception',${editData})`,'primary')}`;
   }
-  return modal(calendarDateLabel(date),'Operating truth and contextual items stay separate.',body,foot);
+  return modal(calendarDateLabel(date),'',body,foot);
 };
 
 renderCalendar = function(){
@@ -50154,7 +50469,7 @@ renderCalendar = function(){
   const tours=calendarVisibleAdmissionsToursInMonth(monthKey);
   const birthdays=calendarVisibleBirthdaysInMonth(monthKey);
   const guardianBirthdays=calendarVisibleGuardianBirthdaysInMonth(monthKey);
-  const actions=btn('Add calendar entry',`openModal('calendar-event',{date:'${TODAY}'})`,'primary');
+  const actions=btn('Add event',`openModal('calendar-event',{date:'${TODAY}'})`,'primary');
   const contextSummary=[
     ...tours.map(t=>`<div class="child-row"><strong>${esc(t.childName)}</strong><span>${fmtDate(t.date)}${t.time?` · ${esc(t.time)}`:''}</span><span class="hide-mobile">Admissions visit</span></div>`),
     ...events.map(e=>`<div class="child-row"><strong>${esc(e.title)}</strong><span>${fmtDate(e.date)}</span><span class="hide-mobile">${esc(e.scope)}</span></div>`),
@@ -50166,17 +50481,17 @@ renderCalendar = function(){
       <div class="calendar-toolbar"><div><div class="eyebrow">Month view</div><h3>${calendarMonthLabel(monthKey)}</h3><p>Normal week: Monday–Friday open · weekends closed. Only exceptions are highlighted.</p></div><div class="calendar-nav-actions">${btn('‹ Previous','changeCalendarMonth(-1)','secondary','sm')}${btn('Today','calendarGoToday()','secondary','sm')}${btn('Next ›','changeCalendarMonth(1)','secondary','sm')}</div></div>
       <div class="calendar-weekdays">${['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map(d=>`<div>${d}</div>`).join('')}</div>
       <div class="calendar-month-grid">${cells.map(d=>calendarCell(d,monthKey)).join('')}</div>
-      <div class="calendar-legend"><span><i class="legend-dot operating"></i> Operating status</span><span><i class="legend-dot event"></i> Event</span><span><i class="legend-dot holiday"></i> Sri Lankan holiday reference · already provided</span>${calendarCanSeeAdmissionsTours()?'<span><i class="legend-dot tour"></i> Admissions visit · restricted</span>':''}${calendarChildren().length||guardianBirthdays.length?'<span>🎂 Birthday · permission-aware</span>':''}</div>
+      <div class="calendar-legend"><span><i class="legend-dot operating"></i> Operating status</span><span><i class="legend-dot event"></i> Preschool event</span><span><i class="legend-dot holiday"></i> Sri Lankan public holiday</span>${calendarCanSeeAdmissionsTours()?'<span><i class="legend-dot tour"></i> Admissions visit · authorised staff</span>':''}${calendarChildren().length||guardianBirthdays.length?'<span>🎂 Birthday</span>':''}<p class="calendar-legend-note">Public holidays don't automatically close the preschool.</p></div>
     </div>
     <div class="grid" style="margin-top:14px">
-      <div class="${canManage?'span-7':'span-12'} card"><div class="card-header"><div class="grow"><h3>${canManage?'Active operating-day changes':'This month at a glance'}</h3><p>${canManage?'Only dates that differ from the automatic weekly schedule. Restored dates fall back to the baseline while their history is kept.':'Tap any date above for its operating status and the context you are allowed to see.'}</p></div></div>${canManage?(active.map(x=>`<div class="child-row"><strong>${fmtDate(x.date)}</strong><span>${badge(calendarNormaliseType(x.type),calendarStatusTone(x.type))}</span><span class="hide-mobile">${esc(x.reason||'')}</span><span>${btn('Amend',`openModal('calendar-exception',{id:'${x.id}',date:'${x.date}'})`,'secondary','sm')}</span></div>`).join('')||'<div class="empty">No active operating-day changes. The automatic weekly schedule is in force.</div>'):`<div class="notice info">Calendar is viewable by all staff, but operating-day changes remain restricted to Head Teacher / authorised administration.</div>`}</div>
-      ${canManage?`<div class="span-5 card"><h3>Month context</h3><p style="margin-bottom:10px">Context is reused from its source and remains separate from operating status.</p>${contextSummary.join('')||'<div class="empty">No additional visible context this month.</div>'}</div>`:''}
+      <div class="${canManage?'span-7':'span-12'} card"><div class="card-header"><div class="grow"><h3>${canManage?'Changes to normal opening':'This month at a glance'}</h3><p>${canManage?'Only days that open differently from the normal week are shown here.':'Tap any date above for its operating status and the context you are allowed to see.'}</p></div></div>${canManage?(active.map(x=>`<div class="child-row"><strong>${fmtDate(x.date)}</strong><span>${badge(calendarNormaliseType(x.type),calendarStatusTone(x.type))}</span><span class="hide-mobile">${esc(x.reason||'')}</span><span>${btn('Amend',`openModal('calendar-exception',{id:'${x.id}',date:'${x.date}'})`,'secondary','sm')}</span></div>`).join('')||'<div class="empty">No opening changes this month.</div>'):`<div class="notice info">Calendar is viewable by all staff, but operating-day changes remain restricted to Head Teacher / authorised administration.</div>`}</div>
+      ${canManage?`<div class="span-5 card"><h3>Important dates this month</h3>${contextSummary.join('')||'<div class="empty">No other important dates this month.</div>'}</div>`:''}
     </div>`);
 };
 
 holidayImportModal = function(){
   calendarEnsureProvidedHolidayReferences();
-  return modal('Sri Lankan holiday references','MPS provides the configured Sri Lankan public/Poya reference dates automatically.',`${notice('There is nothing for staff to load. Holiday labels are reference context only and never change the operating status by themselves.','info')}${kv('Prototype reference',typeof CALENDAR_REFERENCE_VERSION!=='undefined'?CALENDAR_REFERENCE_VERSION:'Sri Lanka 2026 public/Poya holiday reference')}${kv('Reference dates',String(SL_HOLIDAYS_2026.length))}`,btn('Close','closeOverlay()','secondary'));
+  return modal('Sri Lankan public holidays','',notice("Public holidays don't automatically close the preschool.",'info'),btn('Close','closeOverlay()','secondary'));
 };
 importSriLankaHolidayReferences = function(){
   calendarEnsureProvidedHolidayReferences();
@@ -50314,7 +50629,7 @@ admissionApplication = function(c){
       ${kv('Phone',esc(snap.phone||c.phone))}
       ${kv('Requested service',esc(snap.service||c.service))}
       ${kv('Desired start',fmtDate(snap.start||c.start))}
-      ${snap.note?kv('Application note',`${esc(snap.note)} ${prov('Parent submitted','parent')}`):''}
+      ${a.snapshot?.data?.note?kv('Historical parent-submitted note',`${esc(a.snapshot.data.note)} ${prov('Parent submitted','parent')}`):''}
 
       <div class="section-title">Admissions context</div>
       ${kv('Lead source',`${esc(c.source||'—')} ${prov('Admissions history','staff')}`)}
@@ -50446,7 +50761,7 @@ recordAdmissionPayment = function(caseId){
   const amount = Math.max(0,Number(val('adm_record_amount')||0));
   if(!amount){alert('Enter the payment amount.');return}
   const max = feeOutstanding(c.fee);
-  if(amount>max){alert('The recorded amount cannot exceed the current admission-fee outstanding balance in this prototype.');return}
+  if(amount>max){alert('The recorded amount cannot exceed the remaining admission-fee balance.');return}
   const file = byId('adm_record_evidence')?.files?.[0] || null;
   const evidence = file ? {name:file.name,type:file.type||'',size:file.size||0} : null;
   const p = {id:'admp_'+Date.now(),amount,method:val('adm_record_method'),reference:val('adm_record_reference')||'No reference',evidence,status:'pending'};
@@ -50457,6 +50772,7 @@ recordAdmissionPayment = function(caseId){
 // Owner Issue 017 — keep Waitlisted/Closed easy to retrieve without turning them into normal journey stages.
 // Owner refinement (15 Sep 2026): these are contextual Application views, not global filters.
 const admissionSecondaryFilters = ['Waitlisted','Closed'];
+const admissionHistoryViews = ['Completed admissions','Closed cases','Duplicates','Migration history'];
 
 function admissionSecondaryOutcome(c){
   if(!c) return '';
@@ -50519,17 +50835,17 @@ admissionsMetrics = function(){
     : '';
   const selectedStage = applicationContext ? 'Application' : active;
   const selectedLabel = selectedStage === 'All' ? 'All admissions' : selectedStage;
-  const selectedCount = active==='Admissions history'?admissionsFilteredCases().length:all.filter(c=>admissionMatchesFilter(c,selectedStage)).length;
+  const selectedCount = all.filter(c=>admissionMatchesFilter(c,selectedStage)).length;
   const compact = `<button class="admissions-stage-selector" aria-label="${esc(selectedLabel)} (${selectedCount}), choose stage" aria-haspopup="dialog" aria-expanded="${ui().modal?.name==='admissions-stage-selector'}" onclick="openModal('admissions-stage-selector')"><svg class="stage-filter-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h16M7 12h10M10 18h4"/></svg><strong class="stage-filter-label">${esc(selectedLabel)}</strong><span class="stage-filter-count">${selectedCount}</span><svg class="stage-filter-chevron" viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></button>`;
-  const history=['Closed cases','Duplicates','Migration history'].map(view=>`<button class="tab ${active===view?'active':''}" aria-pressed="${active===view}" ${view==='Closed cases'?'data-closed-cases':view==='Duplicates'?'data-duplicates':'data-migration-history'} onclick="setAdmissionsStageFilter('${view}')">${view} <strong>${all.filter(c=>admissionMatchesFilter(c,view)).length}</strong></button>`).join('');
-  return `${compact}<div class="admissions-navigation-row"><div class="tabs admissions-stage-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0"><div class="admissions-lifecycle-tabs" role="group" aria-label="Admissions lifecycle">${primary.map(renderPrimaryFilter).join('')}</div><details class="admissions-history-menu"><summary class="btn secondary">History${['Closed cases','Duplicates','Migration history'].includes(active)?` · ${esc(active)}`:''} <span aria-hidden="true">▾</span></summary><div class="admissions-history-options" role="group" aria-label="Historical views">${history}</div></details></div></div>${secondary}`;
+  const history=admissionHistoryViews.map(view=>`<button class="tab ${active===view?'active':''}" aria-pressed="${active===view}" ${view==='Completed admissions'?'data-completed-admissions':view==='Closed cases'?'data-closed-cases':view==='Duplicates'?'data-duplicates':'data-migration-history'} onclick="setAdmissionsStageFilter('${view}')">${view} <strong>${all.filter(c=>admissionMatchesFilter(c,view)).length}</strong></button>`).join('');
+  return `${compact}<div class="admissions-navigation-row"><div class="tabs admissions-stage-tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0"><div class="admissions-lifecycle-tabs" role="group" aria-label="Admissions lifecycle">${primary.map(renderPrimaryFilter).join('')}</div><details class="admissions-history-menu"><summary class="btn secondary">History${admissionHistoryViews.includes(active)?` · ${esc(active)}`:''} <span aria-hidden="true">▾</span></summary><div class="admissions-history-options" role="group" aria-label="Historical views">${history}</div></details></div></div>${secondary}`;
 };
 
 caseListItem = function(c){
   const stage = admissionDisplayStage(c);
   const outcome = admissionSecondaryOutcome(c);
   let condition = admissionCondition(c);
-  if(outcome === 'Waitlisted') condition = 'Waitlisted · review when capacity changes';
+  if(outcome === 'Waitlisted') condition = 'Waitlisted · awaiting staff review';
   else if(stage === 'Closed' && outcome) condition = `${outcome}${c.closed?.reason?` · ${c.closed.reason}`:''}`;
   const secondary = outcome && outcome !== stage ? `<span>${badge(outcome,outcome==='Waitlisted'?'amber':'grey')}</span>` : '';
   const searchable = (c.childName+' '+c.guardian+' '+stage+' '+outcome+' '+condition).toLowerCase();
@@ -50560,7 +50876,7 @@ modalView = function(m){
     const count = all.filter(c=>admissionMatchesFilter(c,stage)).length;
     return `<button class="admissions-stage-option" data-mobile-stage="${esc(stage)}" aria-pressed="${stage===selected}" onclick='selectMobileAdmissionStage(${JSON.stringify(stage)})'><span class="stage-dot" aria-hidden="true"></span><span>${esc(label)}</span><strong class="stage-option-count">${count}</strong><span class="stage-selection" aria-hidden="true">${stage===selected?'✓':''}</span></button>`;
   }).join('');
-  const history=`<section class="admissions-view-history" aria-labelledby="admissions-history-title"><h3 id="admissions-history-title">History</h3>${['Closed cases','Duplicates','Migration history'].map(view=>`<button class="admissions-stage-option" data-mobile-view="${view}" aria-pressed="${active===view}" onclick="selectMobileAdmissionStage('${view}')"><span class="stage-dot" aria-hidden="true"></span><span>${view}</span><strong class="stage-option-count">${all.filter(c=>admissionMatchesFilter(c,view)).length}</strong><span class="stage-selection" aria-hidden="true">${active===view?'✓':''}</span></button>`).join('')}</section>`;
+  const history=`<section class="admissions-view-history" aria-labelledby="admissions-history-title"><h3 id="admissions-history-title">History</h3>${admissionHistoryViews.map(view=>`<button class="admissions-stage-option" data-mobile-view="${view}" aria-pressed="${active===view}" onclick="selectMobileAdmissionStage('${view}')"><span class="stage-dot" aria-hidden="true"></span><span>${view}</span><strong class="stage-option-count">${all.filter(c=>admissionMatchesFilter(c,view)).length}</strong><span class="stage-selection" aria-hidden="true">${active===view?'✓':''}</span></button>`).join('')}</section>`;
   return modal('Choose stage','Show admissions in a specific stage',`<div class="admissions-stage-options" role="group" aria-label="Admissions stages">${options}</div>${history}`).replace('class="overlay"','class="overlay admissions-stage-overlay" onclick="if(event.target===this)closeOverlay()"').replace('class="modal"','class="modal admissions-stage-sheet" role="dialog" aria-modal="true" aria-label="Choose stage"').replace('class="x"','class="x" aria-label="Close stage selector"');
 };
 
@@ -50676,9 +50992,9 @@ function duplicateReviewFixtureRecords(){
   const guardian='Sajana J.';
   const phone='0714417525';
   return {
-    existing_amara:{id:'existing_amara',childName:'Amara Perera',dob:'2023-10-18',guardian,phone,start:'2026-01-05',service:'Upper Class',source:'Existing-family referral',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Existing-family referral'),ev('qualified','Confirmed Interest','Family wants to continue'),ev('tour','Visit completed','Family wants to proceed'),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted','Upper Class'),ev('fee_verified','Admission fee verified','LKR 15,000'),ev('enrolled','Enrolment created','Upper Class')],tour:{status:'completed',date:'2025-12-10',time:'10:00',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Amara Perera',dob:'2023-10-18',guardian,phone,service:'Upper Class',start:'2026-01-05',note:''},snapshot:null},fee:{amount:15000,due:'2025-12-20',verified:15000,pending:[],status:'satisfied'},enrolment:{status:'active',className:'Upper Class',service:'Preschool',start:'2026-01-05'},onboarding:null,closed:null},
-    existing_dinu:{id:'existing_dinu',childName:'Dinu Perera',dob:'2022-08-09',guardian,phone,start:'2026-01-05',service:'Upper Class',source:'Existing-family referral',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Existing-family referral'),ev('qualified','Confirmed Interest','Family wants to continue'),ev('tour','Visit completed','Family wants to proceed'),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted','Upper Class'),ev('fee_verified','Admission fee verified','LKR 15,000'),ev('enrolled','Enrolment created','Upper Class')],tour:{status:'completed',date:'2025-12-11',time:'10:30',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Dinu Perera',dob:'2022-08-09',guardian,phone,service:'Upper Class',start:'2026-01-05',note:''},snapshot:null},fee:{amount:15000,due:'2025-12-20',verified:15000,pending:[],status:'satisfied'},enrolment:{status:'active',className:'Upper Class',service:'Preschool',start:'2026-01-05'},onboarding:null,closed:null},
-    existing_senal:{id:'existing_senal',childName:'Senal Perera',dob:'2024-01-27',guardian,phone,start:'2027-01-05',service:'Baby Class',source:'Phone call',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Phone call'),ev('qualified','Confirmed Interest','Family wants to continue'),ev('tour','Visit completed','Family wants to proceed'),ev('application_sent','Application link sent',''),ev('application_submitted','Application submitted','')],tour:{status:'completed',date:'2026-09-09',time:'11:00',outcome:'Family wants to proceed'},application:{status:'submitted',draft:{childName:'Senal Perera',dob:'2024-01-27',guardian,phone,service:'Baby Class',start:'2027-01-05',note:''},snapshot:{submittedAt:'2026-09-13T17:00',data:{childName:'Senal Perera'}}},fee:null,enrolment:null,onboarding:null,closed:null}
+    existing_amara:{id:'existing_amara',childName:'Amara Perera',dob:'2023-10-18',guardian,phone,start:'2026-01-05',service:'Upper Class',source:'Existing-family referral',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Existing-family referral'),ev('qualified','Confirmed Interest','Family wants to continue'),ev('tour','Visit completed','Family wants to proceed'),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted','Upper Class'),ev('fee_verified','Admission fee verified','LKR 15,000'),ev('enrolled','Enrolment created','Upper Class')],tour:{status:'completed',date:'2025-12-10',time:'10:00',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Amara Perera',dob:'2023-10-18',guardian,phone,service:'Upper Class',start:'2026-01-05'},snapshot:null},fee:{amount:15000,due:'2025-12-20',verified:15000,pending:[],status:'satisfied'},enrolment:{status:'active',className:'Upper Class',service:'Preschool',start:'2026-01-05'},onboarding:null,closed:null},
+    existing_dinu:{id:'existing_dinu',childName:'Dinu Perera',dob:'2022-08-09',guardian,phone,start:'2026-01-05',service:'Upper Class',source:'Existing-family referral',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Existing-family referral'),ev('qualified','Confirmed Interest','Family wants to continue'),ev('tour','Visit completed','Family wants to proceed'),ev('application_submitted','Application submitted',''),ev('accepted','Application accepted','Upper Class'),ev('fee_verified','Admission fee verified','LKR 15,000'),ev('enrolled','Enrolment created','Upper Class')],tour:{status:'completed',date:'2025-12-11',time:'10:30',outcome:'Family wants to proceed'},application:{status:'accepted',draft:{childName:'Dinu Perera',dob:'2022-08-09',guardian,phone,service:'Upper Class',start:'2026-01-05'},snapshot:null},fee:{amount:15000,due:'2025-12-20',verified:15000,pending:[],status:'satisfied'},enrolment:{status:'active',className:'Upper Class',service:'Preschool',start:'2026-01-05'},onboarding:null,closed:null},
+    existing_senal:{id:'existing_senal',childName:'Senal Perera',dob:'2024-01-27',guardian,phone,start:'2027-01-05',service:'Baby Class',source:'Phone call',reason:'Reputation / recommendation / preschool legacy',events:[ev('enquiry','Enquiry created','Phone call'),ev('qualified','Confirmed Interest','Family wants to continue'),ev('tour','Visit completed','Family wants to proceed'),ev('application_sent','Application link sent',''),ev('application_submitted','Application submitted','')],tour:{status:'completed',date:'2026-09-09',time:'11:00',outcome:'Family wants to proceed'},application:{status:'submitted',draft:{childName:'Senal Perera',dob:'2024-01-27',guardian,phone,service:'Baby Class',start:'2027-01-05'},snapshot:{submittedAt:'2026-09-13T17:00',data:{childName:'Senal Perera'}}},fee:null,enrolment:null,onboarding:null,closed:null}
   };
 }
 
@@ -50798,7 +51114,7 @@ duplicateCandidateRecord = function(id){
 };
 
 function mpsCreatePendingEnquiryRecord(p,reviewedCandidates=[]){
-  const id='case_'+Date.now();
+  const id='case_'+crypto.randomUUID();
   const detail=[p.source||'Other'];
   if(reviewedCandidates.length) detail.push(`${reviewedCandidates.length} possible match${reviewedCandidates.length===1?'':'es'} reviewed and cleared`);
   db.admissions[id]={
@@ -50944,7 +51260,7 @@ function mpsEnsureApplicationLink(c){
 sendApplication=function(id){
   const c=db.admissions[id];
   if(!c) return;
-  if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start,note:''};
+  if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start};
   const link=mpsEnsureApplicationLink(c);
   link.status='Sent';
   link.sentAt=new Date().toISOString();
@@ -50986,7 +51302,7 @@ admissionApplication=function(c){
     ${kv('Child',`${esc(snap.childName||c.childName)} ${prov(a.snapshot?'Parent submitted':'MPS reused',a.snapshot?'parent':'reused')}`)}
     ${kv('DOB',esc(snap.dob||c.dob))}${kv('Guardian',esc(snap.guardian||c.guardian))}${kv('Phone',esc(snap.phone||c.phone))}
     ${kv('Requested service',esc(snap.service||c.service))}${kv('Desired start',fmtDate(snap.start||c.start))}
-    ${snap.note?kv('Application note',`${esc(snap.note)} ${prov('Parent submitted','parent')}`):''}
+    ${a.snapshot?.data?.note?kv('Historical parent-submitted note',`${esc(a.snapshot.data.note)} ${prov('Parent submitted','parent')}`):''}
     <div class="section-title">Admissions context</div>
     ${kv('Lead source',`${esc(c.source||'—')} ${prov('Admissions history','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}
     ${kv('Confirmed Interest / follow-up',contactValue)}${kv('Visit',visitValue)}
@@ -51315,12 +51631,20 @@ mpsAdmissionFeeQuote = function(c){
 function mpsAdmissionFeeDraft(c){
   return Object.values(db.billing?.invoices||{}).find(inv=>inv.category==='admission_fee'&&inv.admissionsCaseId===c?.id&&inv.status==='draft')||null;
 }
+// Prototype display reference only. The immutable invoice UID remains separate;
+// production invoice numbering is deliberately left to the later finance design.
+function mpsPrototypeInvoiceReference(prefix){
+  let number;
+  do{const bytes=crypto.getRandomValues(new Uint32Array(1));number=prefix+'-'+String(bytes[0]%100000000).padStart(8,'0')}
+  while(Object.values(db.billing.invoices).some(inv=>inv.number===number));
+  return number;
+}
 function mpsPrepareAdmissionFeeDraft(c,actor=staffActor()){
   if(!c||c.closed||c.enrolment||c.application?.status!=='accepted'||c.fee)return null;
-  const existing=Object.values(db.billing.invoices).find(inv=>inv.category==='admission_fee'&&inv.admissionsCaseId===c.id);
+  const existing=Object.values(db.billing.invoices).find(inv=>inv.category==='admission_fee'&&inv.admissionsCaseId===c.id&&inv.status!=='discarded');
   if(existing)return existing;
-  const q=mpsAdmissionFeeQuote(c),id=`admfee_${c.id}_${Date.now()}`;
-  const inv={id,number:`DRAFT-ADM-${c.id}`,childId:c.childId||c.id,childName:c.childName,status:'draft',due:q.due,
+  const q=mpsAdmissionFeeQuote(c),id='admfee_'+crypto.randomUUID();
+  const inv={id,number:'Admission fee draft',childId:c.childId||c.id,childName:c.childName,status:'draft',due:q.due,
     lines:[{id:`line_${id}`,description:'Admission fee',amount:q.amount}],allocations:[],evidence:{},
     category:'admission_fee',admissionsCaseId:c.id,service:c.application.acceptedPlacement?.service||c.service,
     policySnapshot:q,history:[{at:new Date().toISOString(),actor,text:'Admission-fee draft prepared from accepted application'}]};
@@ -51379,7 +51703,7 @@ function mpsEnsureAdmissionFeeBillingTruth(){
   db.billing=db.billing||{invoices:{},payments:{},pendingCharges:{}};
   db.billing.invoices=db.billing.invoices||{};db.billing.payments=db.billing.payments||{};
   Object.values(db.admissions).forEach(c=>{
-    if(!c?.fee){mpsPrepareAdmissionFeeDraft(c,'Prototype data upgrade');return}
+    if(!c?.fee){if(!Object.values(db.billing.invoices).some(inv=>inv.category==='admission_fee'&&inv.admissionsCaseId===c.id&&inv.status==='discarded'))mpsPrepareAdmissionFeeDraft(c,'Prototype data upgrade');return}
     if(c.fee.invoiceId&&db.billing.invoices[c.fee.invoiceId])return;
     const iid=`admfee_${c.id}`;
     const issued=c.application?.acceptedPlacement?.acceptedAt||c.fee.policySnapshot?.acceptedAt||null;
@@ -51423,10 +51747,10 @@ issueAdmissionFee=function(id){
   const inv=mpsAdmissionFeeDraft(c);if(!inv)return;
   const q=inv.policySnapshot;
   if(!q.amount){alert('No admission-fee policy is configured for the accepted programme.');return}
-  inv.status='issued';inv.issued=mpsAdmissionToday();inv.number=`ADM-${inv.id.replace('admfee_','')}`;
+  inv.status='issued';inv.issued=mpsAdmissionToday();inv.number=mpsPrototypeInvoiceReference('ADM');
   inv.evidence.invoicePdf=inv.number+'.pdf';
-  inv.recipientGuardianIds=linkedRecipientIds(inv.childId);inv.recipientSnapshot=recipientSnapshots(inv.recipientGuardianIds);
-  inv.history.push({at:new Date().toISOString(),actor:staffActor(),text:'Admission-fee invoice issued · immutable PDF snapshot created'});
+  inv.recipientGuardianIds=linkedRecipientIds(inv.childId);inv.recipientSnapshot=currentFamilyCommunicationSnapshots(inv);
+  inv.history.push({at:new Date().toISOString(),actor:staffActor(),text:'Admission-fee invoice issued · prototype PDF filename recorded'});
   c.fee={invoiceId:inv.id,amount:q.amount,currency:q.currency,due:inv.due,status:'pending',waived:false,policySnapshot:{...q}};
   addEvent(id,'fee_invoice','Admission-fee invoice issued',`${q.currency} ${Number(q.amount).toLocaleString('en-LK')} · due ${fmtDate(q.due)} · Billing`);
   closeOverlay();
@@ -51442,8 +51766,32 @@ createEnrolment = function(id){
   const planId=placement.daycarePlanId!==undefined?placement.daycarePlanId:c.daycarePlanId;
   if(c.careReview||!(planId===null||daycarePlan(planId))){alert('Review the agreed care arrangement before enrolment.');return}
   const programme=educationLevel(p.levelId).name,classroom=educationRoom(p.classroomId).name,start=placement.startDate||c.start;
-  c.enrolment={status:'active',daycarePlanId:placement.daycarePlanId!==undefined?placement.daycarePlanId:c.daycarePlanId,start,placementHistory:[{...JSON.parse(JSON.stringify(p)),effectiveDate:start,classroomLabel:classroomLabel(p.classroomId,true)}]};
-  c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});
+  // A newly converted child has a distinct durable identity from the case.
+  // Explicitly confirmed return journeys retain the prior child's identity.
+  c.childId=c.childId||(c.previousJourneyConfirmation&&db.admissions[c.previousCaseId]?.childId)||'child_'+crypto.randomUUID();
+  // The admission invoice predates the Child. Carry its existing Customer
+  // relationship forward once, without changing the issued invoice's owner/history.
+  billingEnsureCustomers(false);
+  const admissionAccount=billingCustomerForInvoice(mpsAdmissionFeeInvoice(c)),finance=billingFinanceWrite();
+  if(admissionAccount&&!finance.childAccounts[c.childId]){
+    finance.childAccounts[c.childId]=admissionAccount.id;
+    finance.accountLinks.push({childId:c.childId,admissionsCaseId:c.id,accountId:admissionAccount.id,source:'Accepted enrolment linked to existing admission-fee Customer',...billingActor()});
+  }
+  c.enrolment={id:'enrolment_'+crypto.randomUUID(),childId:c.childId,status:c.application?.snapshot?.versionId?'pending_start':'active',daycarePlanId:placement.daycarePlanId!==undefined?placement.daycarePlanId:c.daycarePlanId,start,placementHistory:[{...JSON.parse(JSON.stringify(p)),effectiveDate:start,classroomLabel:classroomLabel(p.classroomId,true)}]};
+  // The submitted Application already contains the family's pre-start facts.
+  // Keep that pending review when enrolment is created; do not ask for a second form.
+  if(!(c.application?.snapshot?.data?.family&&c.onboarding?.status==='submitted'))
+    c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});
+  const submittedUniformSize=c.application?.snapshot?.source==='Parent Application'?c.application.snapshot.data?.family?.starter?.uniform:null;
+  if(typeof submittedUniformSize==='string'&&submittedUniformSize.trim())
+    c.onboarding.childSetup={...(c.onboarding.childSetup||{}),uniformSize:submittedUniformSize.trim()};
+  ensureProfilePeople();
+  if(c.application?.snapshot?.source==='Parent Application'){
+    carryApplicationFamilyCommunications(c);
+    carryApplicationEmergencyContact(c);
+  }
+  mpsInitialDaycareSetup(c);
+  mpsPrepareStarterPackDraft(c);
   addEvent(id,'enrolled','Enrolment created',`${programme} · ${classroom} · ${fmtDate(start)}`);
   ui().admissionsTab='prestart';
   closeOverlay();
@@ -51456,7 +51804,7 @@ recordAdmissionPayment=function(caseId){
   const max=invoiceOutstanding(inv);if(amount>max){alert('The recorded amount cannot exceed the current admission-fee outstanding balance.');return}
   const file=byId('adm_record_evidence')?.files?.[0]||null;
   const evidence=file?{name:file.name,type:file.type||'',size:file.size||0}:null;
-  const pid='admp_'+Date.now();
+  const pid='admp_'+crypto.randomUUID();
   db.billing.payments[pid]={id:pid,childId:c.id,childName:c.childName,admissionsCaseId:c.id,invoiceId:inv.id,amount,paymentDate:val('adm_record_date')||mpsAdmissionToday(),method:val('adm_record_method'),reference:val('adm_record_reference')||'No reference',evidence,status:'pending',recordedBy:mpsAdmissionActor(),recordedById:currentPersona().id,recordedAt:new Date().toISOString()};
   addEvent(caseId,'fee_payment_recorded','Admission-fee payment recorded',`${money(amount)} · Pending Verification${evidence?` · Evidence attached: ${evidence.name}`:''}`);
   closeOverlay();
@@ -51470,6 +51818,7 @@ verifyAdmissionPayment=function(caseId,paymentId){
   p.status='verified';p.verification=val('adm_verification');p.verifiedBy=mpsAdmissionActor();p.verifiedById=currentPersona().id;p.verifiedAt=new Date().toISOString();p.allocationInvoiceId=inv.id;
   inv.allocations.push({paymentId:p.id,amount:alloc});
   p.receipt=`REC-${inv.number}-${p.id}.pdf`;
+  p.receiptRecipientSnapshot=currentFamilyCommunicationSnapshots(inv);
   inv.history.push({at:mpsAdmissionToday(),text:`Payment verified and allocated · ${money(alloc)} · ${p.verification} · ${p.verifiedBy}`});
   addEvent(caseId,'fee_verified','Admission-fee payment verified',`${money(alloc)} · ${p.verification} · ${p.verifiedBy}`);
   closeOverlay();
@@ -51504,19 +51853,19 @@ invoiceStatus=function(inv){
 };
 
 admissionPayments = function(c){
-  if(!c.fee)return `<div class="card"><h3>Admission fee</h3><p>${c.application?.status==='accepted'?'Waiting for Billing to review and issue the admission-fee invoice.':'The admission-fee draft is prepared after Acceptance.'}</p>${c.application?.status==='accepted'&&has('Accounts')&&mpsAdmissionFeeDraft(c)?btn('Review & issue invoice',`openAdmissionFeeBilling('${c.id}')`,'secondary'):''}</div>`;
+  if(!c.fee)return `<div class="card"><h3>Admission fee</h3><p>${c.application?.status==='accepted'?'Waiting for Billing to review and issue the admission-fee invoice.':'The admission-fee draft is prepared after Acceptance.'}</p>${c.application?.status==='accepted'&&has('Accounts')?(mpsAdmissionFeeDraft(c)?btn('Review & issue invoice',`openAdmissionFeeBilling('${c.id}')`,'secondary'):btn('Prepare admission-fee draft',`mpsReprepareAdmissionFeeDraft('${c.id}')`,'secondary')):''}</div>`;
   const f=c.fee,inv=mpsAdmissionFeeInvoice(c),payments=mpsAdmissionFeePayments(c),outstanding=feeOutstanding(f),effective=mpsAdmissionEffectiveFeeStatus(f),satisfied=mpsAdmissionFeeGateSatisfied(f),verified=mpsAdmissionVerifiedAmount(c);
   const rows=payments.length?payments.map(p=>{
     const audit=p.status==='verified'?`${fmtDate(p.paymentDate)} · ${esc(p.reference||'No reference')} · ${esc(p.verification||'Verified')} · ${profileStaffLink(p.verifiedById,p.verifiedBy||'Authorised finance')}`:`${fmtDate(p.paymentDate)} · ${esc(p.reference||'No reference')} · awaiting Finance verification`;
     return `<div class="child-row"><strong>${money(p.amount)} · ${esc(p.method)}</strong><span>${badge(p.status,p.status==='pending'?'amber':'green')}</span><span class="hide-mobile">${audit}</span><span>${p.status==='pending'?badge('Billing action','blue'):'✓'}</span></div>`;
   }).join(''):'<div class="empty">No payment recorded yet.</div>';
-  return `<div class="grid"><div class="span-8 card"><div class="card-header"><div class="grow"><h3>Admission fee</h3><p>Billing owns the invoice, payment verification and allocation. Admissions consumes the gate result.</p></div>${badge(effective==='overdue'?'Overdue':satisfied?'Satisfied':'In progress',effective==='overdue'?'red':satisfied?'green':'amber')}</div>${inv?kv('Invoice',esc(inv.number)):''}<div class="money">${money(f.amount)}</div>${kv('Due date',fmtDate(f.due))}${kv('Verified payment',money(verified))}${f.waived?kv('Waiver',`${badge('Authorised','green')} ${esc(f.waiver?.reason||'Reason recorded')}`):''}${kv('Outstanding',money(outstanding))}<div class="section-title">Payment activity</div>${rows}</div><div class="span-4 card"><h3>Controls</h3><p>Accepted is not Enrolled. Full verified settlement or an authorised waiver is required before conversion.</p>${notice('Cash/bank-transfer payment entry and real-source verification are Finance actions in Billing. Admissions does not verify money.','info')}${effective==='overdue'?`<div style="margin-top:8px">${btn('Overdue action',`openModal('overdue-fee',{caseId:'${c.id}'})`,'secondary')}</div>`:''}</div></div>`;
+  return `<div class="grid"><div class="span-8 card"><div class="card-header"><div class="grow"><h3>Admission fee</h3><p>Billing owns the invoice, payment verification and allocation. Admissions consumes the gate result.</p></div>${badge(effective==='overdue'?'Overdue':satisfied?'Satisfied':'In progress',effective==='overdue'?'red':satisfied?'green':'amber')}</div>${inv?`<div class="admission-payment-invoice-row"><div class="admission-payment-invoice-reference">${kv('Invoice',esc(inv.number))}</div>${allowed('billing')?btn('Open in Billing',`openBillingInvoice('${esc(inv.id)}')`,'secondary','sm'):''}</div>`:''}<div class="money">${money(f.amount)}</div>${kv('Due date',fmtDate(f.due))}${kv('Verified payment',money(verified))}${f.waived?kv('Waiver',`${badge('Authorised','green')} ${esc(f.waiver?.reason||'Reason recorded')}`):''}${kv('Outstanding',money(outstanding))}<div class="section-title">Payment activity</div>${rows}</div><div class="span-4 card"><h3>Controls</h3><p>Accepted is not Enrolled. Full verified settlement or an authorised waiver is required before conversion.</p>${notice('Cash/bank-transfer payment entry and real-source verification are Finance actions in Billing. Admissions does not verify money.','info')}${effective==='overdue'?`<div style="margin-top:8px">${btn('Overdue action',`openModal('overdue-fee',{caseId:'${c.id}'})`,'secondary')}</div>`:''}</div></div>`;
 };
 
 function mpsAdmissionFeeBillingRows(){
   return Object.values(db.admissions).filter(c=>c?.application?.status==='accepted'&&!c?.enrolment&&!c?.closed).map(c=>{
     if(!c.fee){
-      const inv=mpsAdmissionFeeDraft(c);if(!inv)return '';
+      const inv=mpsAdmissionFeeDraft(c);if(!inv)return `<div class="card flat" data-admission-fee-case="${esc(c.id)}"><h3>Admission fee invoice needed · ${esc(c.childName)}</h3>${btn('Prepare draft',`mpsReprepareAdmissionFeeDraft('${c.id}')`,'secondary','sm')}</div>`;
       return `<div class="card flat" style="margin-bottom:10px" data-admission-fee-case="${esc(c.id)}"><div class="card-header"><div class="grow"><h3>Admission fee invoice to issue · ${esc(c.childName)}</h3><p>${esc(inv.service)} · ${money(inv.policySnapshot.amount)} · due ${fmtDate(inv.due)}</p></div>${badge('Draft','blue')}</div>${btn('Review & issue',`openAdmissionFeeBilling('${c.id}')`,'primary','sm')}</div>`;
     }
     const f=c.fee,inv=mpsAdmissionFeeInvoice(c),payments=mpsAdmissionFeePayments(c),effective=mpsAdmissionEffectiveFeeStatus(f),out=feeOutstanding(f);
@@ -51529,7 +51878,7 @@ const _mpsAuditAcceptedOverview=admissionOverview;
 admissionOverview=function(c){
   if(admissionDisplayStage(c)==='Accepted'&&!c.fee){
     const p=c.application?.acceptedPlacement||{};
-    const action=actionCard('Accepted · waiting for admission-fee invoice','Billing will review and issue the prepared admission-fee invoice.',has('Accounts')&&mpsAdmissionFeeDraft(c)?btn('Review & issue invoice',`openAdmissionFeeBilling('${c.id}')`,'secondary'):badge('Waiting for Billing','blue'));
+    const action=actionCard('Accepted · waiting for admission-fee invoice','Billing will review and issue the admission-fee invoice.',has('Accounts')?(mpsAdmissionFeeDraft(c)?btn('Review & issue invoice',`openAdmissionFeeBilling('${c.id}')`,'secondary'):btn('Prepare admission-fee draft',`mpsReprepareAdmissionFeeDraft('${c.id}')`,'secondary')):badge('Waiting for Billing','blue'));
     const details=`<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}${kv('Application',applicationSummary(c))}${kv(p.levelId?'Accepted level':'Accepted programme',esc(p.programme||c.acceptedProgramme||'—'))}${kv('Accepted classroom',esc(p.classroom||p.className||c.acceptedClassroom||'—'))}${kv('Accepted start',fmtDate(p.startDate||c.start))}</div>`;
     const management=mpsEstablishedDuplicateEligible(c)?`<div class="card" style="margin-top:12px"><div class="card-header"><div class="grow"><h3>Record management</h3><p>Use only when staff later confirms this Admissions record is a duplicate of another record.</p></div>${btn('Mark as duplicate',`mpsOpenEstablishedDuplicate('${c.id}')`,'secondary','sm')}</div></div>`:'';
     return `${action}${details}${management}`;
@@ -51547,11 +51896,21 @@ renderBilling=function(){
 
 const _mpsAuditTodayActions2=todayActions;
 todayActions=function(){
-  const a=_mpsAuditTodayActions2();
+  // Replace the older first-payment card by payment identity, then project each
+  // pending Billing record once. Admissions reads the resulting fee state.
+  const a=_mpsAuditTodayActions2().filter(action=>!action.paymentId);
   if(has('Accounts')){
-    const pending=Object.values(db.billing?.payments||{}).find(p=>p.admissionsCaseId&&p.status==='pending');
-    if(pending)a.unshift({sev:'amber',icon:'₨',title:`${pending.childName||db.admissions[pending.admissionsCaseId]?.childName||'Admission'} · admission-fee payment awaiting verification`,sub:'Billing real-source verification required',go:"setRoute('billing')"});
-    else {
+    const pending=Object.values(db.billing?.payments||{}).filter(p=>p.status==='pending');
+    const paymentActions=pending.map(p=>{
+      const invoice=billingPaymentInvoice(p);
+      const caseId=p.admissionsCaseId||invoice?.admissionsCaseId;
+      const admission=invoice?.category==='admission_fee'&&caseId&&mpsAdmissionFeeInvoice(db.admissions[caseId])?.id===invoice.id;
+      const go=admission?`setRoute('billing');openModal('verify-admission-payment',{caseId:'${caseId}',paymentId:'${p.id}'})`:invoice?`setRoute('billing');openModal('verify-payment',{id:'${p.id}'})`:"setRoute('billing')";
+      const name=p.childName||db.admissions[caseId]?.childName||invoice?.childName;
+      return {sev:'amber',icon:'₨',paymentId:p.id,title:admission?`${esc(name||'Admission')} · payment awaiting verification`:`${name?esc(name)+' · ':''}Payment awaiting verification`,sub:`${admission?'Admission fee · ':''}${money(p.amount)} · ${esc(p.reference||'No reference')}`,go};
+    });
+    a.unshift(...paymentActions);
+    if(!pending.length){
       const draft=Object.values(db.billing.invoices).find(inv=>inv.category==='admission_fee'&&inv.status==='draft'&&!db.admissions[inv.admissionsCaseId]?.closed);
       if(draft)a.unshift({sev:'blue',icon:'₨',title:`Admission fee invoice to issue · ${draft.childName}`,sub:'Review & issue',go:`openAdmissionFeeBilling('${draft.admissionsCaseId}')`});
     }
@@ -51589,7 +51948,7 @@ sendApplication=function(id){
   if(c?.tour?.status==='completed'&&c.tour.outcome!=='Family wants to proceed'){
     alert('Resolve the Visit follow-up before sending the Application.');return;
   }
-  if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start,note:''};
+  if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start};
   const link=mpsEnsureApplicationLink(c);link.status='Sent';link.sentAt=new Date().toISOString();c.application.status='sent';
   addEvent(id,'application_sent','Application link sent','Registered WhatsApp · time-limited secure link · Sent');
   closeOverlay();
@@ -51634,7 +51993,7 @@ modalView=function(m){
     const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
     const inv=mpsAdmissionFeeDraft(c);if(!inv||!has('Accounts')||c.closed)return modal('Admission fee','',notice('No admission-fee draft is available to issue.','info'),btn('Close','closeOverlay()','secondary'));
     const q=inv.policySnapshot;
-    return modal('Review admission-fee invoice','',`${kv('Child',esc(c.childName))}${kv('Agreed service',esc(inv.service))}${kv('Admission fee',mpsFeeDisplay(q.amount,q.currencyDisplay||q.currency))}${kv('Due date',fmtDate(q.due))}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Issue invoice',`issueAdmissionFee('${c.id}')`,'primary')}`);
+    return modal('Review admission-fee invoice','',`${invoiceRelatedContext(inv)}${invoiceRecipientContext(inv)}${kv('Child',esc(c.childName))}${kv('Agreed service',esc(inv.service))}${kv('Admission fee',mpsFeeDisplay(q.amount,q.currencyDisplay||q.currency))}${kv('Due date',fmtDate(q.due))}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Issue invoice',`issueAdmissionFee('${c.id}')`,'primary')}`);
   }
   if(n==='create-enrolment'){
     const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
@@ -51767,8 +52126,8 @@ modalView = function(m){
     if(!c) return _mpsIssue021ModalView(m);
     const existingMethod = ['Phone call','WhatsApp','Email','In person'].includes(c.followUp?.method) ? c.followUp.method : 'Phone call';
     const existingNote = c.followUp?.note || '';
-    const body = `${notice('Record what happened in this contact. Confirmed Interest requires a real positive signal from the family.','info')}${selectField('Contact method',['Phone call','WhatsApp','Email','In person'],existingMethod,'enq_contact_method')}${selectField('Outcome',['Wants to continue','Could not reach parent','Not proceeding'],'Wants to continue','enq_contact_outcome','toggleEnquiryContactFields()')}${textArea('Factual note',existingNote,'enq_contact_note')}<div id="enq_schedule_wrap">${selectField('Schedule visit now?',['No','Yes'],'No','enq_schedule_visit','toggleEnquiryVisitFields()')}</div><div id="enq_visit_wrap" style="display:none">${field('Visit date','','date',false,'enq_visit_date')}${field('Visit time','','time',false,'enq_visit_time')}${field('Attending contact',c.guardian,'text',false,'enq_visit_contact')}</div><div id="enq_followup_wrap" style="display:none">${field('Next follow-up date',c.followUp?.date||'','date',false,'enq_followup_date')}</div><div id="enq_lost_wrap" style="display:none">${selectField('Non-conversion reason',lostReasons,'No longer interested','enq_lost_reason')}</div>${notice('A visit and ability to pay are not required to confirm interest. If a convenient Visit time is agreed during this conversation, staff can schedule it here now. Otherwise, schedule it later from Confirmed Interest.','info')}`;
-    return modal('Record follow-up','I contacted the parent — this is what happened.',body,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save follow-up',`recordEnquiryContactOutcome('${c.id}')`,'primary')}`);
+    const body = `${notice('Record the parent’s response. Choose Confirmed Interest only if they want to continue.','info')}${selectField('Contact method',['Phone call','WhatsApp','Email','In person'],existingMethod,'enq_contact_method')}${selectField('Outcome',['Wants to continue','Could not reach parent','Not proceeding'],'Wants to continue','enq_contact_outcome','toggleEnquiryContactFields()')}${textArea('Factual note',existingNote,'enq_contact_note')}<div id="enq_schedule_wrap">${selectField('Schedule visit now?',['No','Yes'],'No','enq_schedule_visit','toggleEnquiryVisitFields()')}</div><div id="enq_visit_wrap" style="display:none">${field('Visit date','','date',false,'enq_visit_date')}${field('Visit time','','time',false,'enq_visit_time')}${field('Attending contact',c.guardian,'text',false,'enq_visit_contact')}</div><div id="enq_followup_wrap" style="display:none">${field('Next follow-up date',c.followUp?.date||'','date',false,'enq_followup_date')}</div><div id="enq_lost_wrap" style="display:none">${selectField('Non-conversion reason',lostReasons,'No longer interested','enq_lost_reason')}</div>${notice('A visit and ability to pay are not required to confirm interest. If a convenient Visit time is agreed during this conversation, staff can schedule it here now. Otherwise, schedule it later from Confirmed Interest.','info')}`;
+    return modal('Record follow-up','',body,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save follow-up',`recordEnquiryContactOutcome('${c.id}')`,'primary')}`);
   }
   return _mpsIssue021ModalView(m);
 };
@@ -51932,7 +52291,7 @@ function mpsSaveValidatedEnquiry(){
   mpsCommitValidatedEnquiry(p);
 }
 function mpsCommitValidatedEnquiry(p){
-  const id='case_'+Date.now();
+  const id='case_'+crypto.randomUUID();
   db.admissions[id]={id,childName:p.childName,dob:p.dob,guardian:p.guardian,phone:p.phone,phoneCountry:p.phoneCountry||mpsDefaultPhoneCountry(),email:p.email||'',start:p.start,service:p.service,daycarePlanId:p.daycarePlanId,source:p.source,reason:p.reason||null,enquiryGuidance:enquiryGuidanceSnapshot(p.dob,p.start),message:p.message||'',events:[ev('enquiry','Enquiry created',p.source)],tour:null,application:{status:'not_sent',draft:null,snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null};
   ui().admissionsCase=id; ui().admissionsTab='overview'; ui().pendingEnquiry=null; ui().modal=null; ui().drawer=null; save(); render();
 }
@@ -52187,7 +52546,7 @@ function calendarSyncAllEntryClasses(){
 }
 function calendarEntryModal(data={}){
   const date=data.date||TODAY;
-  return modal('Add calendar entry','Add the appointment or item people need to know about.',`${field('Title','','text',false,'evt_title')}<div class="form-grid">${field('Date',date,'date',false,'evt_date')}${field('Time (optional)','','time',false,'evt_time')}</div>${selectField('Who should see this?',['Only me','Head Teacher + me','Classes…','All staff'],'Classes…','evt_visibility','calendarEntryVisibilityChanged()')}${calendarEntryClassesPanel()}${textArea('Optional note','','evt_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save calendar entry','saveCalendarEntry()','primary')}`);
+  return modal('Add event','',`${field('Title','','text',false,'evt_title')}<div class="form-grid">${field('Date',date,'date',false,'evt_date')}${field('Time (optional)','','time',false,'evt_time')}</div>${selectField('Who should see this?',['Only me','Head Teacher + me','Classes…','All staff'],'Classes…','evt_visibility','calendarEntryVisibilityChanged()')}${calendarEntryClassesPanel()}${textArea('Optional note','','evt_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save event','saveCalendarEntry()','primary')}`);
 }
 
 const _mpsCalendarEntryModalView=modalView;
@@ -52199,8 +52558,8 @@ modalView=function(m){
 function saveCalendarEntry(){
   const title=val('evt_title').trim();
   const date=val('evt_date');
-  if(!title){alert('Enter a title for this calendar entry.');return}
-  if(!date){alert('Choose a date for this calendar entry.');return}
+  if(!title){alert('Enter a title for this event.');return}
+  if(!date){alert('Choose a date for this event.');return}
   const choice=val('evt_visibility');
   const map={'Only me':'only_me','Head Teacher + me':'head_teacher','Classes…':'classes','All staff':'all_staff'};
   const visibility=map[choice]||'only_me';
@@ -52232,13 +52591,13 @@ function calendarTimedRowsForDay(events,tours){
     time:e.time||'',
     sortTime:e.time||'99:99',
     sortTitle:e.title||'',
-    html:`<div class="calendar-detail-row"><span>${badge('Calendar entry','blue')}</span><div><strong>${e.time?`${esc(e.time)} · `:''}${esc(e.title)}</strong><div class="sub">${esc(calendarEntryVisibilityLabel(e))}${e.note?` · ${esc(e.note)}`:''}</div></div></div>`
+    html:`<div class="calendar-detail-row"><span class="calendar-category event">Preschool event</span><div><strong>${e.time?`${esc(e.time)} · `:''}${esc(e.title)}</strong><div class="sub">${esc(calendarEntryVisibilityLabel(e))}${e.note?` · ${esc(e.note)}`:''}</div></div></div>`
   }));
   tours.forEach(t=>rows.push({
     time:t.time||'',
     sortTime:t.time||'99:99',
     sortTitle:t.childName||'',
-    html:`<div class="calendar-detail-row"><span>${badge('Admissions visit','blue')}</span><div><strong>${t.time?`${esc(t.time)} · `:''}${esc(t.childName)}</strong><div class="sub">${esc(t.guardian)}</div><div style="margin-top:6px">${btn('Open Admissions',`openAdmissionsCaseFromCalendar('${t.caseId}')`,'secondary','sm')}</div></div></div>`
+    html:`<div class="calendar-detail-row"><span class="calendar-category tour">Admissions visit</span><div><strong>${t.time?`${esc(t.time)} · `:''}${esc(t.childName)}</strong><div class="sub">${esc(t.guardian)}</div><div style="margin-top:6px">${btn('Open Admissions',`openAdmissionsCaseFromCalendar('${t.caseId}')`,'secondary','sm')}</div></div></div>`
   }));
   return rows.sort((a,b)=>a.sortTime.localeCompare(b.sortTime)||a.sortTitle.localeCompare(b.sortTitle)).map(x=>x.html).join('');
 }
@@ -52255,7 +52614,7 @@ calendarDayModal=function(date){
   const canManage=calendarCanManage();
   const scheduled=calendarTimedRowsForDay(events,tours);
   const other=[
-    ...holidays.map(h=>`<div class="calendar-detail-row"><span>${badge('Holiday','purple')}</span><div><strong>${esc(h.name)}</strong><div class="sub">${esc(h.category||'Public holiday')}</div></div></div>`),
+    ...holidays.map(h=>`<div class="calendar-detail-row"><span class="calendar-category holiday">Sri Lankan public holiday</span><div><strong>${esc(h.name)}</strong><div class="sub">${esc(h.category||'Public holiday')}</div></div></div>`),
     ...birthdays.map(c=>`<div class="calendar-detail-row"><span>${badge('Child birthday','green')}</span><div><strong>🎂 ${profileChildLink(c.id,c.name)}</strong></div></div>`),
     ...guardianBirthdays.map(g=>`<div class="calendar-detail-row"><span>${badge('Guardian birthday','green')}</span><div><strong>🎂 ${esc(g.name)}</strong><div class="sub">${esc(g.childName)} · ${esc(g.relationship)}</div></div></div>`)
   ].join('');
@@ -52266,7 +52625,7 @@ calendarDayModal=function(date){
   }
   const body=`${kv('Date',calendarDateLabel(date))}<div class="calendar-operating-summary">${badge(op.text,op.tone)}</div>${canManage&&active?.reason?`<div class="notice info"><strong>Current change reason:</strong> ${esc(active.reason)}</div>`:''}<div class="section-title" style="margin-top:16px">On this day</div>${context||'<div class="empty">No other calendar items for this date.</div>'}${history}`;
   const editData=record?`{id:'${record.id}',date:'${date}'}`:`{date:'${date}'}`;
-  const foot=`${btn('Close','closeOverlay()','secondary')}${btn('Add calendar entry',`openModal('calendar-event',{date:'${date}'})`,'secondary')}${canManage?btn('Change operating status',`openModal('calendar-exception',${editData})`,'primary'):''}`;
+  const foot=`${btn('Close','closeOverlay()','secondary')}${btn('Add event',`openModal('calendar-event',{date:'${date}'})`,'secondary')}${canManage?btn('Change operating status',`openModal('calendar-exception',${editData})`,'primary'):''}`;
   return modal(calendarDateLabel(date),'',body,foot);
 };
 
@@ -52274,11 +52633,7 @@ const _mpsCalendarEntryRenderCalendar=renderCalendar;
 renderCalendar=function(){
   let html=_mpsCalendarEntryRenderCalendar();
   html=html
-    .replaceAll('Add event','Add calendar entry')
-    .replaceAll('Staff-created events','Calendar entries')
-    .replaceAll('No visible staff-created events this month.','No calendar entries this month.')
-    .replaceAll('Events remain separate from operating status.','Calendar entries do not change operating status.')
-    .replace('<span><i class="legend-dot event"></i> Event</span>','<span><i class="legend-dot event"></i> Calendar entry</span>');
+    .replaceAll('No visible staff-created events this month.','No events this month.');
 
   return html;
 };
@@ -52298,7 +52653,7 @@ calendarPlanningContext=function(){
     items.push({date:e.date,title:e.title,detail:`${e.time?`${e.time} · `:''}${calendarEntryVisibilityLabel(e)}${e.note?` · ${e.note}`:''}`,kind:'Event'});
   });
   calendarChildren().filter(c=>c.classroomId===lessonClass).forEach(c=>{const d=`${start.slice(0,4)}-${c.dob.slice(5)}`;if(d>=start&&d<=end)items.push({date:d,title:`${c.name} birthday`,detail:'Birthday',kind:'Birthday'})});
-  holidayReferencesOnRange(start,end).forEach(h=>items.push({date:h.date,title:h.name,detail:'Sri Lankan holiday reference',kind:'Holiday reference'}));
+  holidayReferencesOnRange(start,end).forEach(h=>items.push({date:h.date,title:h.name,detail:'Sri Lankan public holiday',kind:'Sri Lankan public holiday'}));
   return items.sort((a,b)=>a.date.localeCompare(b.date)||String(a.detail||'').localeCompare(String(b.detail||'')));
 };
 
@@ -52435,10 +52790,9 @@ const MPS_PLAIN_LANGUAGE_REPLACEMENTS = [
   // Daycare
   ['Bookings create the roster; physical attendance remains the single presence truth.','Today’s daycare list comes from bookings. Attendance shows who is actually here.'],
   ['Derived roster','Booked children'],
-  ['Configured capacity','Capacity'],
   ['Operational review','Needs review'],
-  ['Add ad-hoc booking','Add booking'],
-  ['Authorise booking','Add booking'],
+  ['Add ad-hoc booking','Add one-day care'],
+  ['Authorise booking','Add one-day care'],
   ['The system detects; the authorised reviewer approves or waives with reason before Billing.','MPS has flagged the late pickup. Review it before any charge is sent to Billing.'],
 
   // Health
@@ -52460,7 +52814,7 @@ const MPS_PLAIN_LANGUAGE_REPLACEMENTS = [
   ['Issued snapshot / draft lines, payments and audit history.','Invoice details, payments and history.'],
   ['<div class="section-title">Lines</div>','<div class="section-title">Invoice items</div>'],
   ['Evidence & history','Invoice & payment history'],
-  ['Issued PDF snapshot','Issued invoice PDF'],
+  ['Issued PDF snapshot','Prototype PDF filename'],
   ['Issued lines are immutable. Correct with an auditable void/replacement path.','An issued invoice can’t be edited. Void and replace it if a correction is needed.'],
   ['Every payment is checked against the real source before allocation.','Check the payment against the bank, cash or payment record before marking it verified.'],
   ['Verification method','How was it checked?'],
@@ -52736,7 +53090,7 @@ function mpsSavePreschoolSettings(){
   save();closeOverlay();
 }
 
-function mpsBundleOptions(){return ['Head Teacher','Class Teacher','Assistant Teacher','Daycare','Admissions','Accounts','Social Media',MPS_ACCOUNT_ADMIN]}
+function mpsBundleOptions(){return ['Head Teacher','Class Teacher','Assistant Teacher','Daycare','Admissions','Accounts','Social Media','Medication administration','Family legal review',MPS_ACCOUNT_ADMIN]}
 function mpsTeachingClassroomsRequired(bundles){return (bundles||[]).some(b=>['Class Teacher','Assistant Teacher'].includes(b))}
 function mpsSelectedResponsibilityBundles(){return mpsUnique(Array.from(document.querySelectorAll('#overlay [data-bundle]:checked')).map(x=>x.value).filter(b=>mpsBundleOptions().includes(b)))}
 function mpsRefreshTeachingClassrooms(id){
@@ -52819,7 +53173,10 @@ function mpsHeaderSearchPlaceholder(){
 
 mpsAccountMenuHtml=function(){
   const p=currentPersona();
-  return `<div class="account-area"><button class="account-trigger" aria-label="Account menu for ${esc(p.name)}" aria-expanded="${ui().accountMenuOpen?'true':'false'}" onclick="mpsToggleAccountMenu()"><span class="user-meta"><b>${esc(p.name)}</b></span><span class="avatar">${esc(p.initials||'')}</span><span class="account-caret">▾</span></button>${ui().accountMenuOpen?`<div class="account-menu" role="menu"><button role="menuitem" onclick="mpsOpenOwnStaffProfile()"><strong>My profile</strong></button><button role="menuitem" onclick="mpsPrototypeSignOut()"><strong>Sign out</strong></button></div>`:''}</div>`;
+  const staff=mpsAccount(p.id);
+  const photo=staff?.profile?.photo;
+  const avatar=photo&&/^data:image\/(png|jpeg|webp);base64,/.test(photo.data||'')?personPhoto(photo,staff.name):esc(p.initials||'');
+  return `<div class="account-area"><button class="account-trigger" aria-label="Account menu for ${esc(p.name)}" aria-expanded="${ui().accountMenuOpen?'true':'false'}" onclick="mpsToggleAccountMenu()"><span class="user-meta"><b>${esc(p.name)}</b></span><span class="avatar">${avatar}</span><span class="account-caret">▾</span></button>${ui().accountMenuOpen?`<div class="account-menu" role="menu"><button role="menuitem" onclick="mpsOpenOwnStaffProfile()"><strong>My profile</strong></button><button role="menuitem" onclick="mpsPrototypeSignOut()"><strong>Sign out</strong></button></div>`:''}</div>`;
 };
 
 const _mpsHeaderProfileBaseShell=shell;
@@ -53099,7 +53456,6 @@ syncApplicationDraft=function(caseId){
     const phone=mpsNormalisePhone(input.value,country);
     if(phone.ok){d.phone=phone.value;d.phoneCountry=country}
   }
-  const n=byId('pa_note');if(n)d.note=n.value;
   save();
 };
 
@@ -53348,7 +53704,7 @@ admissionOverview=function(c){
   const visitNote=mpsVisitNote(c);
   if(!visitNote) return html;
   const applicationRow=kv('Application',applicationSummary(c));
-  return html.replace(applicationRow,`${kv('Visit note',esc(visitNote))}${applicationRow}`);
+  return html.replace(applicationRow,`${kv('Visit note',`${esc(visitNote)} ${prov('Staff recorded','staff')}`)}${applicationRow}`);
 };
 
 const _mpsVisitNoteBaseApplication=admissionApplication;
@@ -53616,6 +53972,27 @@ function mpsPreschoolClockTimezone(){
   }
 }
 
+// An exact instant for new review-fixture events, on the same preschool-local
+// date and at the same local time shown by the product shell.
+function mpsPreschoolBusinessNow(now=new Date()){
+  const timeZone=mpsPreschoolClockTimezone(),businessDate=mpsProductDate(now,timeZone);
+  if(businessDate===mpsPreschoolLocalDate(now,timeZone))return new Date(now);
+  const wallParts=date=>Object.fromEntries(new Intl.DateTimeFormat('en-GB',{
+    timeZone,year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'
+  }).formatToParts(date).map(part=>[part.type,part.value]));
+  const current=wallParts(now),[year,month,day]=businessDate.split('-').map(Number);
+  const wanted=Date.UTC(year,month-1,day,+current.hour,+current.minute,+current.second,now.getMilliseconds());
+  let instant=wanted;
+  for(let attempt=0;attempt<4;attempt++){
+    const local=wallParts(new Date(instant));
+    const shown=Date.UTC(+local.year,+local.month-1,+local.day,+local.hour,+local.minute,+local.second,now.getMilliseconds());
+    const difference=wanted-shown;
+    if(!difference)break;
+    instant+=difference;
+  }
+  return new Date(instant);
+}
+
 function mpsPreschoolClockText(now=new Date()){
   const timeZone=mpsPreschoolClockTimezone();
   // Use the same resolved day as Calendar, planning and teaching, including
@@ -53808,7 +54185,8 @@ admissionOverview=function(c){
 // Make the child/contact relationship explicit in the persistent case header.
 admissionHero=function(c){
   const stage=admissionDisplayStage(c);
-  return `<div class="case-hero"><div class="case-hero-row"><div class="case-identity"><div class="case-avatar">${admissionsPersonPhoto(c)}</div><div class="case-title"><h2>${esc(c.childName)}</h2><p><strong>Parent/guardian:</strong> ${esc(c.guardian)} · ${esc(c.phone)}<br>${esc(admissionCareLabel(c))} · Start ${fmtDate(c.enrolment?c.enrolment.start:c.start)}</p></div></div><div class="case-status">${badge(stage,admissionStageTone(c))}</div></div>${c.closed?.type==='Duplicate'?'':`<details class="admission-journey"><summary>Journey</summary>${journey(c)}</details>`}</div>`;
+  const steps=c.closed?.type==='Duplicate'?'':journey(c);
+  return `<div class="case-hero"><div class="case-hero-row"><div class="case-identity"><div class="case-avatar">${admissionsPersonPhoto(c)}</div><div class="case-title"><h2>${esc(c.childName)}</h2><p><strong>Parent/guardian:</strong> ${esc(c.guardian)} · ${esc(c.phone)}<br>${esc(admissionCareLabel(c))} · Start ${fmtDate(c.enrolment?c.enrolment.start:c.start)}</p></div></div><div class="case-status">${badge(stage,admissionStageTone(c))}</div></div>${steps?`<section class="admission-journey" aria-label="Journey"><h3>Journey</h3>${steps}</section>`:''}</div>`;
 };
 
 // Admission details is the case record, so repeat the essential identity/contact facts there.
@@ -53909,6 +54287,7 @@ function admissionClosureStage(c){
   return admissionDisplayStage({...c,closed:null});
 }
 function admissionIsClosedCase(c){return !!c?.closed && c.closed.type!=='Duplicate' && !c.enrolment}
+function admissionIsCompletedCase(c){return !!c&&!c.closed&&!c.migrationHistory&&admissionHandoffComplete(c)}
 function admissionCanClose(c){return allowed('admissions') && !!c && !c.closed && !c.enrolment}
 function admissionClosureLabel(c){
   const stage=admissionClosureStage(c),type=c.closed?.type;
@@ -53919,6 +54298,7 @@ function admissionClosureLabel(c){
 admissionIsApplicationClosed=function(c){return admissionIsClosedCase(c) && admissionClosureStage(c)==='Application'};
 const _bq098Matches=admissionMatchesFilter;
 admissionMatchesFilter=function(c,filter){
+  if(filter==='Completed admissions')return admissionIsCompletedCase(c);
   if(filter==='Migration history')return !!c.migrationHistory;
   if(admissionIsHistorical(c))return false;
   if(filter==='Duplicates') return c.closed?.type==='Duplicate';
@@ -53937,8 +54317,10 @@ function admissionsIdentitySearch(q){
 let admissionsSearchQuery='';
 const _bq098Filtered=admissionsFilteredCases;
 admissionsFilteredCases=function(){
-  if(admissionsSearchQuery.trim() && allowed('admissions')) return admissionsIdentitySearch(admissionsSearchQuery);
-  if(ui().admissionsStageFilter==='Admissions history')return allowed('admissions')?admissionsRetrievableRecords().filter(c=>c.id===ui().admissionsCase&&!c.migrationHistory&&admissionHandoffComplete(c)):[];
+  if(admissionsSearchQuery.trim() && allowed('admissions')){
+    const matches=admissionsIdentitySearch(admissionsSearchQuery);
+    return ui().admissionsStageFilter==='Completed admissions'?matches.filter(admissionIsCompletedCase):matches;
+  }
   return _bq098Filtered();
 };
 filterAdmissions=function(q){
@@ -53955,7 +54337,7 @@ const _bq098Select=setAdmissionCase;
 setAdmissionCase=function(id){
   const c=admissionsRetrievableRecords().find(c=>c.id===id);if(!allowed('admissions')||!c)return;
   if(c.migrationHistory)ui().admissionsStageFilter='Migration history';
-  else if(admissionHandoffComplete(c))ui().admissionsStageFilter='Admissions history';
+  else if(admissionIsCompletedCase(c))ui().admissionsStageFilter='Completed admissions';
   else if(c.closed?.type==='Duplicate') ui().admissionsStageFilter='Duplicates';
   else if(admissionIsClosedCase(c)){
     if(ui().admissionsStageFilter!=='Closed'||!admissionIsApplicationClosed(c))ui().admissionsStageFilter='Closed cases';
@@ -54062,13 +54444,13 @@ syncApplicationDraft=admissionUnlessClosed(syncApplicationDraft);
 // Mobile case navigation reuses the current Admissions context and identity search.
 function admissionsCaseSwitcher(c){
   const label=c?c.childName:'Choose case';
-  return `<button class="admissions-case-selector" aria-label="${c?`${esc(label)}, choose case`:'Choose case'}" aria-haspopup="dialog" aria-expanded="${ui().modal?.name==='admissions-case-selector'}" onclick="openModal('admissions-case-selector')"><span class="case-selector-name">${esc(label)}</span>${c?badge(admissionSecondaryOutcome(c)||admissionDisplayStage(c),admissionStageTone(c)):''}<span class="case-selector-chevron" aria-hidden="true">⌄</span></button>`;
+  return `<button class="admissions-case-selector" aria-label="${c?`${esc(label)}, choose case`:'Choose case'}" aria-haspopup="dialog" aria-expanded="${ui().modal?.name==='admissions-case-selector'}" onclick="openModal('admissions-case-selector')"><span class="case-selector-name">${esc(label)}</span>${c?badge(admissionIsCompletedCase(c)?'Completed':admissionSecondaryOutcome(c)||admissionDisplayStage(c),admissionIsCompletedCase(c)?'green':admissionStageTone(c)):''}<span class="case-selector-chevron" aria-hidden="true">⌄</span></button>`;
 }
 function mobileAdmissionCaseRows(q=''){
   const contextCases=admissionsFilteredCases();
   const selectedId=contextCases.find(c=>c.id===ui().admissionsCase)?.id;
   const cases=q.trim()?contextCases.filter(c=>admissionIdentityMatches(c,q)):contextCases;
-  return cases.map(c=>`<button class="admissions-case-option" data-mobile-case="${esc(c.id)}" aria-pressed="${selectedId===c.id}" onclick="selectMobileAdmissionCase('${c.id}')"><span class="case-option-heading"><strong>${esc(c.childName)}</strong>${badge(admissionSecondaryOutcome(c)||admissionDisplayStage(c),admissionStageTone(c))}</span><span class="case-option-detail">${esc(c.guardian)} · ${esc(c.phone)}</span>${admissionIsClosedCase(c)?`<span class="case-option-detail">${esc(admissionClosureLabel(c))} · ${esc(c.closed.reason||'Reason not recorded')}</span>`:''}${selectedId===c.id?'<span class="case-option-selected">✓ Selected</span>':''}</button>`).join('')||'<div class="empty">No matching admissions cases.</div>';
+  return cases.map(c=>`<button class="admissions-case-option" data-mobile-case="${esc(c.id)}" aria-pressed="${selectedId===c.id}" onclick="selectMobileAdmissionCase('${c.id}')"><span class="case-option-heading"><strong>${esc(c.childName)}</strong>${badge(admissionIsCompletedCase(c)?'Completed':admissionSecondaryOutcome(c)||admissionDisplayStage(c),admissionIsCompletedCase(c)?'green':admissionStageTone(c))}</span><span class="case-option-detail">${esc(c.guardian)} · ${esc(c.phone)}</span>${admissionIsCompletedCase(c)?`<span class="case-option-detail">Joined ${fmtDate(admissionCompletedStart(c))}${admissionCompletedClassroom(c)?` · ${esc(admissionCompletedClassroom(c))}`:''}</span>`:''}${admissionIsClosedCase(c)?`<span class="case-option-detail">${esc(admissionClosureLabel(c))} · ${esc(c.closed.reason||'Reason not recorded')}</span>`:''}${selectedId===c.id?'<span class="case-option-selected">✓ Selected</span>':''}</button>`).join('')||'<div class="empty">No matching admissions cases.</div>';
 }
 function filterMobileAdmissionCases(q){
   const list=byId('mobileAdmissionCases');
@@ -54204,6 +54586,14 @@ function childProfileHeaderMeta(child){
   parts.push(childClass(child)||'Class not recorded');
   return parts.map(esc).join(' · ');
 }
+function childCurrentServiceLabel(child){
+  const enrolment=childEnrolment(child);
+  if(enrolment?.status!=='active')return '';
+  if(enrolment.careReview)return 'Needs staff review';
+  if(enrolment.daycarePlanId===null)return 'Preschool only';
+  const plan=daycarePlan(enrolment.daycarePlanId);
+  return plan?`Preschool + ${plan.name}`:'Needs staff review';
+}
 function childOverviewStatus(child,ad){
   const group=childDirectoryGroup(child),label=group==='current'?'Current':group==='former'?'Former':group==='prestart'?'Pre-start':'Not recorded';
   const headerStage=ad&&!ad.migrationHistory?admissionDisplayStage(ad):group==='former'?'Former':'';
@@ -54227,7 +54617,8 @@ function reconcileProfileSample(){
   save();
 }
 // Retention category only. There is deliberately no child-leaver action/transition.
-function admissionRequiredReadinessComplete(c){return !!(c?.onboarding?.healthConfirmed&&onboardingSafetyComplete(c.onboarding)&&(!db.people||childPhotoReady(c)))}
+function mpsApplicationBaseReadiness(c){return !!(c?.onboarding?.healthConfirmed&&onboardingSafetyComplete(c.onboarding)&&(!db.people||childPhotoReady(c)))}
+function admissionRequiredReadinessComplete(c){return mpsApplicationBaseReadiness(c)}
 function admissionHandoffComplete(c,day=TODAY){return !!(!c?.closed&&!c?.migrationHistory&&(c?.admissionsHandoff||(c?.enrolment?.status==='active'&&c.enrolment.start&&c.enrolment.start<=day&&admissionRequiredReadinessComplete(c))))}
 function admissionIsHistorical(c){return !!c?.migrationHistory||admissionHandoffComplete(c)}
 function childDirectoryGroup(child,day=TODAY){
@@ -54240,10 +54631,36 @@ function childDirectoryGroup(child,day=TODAY){
 }
 function currentOperationalChild(ref){const c=db.people?.children?.[profileChildId(ref)];return !!c&&childDirectoryGroup(c)==='current'}
 // The roster is a projection, not an Attendance write. Events remain domain-owned.
+function mpsHealthFacts(childId,h,fullRecord=false){
+  if(!h)return '<p>No confirmed Health information recorded.</p>';
+  const rows=[];
+  if(h.allergies&&h.allergies!=='None declared')rows.push(kv('Allergies',esc(h.allergies)));
+  if(h.medicalConditions)rows.push(kv('Medical conditions',esc(h.medicalConditions)));
+  if(h.dietaryRestrictions)rows.push(kv('Dietary restrictions',esc(h.dietaryRestrictions)));
+  if(h.otherHealthCare)rows.push(kv('Other health / care',esc(h.otherHealthCare)));
+  if(fullRecord&&h.onboardingDeclaration?.dietary==='No')rows.push(kv('Dietary restrictions','No dietary restrictions declared'));
+  if(fullRecord&&h.onboardingDeclaration?.other==='No')rows.push(kv('Other health / care','No other health/care needs declared'));
+  if(h.emergencyInstructions)rows.push(kv('Emergency instructions',esc(h.emergencyInstructions)));
+  if(h.instructions&&h.instructions!=='Confirmed from New Family Onboarding')rows.push(kv('Care instructions',esc(h.instructions)));
+  if(h.reportedMedication){
+    const auth=mpsMedicationAuthorisation(childId);
+    rows.push(kv('Medication reported by family',esc(h.reportedMedication)));
+    const requirement=mpsMedicationRequirement(childId);
+    const state=requirement==='home_only'?'Not required · given outside preschool care':requirement==='clarify'?'Review whether preschool administration is needed':mpsMedicationValid(auth)?`Current · ${esc(auth.medication||'Medication')}`:auth?.pendingReplacement||auth?.status==='awaiting_signed_form'?'Awaiting signed form':auth?esc(mpsMedicationCurrentLabel(auth)):'Required';
+    const linked=allowed('health')&&canViewChildHealth(childId)?`<button type="button" class="text-link" onclick="openMedicationForChild('${esc(childId)}')">${state} →</button>`:state;
+    rows.push(kv('Medication authorisation',linked));
+  }
+  return rows.join('')||'<p>No active Health concerns recorded.</p>';
+}
+function mpsHealthProvenance(h){
+  const review=h?.review;if(!review)return '';
+  const date=review.at?fmtDate(mpsPreschoolLocalDate(new Date(review.at),db.organization?.timezone)):'';
+  return `<details class="health-provenance"><summary>Source & review</summary><p>Confirmed from ${esc(review.source||'New Family Onboarding')}${review.actor?.name?` · reviewed by ${esc(review.actor.name)}`:''}${date?` · ${esc(date)}`:''}</p>${review.note?`<p>Review note: ${esc(review.note)}</p>`:''}</details>`;
+}
 function childHealthContext(id){
   if(!canViewChildHealth(id))return '<p>Health information is restricted.</p>';
   const h=db.health.profiles[id];
-  return kv('Child',profileChildLink(id))+(h?kv('Allergies',esc(h.allergies||'Not recorded'))+kv('Instruction',esc(h.instructions||'Not recorded')):'<p>No confirmed Health information recorded.</p>');
+  return kv('Child',profileChildLink(id))+mpsHealthFacts(id,h,true)+mpsHealthProvenance(h);
 }
 function attendanceRoster(){
   return Object.values(db.people.children).filter(c=>currentOperationalChild(c.id)&&childInClassroomScope(c)).map(c=>({
@@ -54252,7 +54669,7 @@ function attendanceRoster(){
   }));
 }
 function currentChildrenInScope(){return Object.values(db.people.children).filter(c=>currentOperationalChild(c.id)&&childInClassroomScope(c))}
-function learningChildren(){return allowed('lessons')?currentChildrenInScope().filter(c=>childClassroom(c)===ui().lessonClass):[]}
+function learningChildren(){if(!allowed('lesson-today'))return [];const children=currentChildrenInScope();if(ui().route==='lessons'&&has('Head Teacher')){const levelId=mpsPlanningLevel()?.id;return children.filter(c=>educationRoom(childClassroom(c))?.levelId===levelId)}return children.filter(c=>childClassroom(c)===ui().lessonClass)}
 function billingChildren(){return allowed('billing')?Object.values(db.people.children).filter(c=>currentOperationalChild(c.id)):[]}
 function currentReport(){return Object.values(db.reports).find(r=>profileChildId(r.childId)===(ui().reportChild||'amaya'))||null}
 function reportChildEligible(r){return !!r&&allowed('reports')&&currentChildrenInScope().some(c=>c.id===profileChildId(r.childId))}
@@ -54264,7 +54681,7 @@ function onboardingGuardianChoices(caseId){
 }
 function onboardingRecipientFields(caseId){
   const d=db.admissions[caseId].onboarding.draft,ids=d.recipientGuardianIds||[];
-  return onboardingGuardianChoices(caseId).map(({g,id})=>`<label class="check-row"><input data-recipient type="checkbox" value="${esc(id)}" ${checked(ids.includes(id))}> ${esc(g.name)}</label>`).join('')+(!d.recipientGuardianIds&&d.recipients?.length?notice('Previous named recipients are retained in history. Confirm the linked guardians for this submission.','info'):'');
+  return onboardingGuardianChoices(caseId).map(({g,id})=>`<label class="check-row"><input data-recipient type="checkbox" value="${esc(id)}" ${checked(ids.includes(id))}> ${esc(g.name)}</label>`).join('')+(!d.recipientGuardianIds&&d.recipients?.length?notice('Previous named contacts are retained in history. Choose the authorised guardians for Family communications.','info'):'');
 }
 function captureOnboardingRecipients(caseId){
   const d=db.admissions[caseId].onboarding.draft,choices=onboardingGuardianChoices(caseId);
@@ -54273,13 +54690,58 @@ function captureOnboardingRecipients(caseId){
 }
 function linkedRecipientIds(childId){
   const child=db.people.children[profileChildId(childId)],c=profileCase(child),o=c?.onboarding;
-  if(db.family?.[child?.id])return db.family[child.id].recipientGuardianIds.filter(id=>childLinks(child.id).some(l=>l.guardianId===id)&&familyPersonCurrent(child.id,id));
+  const authorised=id=>!!db.people.guardians[id]&&childLinks(child.id).some(l=>l.guardianId===id&&familyCommunicationEligibleLink(l));
+  if(db.family?.[child?.id])return [...new Set(db.family[child.id].recipientGuardianIds||[])].filter(authorised);
   if(o?.status!=='submitted')return [];
   const data=o.snapshot?.data||o.draft;
-  return [...new Set(data.recipientGuardianIds||[])].filter(id=>db.people.guardians[id]&&childLinks(child.id).some(l=>l.guardianId===id)&&familyPersonCurrent(child.id,id));
+  return [...new Set(data.recipientGuardianIds||[])].filter(authorised);
 }
 function recipientSnapshots(ids){return ids.filter(id=>db.people.guardians[id]).map(id=>({guardianId:id,name:db.people.guardians[id].name,phone:db.people.guardians[id].phone||''}))}
-function recipientDisplay(ids){const rows=recipientSnapshots(ids);return rows.length?esc(rows.map(x=>x.name).join(', ')):'No linked recipients confirmed'}
+function recipientSnapshotDisplay(rows){return esc(rows.map(r=>[r.name,r.phone].filter(Boolean).join(' · ')).join(', '))}
+function recipientDisplay(ids){const rows=recipientSnapshots(ids);return rows.length?esc(rows.map(x=>x.name).join(', ')):'Choose an authorised guardian in Family communications'}
+// Before enrolment, Admissions owns the contact. These case-scoped snapshots never
+// claim to be linked Guardian identities or alter later Family communications.
+function admissionsFamilyContactSnapshot(caseId){
+  const c=db.admissions?.[caseId];if(!c)return [];
+  const application=c.application?.snapshot?.data||c.application?.draft||{},family=application.family;
+  const choices=(family?.guardians||[]).map(g=>{
+    const id=g.guardianId;
+    const link=id?Object.values(db.people?.links||{}).find(l=>l.caseId===caseId&&l.guardianId===id):null;
+    return {g,id,link};
+  });
+  const requested=new Set(family?.requestedRecipientGuardianIds||[]);
+  if(family?.legalRestrictions?.answer?.startsWith('Yes'))return [];
+  const contacts=choices.filter(x=>x.id&&requested.has(x.id)&&!x.link?.deactivated&&!x.link?.legalRestrictions&&x.g.name&&x.g.phone)
+    .map(x=>({admissionsCaseId:caseId,applicationContactId:x.id,name:x.g.name,phone:x.g.phone,source:'Admissions/Application'}));
+  if(requested.size)return contacts;
+  const primaryLink=db.people?.links?.[caseId+':0'];
+  if(primaryLink?.deactivated||primaryLink?.legalRestrictions)return [];
+  const name=c.guardian||application.guardian,phone=c.phone||application.phone;
+  return name&&phone?[{admissionsCaseId:caseId,name,phone,source:'Admissions/Application'}]:[];
+}
+function currentFamilyCommunicationSnapshots(inv){
+  const c=inv.admissionsCaseId?db.admissions?.[inv.admissionsCaseId]:null;
+  return c&&!c.enrolment?admissionsFamilyContactSnapshot(c.id):recipientSnapshots(linkedRecipientIds(inv.childId));
+}
+function invoiceRecipientContext(inv){
+  const issued=inv.status!=='draft';
+  const rows=issued?(inv.recipientSnapshot||[]):currentFamilyCommunicationSnapshots(inv);
+  const label=inv.category==='admission_fee'&&(!db.admissions?.[inv.admissionsCaseId]?.enrolment||rows.some(x=>x.admissionsCaseId))?'Admissions contact':'Family communications';
+  if(issued&&!rows.length){
+    const c=db.admissions?.[inv.admissionsCaseId];
+    const current=c&&!c.enrolment?admissionsFamilyContactSnapshot(c.id):[];
+    return kv('Recipient at issue','Not recorded on this earlier invoice')+(current.length?kv('Current Admissions contact',esc(current.map(x=>x.name).join(', '))):'');
+  }
+  return kv(issued&&label==='Family communications'?'Family communications at issue':label,rows.length?recipientSnapshotDisplay(rows):label==='Admissions contact'?'No eligible Admissions contact recorded':'Choose an authorised guardian in Family communications');
+}
+function openBillingInvoice(id){if(!allowed('billing')||!db.billing?.invoices?.[id])return;setRoute('billing');openModal('invoice-detail',{id})}
+function openInvoiceAdmissionCase(id){if(!allowed('admissions')||!db.admissions?.[id])return;ui().admissionsStageFilter='All';ui().admissionsCase=id;ui().admissionsTab='payments';setRoute('admissions')}
+function invoiceRelatedContext(inv){
+  const c=inv.admissionsCaseId?db.admissions?.[inv.admissionsCaseId]:null;
+  if(c&&!c.enrolment)return kv('Related to',`Admission case · ${esc(c.childName)}${allowed('admissions')?' · '+btn('Open Admissions case',`openInvoiceAdmissionCase('${esc(c.id)}')`,'secondary','sm'):''}`);
+  const childId=profileChildId(inv.childId);
+  return kv('Related to',`Child · ${esc(inv.childName||profileChildName(inv.childId))}${childId&&canOpenChildProfile(childId)?' · '+btn('Open child profile',`openChildProfile('${esc(childId)}')`,'secondary','sm'):''}`);
+}
 function directoryTabs(kind){
   const child=kind==='children',key=child?'childrenGroup':'staffGroup',groups=child?['prestart','current','former']:['current','former'],labels=child?['Pre-start','Current children','Former children']:['Current staff','Former/inactive staff'];
   return `<div class="tabs profile-directory-tabs">${groups.map((group,i)=>`<button class="tab ${(ui()[key]||'current')===group?'active':''}" onclick="ui().${key}='${group}';render()">${labels[i]}</button>`).join('')}</div>`;
@@ -54287,6 +54749,7 @@ function directoryTabs(kind){
 function ensureProfilePeople(){
   // Compatibility for the previous persisted view label; no record migration.
   if(ui().admissionsStageFilter==='Past admissions')ui().admissionsStageFilter='Migration history';
+  if(ui().admissionsStageFilter==='Admissions history')ui().admissionsStageFilter='Completed admissions';
   reconcileProfileSample();
   const first=!db.people;db.people=db.people||{children:{},guardians:{},links:{},version:1};
   const p=db.people;let changed=first;
@@ -54316,14 +54779,16 @@ function ensureProfilePeople(){
       child.photoGrandfathered=true;changed=true;
     }
     const data=c.onboarding?.status==='submitted'?(c.onboarding.snapshot?.data||c.onboarding.draft):null;
-    const gs=c.onboarding?.draft?.guardians||data?.guardians||[{name:c.guardian,phone:c.phone,dob:'',relationship:'Guardian'}];
+    const submittedApplicationGuardians=c.application?.snapshot?.source==='Parent Application'?c.application.snapshot.data?.family?.guardians:null;
+    const gs=submittedApplicationGuardians||c.onboarding?.draft?.guardians||data?.guardians||[{name:c.guardian,phone:c.phone,dob:'',relationship:'Guardian'}];
     gs.forEach((g,index)=>{
       const key=c.id+':'+index;if(p.links[key])return;
       // Explicit demonstration link for the two known seeded siblings, not matching logic.
       const demo=index===0&&['existing_amara','existing_dinu'].includes(c.id);
-      const gid=demo?'guardian_demo_perera':'guardian_'+c.id+'_'+index;
-      if(!p.guardians[gid])p.guardians[gid]={id:gid,name:g.name||'',phone:g.phone||'',dob:g.dob||'',working:g.working||'',company:g.company||'',history:[]};
-      p.links[key]={id:key,childId:id,guardianId:gid,caseId:c.id,index,relationship:g.relationship||'Guardian',legalAuthority:g.legalAuthority||'',source:'Initial onboarding/admissions identity',history:[]};
+      const gid=g.guardianId|| (demo?'guardian_demo_perera':c.id.startsWith('case_')?'guardian_'+crypto.randomUUID():'guardian_'+c.id+'_'+index);
+      if(!p.guardians[gid])p.guardians[gid]={id:gid,name:g.name||'',phone:g.phone||'',dob:g.dob||'',working:g.working||'',company:g.company||'',jobTitle:g.jobTitle||'',history:[]};
+      const parentDeclaration=c.application?.snapshot?.source==='Parent Application';
+      p.links[key]={id:key,childId:id,guardianId:gid,caseId:c.id,index,relationship:g.relationship||'Guardian',legalAuthority:parentDeclaration?'':g.legalAuthority||'',...(parentDeclaration?{...(!['Mother','Father'].includes(g.relationship)||g.legalAuthority?{declaredLegalAuthority:g.legalAuthority||''}:{}),communicationRequested:!!g.communicationRequested}:{}),source:'Initial onboarding/admissions identity',history:[]};
       changed=true;
     });
   }
@@ -54381,7 +54846,7 @@ function canViewChild(id){
   const c=db.people?.children[id];if(!c)return false;
   if(has('Head Teacher'))return true;
   if((has('Class Teacher')||has('Assistant Teacher'))&&childInClassroomScope(c))return true;
-  return has('Daycare')&&Object.values(db.daycare.bookings||{}).some(b=>b.childId===id&&b.date===TODAY);
+  return has('Daycare')&&childInClassroomScope(c)&&daycareRoster().some(b=>(profileChildId(b.childId)||b.childId)===id);
 }
 function canManageChild(id){return canViewChild(id)&&has('Head Teacher')}
 function canViewChildHealth(id){return canViewChild(id)&&(has('Head Teacher')||has('Class Teacher')||has('Daycare'))}
@@ -54399,12 +54864,24 @@ function personPhoto(photo,name,cls=''){
   return safe?`<img class="person-photo ${cls}" src="${esc(photo.data)}" alt="${esc(name)} photo">`:`<span class="person-photo initials ${cls}" aria-label="${esc(name)} initials">${esc(initials)}</span>`;
 }
 function childPhotoMarkup(id){const c=db.people?.children[id];return c&&canViewChild(id)?personPhoto(c.photo,c.preferred||c.legalName):''}
-function profileSection(title,body){return `<details class="card profile-section" open><summary>${esc(title)}</summary><div class="profile-section-body">${body}</div></details>`}
+function profileSection(title,body,extraClass=''){return `<details class="card profile-section${extraClass?' '+extraClass:''}" open><summary>${esc(title)}</summary><div class="profile-section-body">${body}</div></details>`}
 function openChildProfile(id){id=profileChildId(id);if(!id||!canOpenChildProfile(id))return;ui().profileChild=id;setRoute('children')}
 function operationalPhotoInput(label,kind,id,photo,parent=false){
   return `<div class="profile-upload"><span>${esc(label)}</span><label class="photo-upload-control"><input aria-label="${esc(label)}" type="file" accept="image/png,image/jpeg,image/webp" onchange="uploadPersonPhoto('${kind}','${id}',this.files[0],${parent})"><span class="btn secondary">${photo?'Replace photo':'Choose photo'}</span></label><small>${esc(photo?.name||'No photo selected')}</small></div>`;
 }
 function childPhotoInput(id,parent=false){return operationalPhotoInput('Child profile photo','child',id,db.people.children[profileChildId(id)]?.photo,parent)}
+function childProfilePhotoEditor(c){
+  if(!canManageChild(c.id))return childPhotoMarkup(c.id);
+  const photo=c.photo,name=c.preferred||c.legalName,action=photo?'Replace':'Upload';
+  return `<details class="staff-photo-menu"><summary role="button" aria-label="Edit ${esc(name)} profile photo">${personPhoto(photo,name)}<span class="staff-photo-edit" aria-hidden="true">✎</span></summary><div class="staff-photo-actions" role="menu"><label role="menuitem"><input aria-label="${action} child profile photo" type="file" accept="image/png,image/jpeg,image/webp" onchange="uploadPersonPhoto('child','${c.id}',this.files[0])"><span>${action} photo</span></label>${photo?`<button type="button" role="menuitem" onclick="removeChildProfilePhoto('${c.id}')">Remove photo</button>`:''}</div></details>`;
+}
+function removeChildProfilePhoto(id){
+  id=profileChildId(id);if(!canManageChild(id))return;
+  const child=db.people.children[id];if(!child?.photo)return;
+  const before=JSON.stringify(db);delete child.photo;profileAudit(child,'Profile photo removed','Staff update');
+  try{localStorage.setItem(storageKey,JSON.stringify(db))}catch(e){db=JSON.parse(before);alert('Photo could not be removed on this device. Free local storage and try again.');return}
+  render();showFeedback('Photo removed.');
+}
 function admissionsPersonPhoto(c){return childPhotoMarkup(profileChildId(c.id))||esc(c.childName.split(' ').map(x=>x[0]).slice(0,2).join(''))}
 function photoUploadAllowed(kind,id,parent=false){
   if(kind==='child')return parent?ui().route==='parent-onboarding'&&ui().parentOnboardingCase===id:canManageChild(id);
@@ -54444,8 +54921,16 @@ async function uploadPersonPhoto(kind,id,file,parent=false){
   if(kind==='staff')showFeedback(replacingStaffPhoto?'Photo replaced.':'Photo uploaded.');
 }
 function childPhotoReady(c){const child=db.people?.children[c?.childId||c?.id];return !!(child?.photo||child?.photoGrandfathered)}
-function childPhotoPrestart(c){if(!c?.enrolment)return '';const child=db.people?.children[c.childId||c.id];if(!child)return '';return `<div class="card profile-photo-prestart">${childPhotoMarkup(child.id)}<div><h3>Child profile photo</h3><p>${child.photo?'Current photo recorded':child.photoGrandfathered?'Profile photo needed · ordinary care and attendance continue':'Profile photo needed before Ready to Start'}</p>${canManageChild(child.id)?childPhotoInput(child.id):''}${canViewChild(child.id)?btn('Open Child profile',`openChildProfile('${child.id}')`,'secondary'):''}</div></div>`}
+function childPhotoPrestart(c){
+  if(!c?.enrolment)return '';
+  const child=db.people?.children[c.childId||c.id];
+  if(!child)return '';
+  const photoReady=!!(child.photo||child.photoGrandfathered);
+  const photoText=child.photo?'Profile photo recorded':child.photoGrandfathered?'Profile photo needed · ordinary care and attendance continue':'Profile photo needed before Ready to Start';
+  return `<div class="prestart-identity">${childPhotoMarkup(child.id)}<div class="prestart-identity-main"><h3>${esc(child.preferred||child.name||c.childName)}</h3><p>${esc(photoText)}</p></div><div class="prestart-identity-tools">${!photoReady&&canManageChild(child.id)?childPhotoInput(child.id):''}${canViewChild(child.id)?btn('Open Child profile',`openChildProfile('${child.id}')`,'secondary','sm'):''}${photoReady&&canManageChild(child.id)?`<details class="prestart-photo-change"><summary>Change photo</summary>${childPhotoInput(child.id)}</details>`:''}</div></div>`;
+}
 function filterProfileChildren(value){ui().childrenSearch=value;document.querySelectorAll('[data-child-search]').forEach(el=>el.hidden=!el.dataset.childSearch.includes(value.toLowerCase()));}
+function childProfileAuditTime(value){const date=new Date(value);return value&&!Number.isNaN(date.getTime())?date.toLocaleString('en-GB',{timeZone:db.organization?.timezone||'Asia/Colombo',day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):value||'Not recorded'}
 function renderChildren(){
   const group=ui().childrenGroup||'current';
   const children=Object.values(db.people.children).filter(c=>isOperationalChild(c)&&canViewChild(c.id)&&childDirectoryGroup(c)===group);
@@ -54459,18 +54944,20 @@ function renderChildren(){
         :`<div class="empty operational-empty"><strong>${group==='former'?'No former children recorded in your scope.':'No pre-start children in your scope.'}</strong></div>`;
     return shell(`${pageHead('','Children','Find a child and their current care information.')}${directoryTabs('children')}${children.length?`<label class="profile-search">Search children<input aria-label="Search children" value="${esc(ui().childrenSearch||'')}" oninput="filterProfileChildren(this.value)"></label>`:''}<div class="profile-list">${children.map(c=>`<button data-child-search="${esc((c.legalName+' '+c.preferred).toLowerCase())}" class="card person-choice" onclick="openChildProfile('${c.id}')">${childPhotoMarkup(c.id)}<span><strong>${esc(c.legalName||c.preferred)}</strong><small>${esc(childClass(c)||'Class not recorded')}</small></span><span aria-hidden="true">›</span></button>`).join('')||empty}</div>`);
   }
-  const c=selected,ad=profileCase(c),d=ad?.onboarding?.draft,health=db.health.profiles[c.id],att=attendanceCurrentRecord(c.id);
-  const book=Object.values(db.daycare.bookings).filter(b=>profileChildId(b.childId)===c.id&&b.date===TODAY);
+  const c=selected,ad=profileCase(c),d=ad?.onboarding?.draft,health=db.health.profiles[c.id],att=attendanceCurrentRecord(c.id),service=childCurrentServiceLabel(c);
+  const book=daycareRoster().filter(b=>(profileChildId(b.childId)||b.childId)===c.id);
   const learning=has('Head Teacher')||has('Class Teacher');
   const observations=learning?Object.values(db.observations).filter(o=>profileChildId(o.childId)===c.id&&o.visibility!=='Restricted/confidential'):[];
   const rows=Object.values(db.reports).filter(r=>profileChildId(r.childId)===c.id);
-  return shell(`${pageHead('','Children','',btn('All children',"ui().profileChild=null;render()",'secondary'))}<div class="card profile-hero">${childPhotoMarkup(c.id)}<div><h2>${esc(c.preferred||c.legalName)}</h2><p>${childProfileHeaderMeta(c)}</p>${childLifecycleBadges(c)}${childTaskBadges(c)}</div></div><div class="profile-sections">${profileSection('Overview',childPlacementControls(c)+kv('Date of birth',esc(c.dob||'Not recorded'))+kv('Age',profileAge(c.dob)===null?'Not recorded':profileAge(c.dob)+' years')+kv('Gender',esc(c.gender||'Not recorded'))+kv('Home address',esc(c.address||'Not recorded'))+kv('Home languages',esc((c.languages||[]).join(', ')||'Not recorded'))+childOverviewStatus(c,ad)+(canManageChild(c.id)?childPhotoInput(c.id):''))}${childPreschoolJourney(c)}${profileSection('Family & pickup',familyPeopleList(c.id))}${profileSection('Health & safety',canViewChildHealth(c.id)?(health?kv('Allergies',esc(health.allergies||'Not recorded'))+kv('Care instructions',esc(health.instructions||'Not recorded')):'<p>No confirmed Health information recorded.</p>')+btn('Open Health & safety',`openHealthForChild('${c.id}')`,'secondary'):'<p>Health information is restricted.</p>')}${profileSection('Care',kv('Physical presence',esc(att?.status?.replace('_',' ')||'No current Attendance record'))+kv('Daycare today',esc(book.map(b=>b.care).join(', ')||'No booking'))+(attendanceCanViewHistory(c.id)?btn('Attendance history',`openModal('child-attendance-history',{childId:'${c.id}'})`,'secondary'):'')+(allowed('attendance')?btn('Open Attendance',"setRoute('attendance')",'secondary'):'')+(allowed('daycare')?btn('Open Daycare',"setRoute('daycare')",'secondary'):''))}${profileSection('Learning',learning?kv('Observations',observations.length)+kv('Reports',rows.length)+btn('Open learning',`mpsOpenChildProgress('${c.id}')`,'secondary'):'<p>Learning information is restricted.</p>')}${childAdmissionsBackground(c)}${profileSection('Documents & history',(has('Head Teacher')?kv('Birth certificate',d?.documents?.birthCertificate?'Received':'Not recorded')+kv('Facebook choice',esc(d?.facebook||'Not recorded')):'')+(allowed('admissions')?c.caseIds.map(id=>btn('View admissions case',`setAdmissionCase('${id}');setRoute('admissions')`,'secondary')).join(''):'')+(c.history||[]).map(e=>`<p>${esc(e.title)} · ${esc(e.at)}</p>`).join(''))}</div>`);
+  return shell(`${pageHead('','Children','',btn('All children',"ui().profileChild=null;render()",'secondary'))}<div class="card profile-hero">${childProfilePhotoEditor(c)}<div><h2>${esc(c.preferred||c.legalName)}</h2><p class="profile-context">${childProfileHeaderMeta(c)}</p>${service?`<div class="profile-service">${esc(service)}</div>`:''}${childLifecycleBadges(c)}${childTaskBadges(c)}</div></div><div class="profile-sections">${profileSection('Overview',childPlacementControls(c)+kv('Date of birth',esc(c.dob||'Not recorded'))+kv('Age',profileAge(c.dob)===null?'Not recorded':profileAge(c.dob)+' years')+kv('Gender',esc(c.gender||'Not recorded'))+kv('Home address',esc(c.address||'Not recorded'))+kv('Home languages',esc((c.languages||[]).join(', ')||'Not recorded'))+childOverviewStatus(c,ad))}${childPreschoolJourney(c)}${profileSection('Family & pickup',familyPeopleList(c.id))}${profileSection('Health & safety',canViewChildHealth(c.id)?mpsHealthFacts(c.id,health)+btn('Open Health & safety',`openHealthForChild('${c.id}')`,'secondary'):'<p>Health information is restricted.</p>')}${profileSection('Attendance & daycare',`<div class="child-care-facts">${kv('Today',esc(att?.status?.replace('_',' ')||'No current Attendance record'))}${mpsChildDaycareContent(c)}${kv('Daycare today',esc(book.map(b=>b.care).join(', ')||'No booking'))}</div><div class="child-care-actions">${attendanceCanViewHistory(c.id)?btn('Attendance history',`openModal('child-attendance-history',{childId:'${c.id}'})`,'secondary'):''}${allowed('attendance')?btn('Open Attendance',"setRoute('attendance')",'secondary'):''}${allowed('daycare')?btn('Open Daycare',"setRoute('daycare')",'secondary'):''}</div>`,'profile-care-combined')}${profileSection('Learning',learning?(observations.length||rows.length||childDirectoryGroup(c)!=='prestart'?kv('Observations',observations.length)+kv('Reports',rows.length):'<p class="profile-learning-empty">No learning evidence yet.</p>')+btn('Open learning',`mpsOpenChildProgress('${c.id}')`,'secondary'):'<p>Learning information is restricted.</p>')}${childAdmissionsBackground(c)}${profileSection('Documents & history',(typeof mpsSignedApplicationProfile==='function'?mpsSignedApplicationProfile(c):'')+(has('Head Teacher')?kv('Birth certificate',mpsBirthCertificateState(d?.documents).label)+kv('Facebook choice',esc(d?.facebook||'Not recorded')):'')+(allowed('admissions')&&c.caseIds?.length?`<div class="profile-document-actions">${c.caseIds.map(id=>btn('View admissions case',`setAdmissionCase('${id}');setRoute('admissions')`,'secondary')).join('')}</div>`:'')+((c.history||[]).length?`<div class="profile-document-history">${c.history.map(e=>`<p>${esc(e.title)} · ${esc(childProfileAuditTime(e.at))}</p>`).join('')}</div>`:''))}</div>`);
 }
 function guardianProfileModal(linkId){
   const l=db.people.links[linkId];if(!l||!canViewChild(l.childId))return modal('Family information','',notice('This child is outside your current scope.','warn'),btn('Close','closeOverlay()','secondary'));
   const g=db.people.guardians[l.guardianId];const restricted=has('Head Teacher');const p=canViewPickup(l.childId)?familyRecord(l.childId).pickup.find(p=>p.guardianId===g.id):null;
   const linked=Object.values(db.people.links).filter(x=>x.guardianId===g.id&&canViewChild(x.childId));
-  const body=(p?personPhoto(p.verificationPhoto,g.name):'')+kv('Name',esc(g.name))+kv('Mobile',esc(g.phone||'Not recorded'))+kv('Relationship',esc(familyRelationship(l.childId,g.id)))+kv('Roles',esc(familyRoles(l.childId,g.id).join(' · ')))+(restricted?kv('Date of birth',esc(g.dob||'Not recorded'))+kv('Legal authority for this child',esc(l.legalAuthority||'Not recorded'))+(l.legalRestrictions?kv('Restrictions / special arrangements',esc(l.legalRestrictions)):'')+kv('Working',esc(g.working||'Not recorded'))+kv('Company',esc(g.company||'Not recorded')):'')+kv('Children in your scope',esc([...new Set(linked.map(x=>db.people.children[x.childId].legalName))].join(', ')))+(l.deactivated?kv('Deactivated',esc(l.deactivated.reason)):'');
+  const parent=['Mother','Father'].includes(l.relationship);
+  const communication=linkedRecipientIds(l.childId).includes(g.id)?'Receives family communications':'Does not receive family communications';
+  const body=(p?personPhoto(p.verificationPhoto,g.name):'')+kv('Name',esc(g.name))+kv('Mobile',esc(g.phone||'Not recorded'))+kv('Relationship',esc(familyRelationship(l.childId,g.id)))+kv('Family communications',communication)+kv('Roles',esc(familyRoles(l.childId,g.id).join(' · ')))+(restricted?kv('Date of birth',esc(g.dob||'Not recorded'))+(!parent?kv('Legal guardian',esc(l.legalAuthority||l.declaredLegalAuthority||'Not recorded')):'')+(l.legalRestrictions?kv('Restrictions / special arrangements',esc(l.legalRestrictions)):'')+kv('Working',esc(g.working||'Not recorded'))+(g.working==='Yes'?kv('Company',esc(g.company||'Not recorded'))+(g.jobTitle?kv('Job title',esc(g.jobTitle)):''):''):'')+kv('Children in your scope',esc([...new Set(linked.map(x=>db.people.children[x.childId].legalName))].join(', ')))+(l.deactivated?kv('Deactivated',esc(l.deactivated.reason)):'');
   return modal('Family · '+g.name,'',body,btn('Close','closeOverlay()','secondary')+(restricted&&!l.deactivated?btn('Edit contact',`openModal('guardian-edit',{linkId:'${l.id}'})`,'secondary')+btn('Deactivate',`openModal('family-deactivate',{linkId:'${l.id}'})`,'secondary'):''));
 }
 function canViewStaffSensitive(id){return currentPersona().id===id||has('Head Teacher')}
@@ -54575,11 +55062,11 @@ function staffBirthdaysOn(date){
 function staffBirthdayRows(date){return staffBirthdaysOn(date).map(a=>`<div class="calendar-detail-row"><span>${badge('Staff birthday','green')}</span><strong>${profileStaffLink(a.id,a.name+'’s birthday')}</strong></div>`).join('')}
 // Small integration points. Domain actions remain with their existing owners.
 const _profilesOnboardingSubmit=submitOnboarding;
-submitOnboarding=function(id){_profilesOnboardingSubmit(id);const c=db.admissions[id];if(c?.onboarding?.status!=='submitted')return;ensureProfilePeople();const child=db.people.children[c.childId];if(child){Object.assign(child,profileIdentity(c));profileAudit(child,'Onboarding identity confirmed');(c.onboarding.snapshot?.data?.guardians||[]).forEach((g,index)=>{const l=db.people.links[id+':'+index];if(!l)return;if(db.family?.[child.id]){profileAudit(l,'Later onboarding retained for review');return}const person=db.people.guardians[l.guardianId];const shared=Object.values(db.people.links).filter(x=>x.guardianId===person.id).length>1;if(shared){if(['name','phone','dob'].some(k=>(g[k]||'')!==(person[k]||'')))profileAudit(l,'Guardian information needs reconciliation','Parent submission retained; shared identity unchanged');return}for(const k of ['name','phone','dob','working','company'])person[k]=g[k]||'';l.relationship=g.relationship;l.legalAuthority=g.legalAuthority;});save();}};
+submitOnboarding=function(id){_profilesOnboardingSubmit(id);const c=db.admissions[id];if(c?.onboarding?.status!=='submitted')return;ensureProfilePeople();const child=db.people.children[c.childId];if(child){Object.assign(child,profileIdentity(c));profileAudit(child,'Onboarding identity confirmed');(c.onboarding.snapshot?.data?.guardians||[]).forEach((g,index)=>{const l=db.people.links[id+':'+index];if(!l)return;if(db.family?.[child.id]){profileAudit(l,'Later onboarding retained for review');return}const person=db.people.guardians[l.guardianId];const shared=Object.values(db.people.links).filter(x=>x.guardianId===person.id).length>1;if(shared){if(['name','phone','dob'].some(k=>(g[k]||'')!==(person[k]||'')))profileAudit(l,'Guardian information needs reconciliation','Parent submission retained; shared identity unchanged');return}for(const k of ['name','phone','dob','working','company','jobTitle'])person[k]=g[k]||'';l.relationship=g.relationship;l.legalAuthority=g.legalAuthority;});save();}};
 const _profilesModal=modalView;
-modalView=function(m){if(m?.name==='family-deactivate')return familyDeactivateModal(m.data?.linkId);if(m?.name==='family-add')return familyAddModal(m.data?.childId);if(m?.name==='guardian-profile')return guardianProfileModal(m.data?.linkId);return _profilesModal(m)};
+modalView=function(m){if(m?.name==='family-communications')return familyCommunicationsModal(m.data?.childId);if(m?.name==='family-deactivate')return familyDeactivateModal(m.data?.linkId);if(m?.name==='family-add')return familyAddModal(m.data?.childId);if(m?.name==='guardian-profile')return guardianProfileModal(m.data?.linkId);return _profilesModal(m)};
 renderStaff=renderStaffProfiles;
-routes.children={label:'Children',icon:'♧',bundles:['Head Teacher','Class Teacher','Assistant Teacher','Daycare']};
+routes.children={label:'Children',icon:'users-round',bundles:['Head Teacher','Class Teacher','Assistant Teacher','Daycare']};
 routes.staff.label='Staff';routes.staff.bundles=null;
 const _profilesRender=render;
 render=function(){ensureProfilePeople();_profilesRender();};
@@ -54594,9 +55081,8 @@ function profileCollectorOptions(childId){
   return [...pickups.map(p=>p.name+' · '+p.relationship),'Other authorised collector'];
 }
 function profileCollectorField(childId){
-  const options=profileCollectorOptions(childId),missing=options.length===1;
-  const field=selectField('Collector',options,missing?'':options[0],'collectorSelect',`updatePickupIdentityPreview('${childId}',this.value)`);
-  return missing?field.replace(/(<select[^>]*>)/,'$1<option value="" selected disabled>No authorised pickup people recorded</option>'):field;
+  const pickups=familyRecord(profileChildId(childId)||childId).pickup,missing=!pickups.length;
+  return `<div class="field"><label for="collectorSelect">Collector</label><select id="collectorSelect" onchange="updatePickupIdentityPreview('${childId}',this.value)">${missing?'<option value="" selected disabled>No authorised pickup people recorded</option>':''}${pickups.map(p=>`<option value="${esc(p.guardianId)}">${esc(p.name+' · '+p.relationship)}</option>`).join('')}<option value="Other authorised collector">Other authorised collector</option></select></div>`;
 }
 function updatePickupIdentityPreview(childId,collector){
   const current=document.querySelector('.pickup-identity');if(current)current.outerHTML=profilePickupIdentity(childId,collector);
@@ -54608,7 +55094,7 @@ function updatePickupIdentityPreview(childId,collector){
 }
 function profilePickupIdentity(childId,collector=null){
   if(!canViewPickup(childId))return '';
-  const child=db.people.children[childId],c=profileCase(child),all=familyRecord(childId).pickup,pickups=collector===null?all.slice(0,1):all.filter(p=>p.name+' · '+p.relationship===collector);
+  const child=db.people.children[childId],c=profileCase(child),all=familyRecord(childId).pickup,pickups=collector===null?all.slice(0,1):all.filter(p=>p.guardianId===collector);
   return `<div class="pickup-identity"><div>${childPhotoMarkup(childId)}<p>${esc(child.preferred||child.legalName)}</p></div>${pickups.map(p=>`<div>${personPhoto(p.verificationPhoto,p.name)}<p>${esc(p.name)} · ${esc(p.relationship)}</p></div>`).join('')}</div>`;
 }
 function renderOperationalPhotos(){
@@ -54728,6 +55214,7 @@ render();
 function familySource(childId){return profileCase(db.people.children[childId])?.onboarding?.draft||{}}
 function sourceContactId(childId,kind,index,item){
   if(item?.guardianId&&db.people.guardians[item.guardianId])return item.guardianId;
+  if(kind==='emergency'&&item?.kind==='other'&&item.contactId?.startsWith('contact_'))return item.contactId;
   const stored=db.people.contactSources?.[childId+':'+kind+':'+index];if(stored)return stored;
   const c=profileCase(db.people.children[childId]);
   // Explicit seed provenance: seedOnboarding uses guardian index 1 for these roles.
@@ -54747,7 +55234,8 @@ function ensureFamilyContactIdentities(){
       if(!item.name)return;
       const key=child.id+':'+kind+':'+index;
       let id=sourceContactId(child.id,kind,index,item);
-      if(!id){id='contact_'+key.replaceAll(':','_');p.guardians[id]=p.guardians[id]||{id,name:item.name,phone:item.phone||'',history:[]};}
+      if(!id)id='contact_'+key.replaceAll(':','_');
+      p.guardians[id]=p.guardians[id]||{id,name:item.name,phone:item.phone||'',history:[]};
       if(p.contactSources[key]!==id){p.contactSources[key]=id;changed=true;}
       if(childLinks(child.id).some(l=>l.guardianId===id))return;
       const lid='family_'+key;
@@ -54765,8 +55253,11 @@ function rawFamilyRecord(childId){
 }
 function familyPersonCurrent(childId,gid){return !childLinks(childId).some(l=>l.guardianId===gid&&l.deactivated)}
 function familyRecord(childId){
-  const f=rawFamilyRecord(childId),current=id=>familyPersonCurrent(childId,id);
-  return {...f,pickup:f.pickup.filter(p=>current(p.guardianId)),emergency:f.emergency&&current(f.emergency.guardianId)?f.emergency:null,recipientGuardianIds:f.recipientGuardianIds.filter(current)};
+  const f=rawFamilyRecord(childId),current=id=>familyPersonCurrent(childId,id),authorised=id=>childLinks(childId).some(l=>l.guardianId===id&&familyCommunicationEligibleLink(l));
+  // An empty onboarding form row is not an authorised pickup person.
+  const emergency=f.emergency&&current(f.emergency.guardianId)?f.emergency:null;
+  const person=emergency?.sourceApplicationCaseId&&emergency.guardianId?db.people.guardians[emergency.guardianId]:null;
+  return {...f,pickup:f.pickup.filter(p=>current(p.guardianId)&&(p.name||p.relationship||p.photo)),emergency:person?{...emergency,name:person.name,phone:person.phone,relationship:familyRelationship(childId,person.id)}:emergency,recipientGuardianIds:f.recipientGuardianIds.filter(authorised)};
 }
 function editableFamily(childId){db.family=db.family||{};return db.family[childId]||(db.family[childId]=JSON.parse(JSON.stringify(rawFamilyRecord(childId))))}
 function familyRelationship(childId,gid){const values=[...new Set(childLinks(childId).filter(l=>l.guardianId===gid).map(l=>l.relationship))];return values.length>1?'Relationship needs review':values[0]||'Relationship not recorded'}
@@ -54774,11 +55265,60 @@ function familyRoles(childId,gid){
   if(!familyPersonCurrent(childId,gid))return ['Deactivated'];
   const f=familyRecord(childId),links=childLinks(childId).filter(l=>l.guardianId===gid),roles=[];
   if(links.some(l=>l.familyMember!==false))roles.push('Guardian / family');
-  if(has('Head Teacher')&&links.some(l=>l.legalAuthority==='Yes'))roles.push('Legal decision-maker');
+  if(has('Head Teacher')&&links.some(l=>!['Mother','Father'].includes(l.relationship)&&l.legalAuthority==='Yes'))roles.push('Legal decision-maker');
   if(f.emergency?.guardianId===gid)roles.push('Emergency contact');
-  if(f.recipientGuardianIds.includes(gid))roles.push('Communication recipient');
+  if(f.recipientGuardianIds.includes(gid))roles.push('Family communications');
   if(canViewPickup(childId)&&f.pickup.some(p=>p.guardianId===gid))roles.push('Authorised pickup');
   return roles;
+}
+function familyCommunicationOptions(childId){
+  return [...new Set(childLinks(childId).filter(l=>familyCommunicationEligibleLink(l)&&db.people.guardians[l.guardianId]).map(l=>l.guardianId))];
+}
+function familyCommunicationEligibleLink(l){
+  // Routine recipients are selected independently of legal guardianship.
+  return !l.deactivated&&l.familyMember!==false&&!l.legalRestrictions&&
+    (['Mother','Father'].includes(l.relationship)||['Yes','No'].includes(l.declaredLegalAuthority||l.legalAuthority));
+}
+function mpsEffectiveGuardianAuthority(link){
+  if(!link||link.deactivated||link.familyMember===false||link.legalRestrictions||!db.people?.guardians?.[link.guardianId])return false;
+  const child=db.people.children?.[link.childId],c=child&&profileCase(child);
+  const legal=c?.application?.snapshot?.data?.family?.legalRestrictions||c?.onboarding?.snapshot?.data?.legalRestrictions||familySource(link.childId)?.legalRestrictions;
+  if(legal?.answer?.startsWith('Yes'))return false;
+  // A historical adverse declaration is never replaced by a relationship assumption.
+  if(link.declaredLegalAuthority==='No'||link.legalAuthority==='No')return false;
+  if(['Mother','Father'].includes(link.relationship))return true;
+  return (link.declaredLegalAuthority||link.legalAuthority)==='Yes';
+}
+function carryApplicationFamilyCommunications(c){
+  const family=c.application?.snapshot?.source==='Parent Application'?c.application.snapshot.data?.family:null;
+  if(c.application?.status!=='accepted'||!family||!c.childId||db.family?.[c.childId])return;
+  // A declared legal arrangement needs deliberate staff review, not automatic interpretation.
+  if(family.legalRestrictions?.answer?.startsWith('Yes'))return;
+  const selected=[...new Set(family.requestedRecipientGuardianIds||[])];
+  if(!selected.length)return;
+  const eligible=new Set(familyCommunicationOptions(c.childId));
+  if(selected.some(id=>!eligible.has(id)))return;
+  const record=editableFamily(c.childId);
+  record.recipientGuardianIds=selected;
+  record.history.push({actor:staffActor(),at:new Date().toISOString(),text:'Family communications carried from reviewed Application',after:[...selected],sourceApplicationCaseId:c.id});
+}
+function familyCommunicationsModal(childId){
+  if(!canManageChild(childId))return '';
+  const options=familyCommunicationOptions(childId),current=linkedRecipientIds(childId);
+  const c=profileCase(db.people.children[childId]);
+  const requested=c?.application?.snapshot?.data?.family?.requestedRecipientGuardianIds||[];
+  const initial=current.length?current:requested;
+  const body=options.length?`<div class="field"><label>Family communications</label><p class="field-help">Choose the guardians confirmed to receive routine notices, reports, invoices and receipts. Check any legal or safety restrictions first.</p><div class="check-stack family-communication-options">${options.map(id=>`<label class="check-row"><input type="checkbox" data-family-communication value="${esc(id)}" ${checked(initial.includes(id))}> ${esc(db.people.guardians[id].name)}</label>`).join('')}</div></div>`:notice('No eligible Guardian is available for Family communications. Review the family’s legal arrangements.','info');
+  return modal('Family communications','',body,btn('Cancel','closeOverlay()','secondary')+(options.length?btn('Save',`saveFamilyCommunications('${esc(childId)}')`,'primary'):''));
+}
+function saveFamilyCommunications(childId){
+  if(!canManageChild(childId))return;
+  const options=familyCommunicationOptions(childId),ids=[...new Set(Array.from(document.querySelectorAll('[data-family-communication]:checked')).map(el=>el.value))];
+  if(!ids.length||ids.some(id=>!options.includes(id))){alert('Choose at least one current Guardian for Family communications.');return}
+  const record=editableFamily(childId),before=[...(record.recipientGuardianIds||[])];
+  record.recipientGuardianIds=[...ids];record.history=record.history||[];
+  record.history.push({actor:staffActor(),at:new Date().toISOString(),text:'Family communications updated',before,after:[...ids]});
+  closeOverlay();
 }
 function familyPeopleList(childId){
   const f=familyRecord(childId),seen=new Set();
@@ -54792,7 +55332,8 @@ function familyPeopleList(childId){
     return `<button class="person-choice family-choice" data-family-person="${esc(g.id)}" onclick="openModal('guardian-profile',{linkId:'${l.id}'})">${personPhoto(p?.verificationPhoto,g.name)}<span><strong>${esc(g.name)}</strong><small>${esc(familyRelationship(childId,g.id))}</small><small class="family-roles">${esc(familyRoles(childId,g.id).join(' · ')||'Family contact')}</small>${l.deactivated?`<small>${esc(l.deactivated.reason)}</small>`:''}</span><span aria-hidden="true">›</span></button>`;
   }).join('');
   const legal=familySource(childId).legalRestrictions,notes=childLinks(childId).filter(l=>l.legalRestrictions).map(l=>`<p>${esc(db.people.guardians[l.guardianId].name)}: ${esc(l.legalRestrictions)}</p>`).join('');
-  return `<div class="family-people">${rows||'<p>No family contacts recorded.</p>'}</div>${canManageChild(childId)?`<div class="family-actions">${btn('Add family / contact',`openFamilyAdd('${childId}')`,'secondary')}</div>`:''}${temporaryPickupSection(childId)}${has('Head Teacher')&&(legal||notes)?`<div class="family-legal"><h4>Legal arrangements</h4>${legal&&!(notes&&legal.answer==='No')?`<p>${esc(legal.answer==='No'?'No restrictions recorded':[legal.answer,legal.details].filter(Boolean).join(' · '))}</p>`:''}${notes}</div>`:''}`;
+  const caseId=profileCase(db.people.children[childId])?.id;
+  return `<div class="family-people">${rows||'<p>No family contacts recorded.</p>'}</div>${canManageChild(childId)?`<div class="family-actions">${btn('Add family / contact',`openFamilyAdd('${childId}')`,'secondary')}</div>`:''}${temporaryPickupSection(childId)}${caseId?mpsFamilyLegalSection(db.admissions[caseId]):''}${has('Head Teacher')&&notes?`<div class="family-legal"><h4>Earlier individual notes</h4>${notes}</div>`:''}`;
 }
 function correctFamilyRelationship(linkId,relationship){
   const l=db.people.links[linkId];if(!l||l.supersededBy||l.deactivated||!canManageChild(l.childId)||!relationship.trim())return false;
@@ -54805,8 +55346,8 @@ function openFamilyAdd(childId){if(!canManageChild(childId))return;ui().familyNe
 function familyContactFields(l,g,f,isNew=false){
   const p=f.pickup.find(p=>p.guardianId===g.id),candidate=isNew?ui().familyNew?.photo:f.photoCandidates?.[g.id];
   const check=(id,label,value,disabled=false)=>`<label class="check-row"><input id="${id}" type="checkbox" ${checked(value)} ${disabled?'disabled':''}>${label}</label>`;
-  const requested=profileCase(db.people.children[l.childId])?.application?.snapshot?.data?.family?.requestedRecipientGuardianIds?.includes(g.id);
-  return `${requested?notice('Parent requested this guardian as a communication recipient. Confirm legal authority before enabling the role.','info'):''}${field('Full name',g.name||'','text',false,'gp_name')}${mpsPhoneCountrySelect('gp_country',g.phoneCountry)}${field('Mobile',g.phone||'','tel',false,'gp_phone')}${field('Relationship to child',l.relationship||'','text',false,'gp_relationship')}<div class="family-role-controls">${check('fc_family','Guardian / family member',l.familyMember!==false).replace('id="fc_family"','id="fc_family" onchange="updateFamilyAuthorityControls()"')}${familyAuthorityFields(l)}${check('fc_emergency','Emergency contact',f.emergency?.guardianId===g.id)}${check('fc_recipient','Communication recipient',f.recipientGuardianIds.includes(g.id),l.legalAuthority!=='Yes')}<p id="fc_authority_hint" ${l.legalAuthority==='Yes'?'hidden':''}>Communication recipients require recorded legal authority.</p>${check('fc_pickup','Authorised pickup',!!p)}</div>${operationalPhotoInput('Pickup verification photo',isNew?'family-new':'family-pickup',isNew?l.childId:l.id,candidate||p?.verificationPhoto||(p?.photo?{name:p.photoName}:null))}${(candidate||p?.verificationPhoto)?personPhoto(candidate||p.verificationPhoto,g.name):''}${notice('Pickup requires its own verification photo and staff verification at handover.','info')}`;
+  const eligible=familyCommunicationEligibleLink(l);
+  return `${field('Full name',g.name||'','text',false,'gp_name')}${mpsPhoneCountrySelect('gp_country',g.phoneCountry)}${field('Mobile',g.phone||'','tel',false,'gp_phone')}${field('Relationship to child',l.relationship||'','text',false,'gp_relationship').replace('id="gp_relationship"','id="gp_relationship" oninput="updateFamilyAuthorityControls(true)"')}<div class="family-role-controls">${check('fc_family','Guardian / family member',l.familyMember!==false).replace('id="fc_family"','id="fc_family" onchange="updateFamilyAuthorityControls()"')}${familyAuthorityFields(l)}${check('fc_emergency','Emergency contact',f.emergency?.guardianId===g.id)}${check('fc_recipient','Family communications',f.recipientGuardianIds.includes(g.id),!eligible)}<p id="fc_authority_hint" ${eligible?'hidden':''}>Review this Guardian’s relationship and any restrictions before confirming routine communications.</p>${check('fc_pickup','Authorised pickup',!!p)}</div>${operationalPhotoInput('Pickup verification photo',isNew?'family-new':'family-pickup',isNew?l.childId:l.id,candidate||p?.verificationPhoto||(p?.photo?{name:p.photoName}:null))}${(candidate||p?.verificationPhoto)?personPhoto(candidate||p.verificationPhoto,g.name):''}${notice('Pickup requires its own verification photo and staff verification at handover.','info')}`;
 }
 function familyAddModal(childId){
   if(!canManageChild(childId))return '';
@@ -54823,13 +55364,15 @@ function familyContactValues(l,isNew=false){
   const phone=val('gp_phone').trim()?mpsNormalisePhone(val('gp_phone'),val('gp_country')):{ok:!family&&!emergency,value:''};
   if(!name||!relationship||!phone.ok){alert('Enter the name, relationship and a valid mobile number where required.');return null}
   const oldPickup=f.pickup.find(p=>p.guardianId===l.guardianId),photo=isNew?ui().familyNew?.photo:f.photoCandidates?.[l.guardianId]||oldPickup?.verificationPhoto;
-  const legalAuthority=family?val('fc_authority'):(l.legalAuthority||''),legalRestrictions=family?val('fc_legal_details').trim():(l.legalRestrictions||'');
-  if(!['','Yes','No'].includes(legalAuthority)){alert('Record Yes or No for legal authority.');return null}
-  if(recipient&&legalAuthority!=='Yes'){alert('Communication recipients require recorded legal authority.');return null}
+  const parent=['Mother','Father'].includes(relationship),wasParent=['Mother','Father'].includes(l.relationship);
+  const legalAuthority=family&&!parent?val('fc_authority'):(parent&&!wasParent?'':l.legalAuthority||''),legalRestrictions=l.legalRestrictions||'';
+  if(family&&!parent&&!['Yes','No'].includes(legalAuthority)){alert('Choose Yes or No for this person’s legal guardianship.');return null}
+  if(!['','Yes','No'].includes(legalAuthority)){alert('Record Yes or No for legal guardianship.');return null}
+  if(recipient&&(!family||!(parent||['Yes','No'].includes(legalAuthority))||!!legalRestrictions)){alert('Review the Guardian’s relationship and restrictions before confirming Family communications.');return null}
   if(pickup&&!photo&&!oldPickup?.photo){alert('Attach a pickup verification photo before authorising pickup.');return null}
   if(!isNew){
     if(!emergency&&f.emergency?.guardianId===l.guardianId){alert('Choose another emergency contact before removing this role.');return null}
-    if(!recipient&&f.recipientGuardianIds.length===1&&f.recipientGuardianIds.includes(l.guardianId)){alert('Choose another communication recipient before removing this role.');return null}
+    if(!recipient&&f.recipientGuardianIds.length===1&&f.recipientGuardianIds.includes(l.guardianId)){alert('Choose another Family communications guardian before removing this role.');return null}
     if(!pickup&&oldPickup&&f.pickup.length===1){alert('Record another authorised pickup person before removing the last one.');return null}
   }
   return {name,relationship,phone:phone.value,phoneCountry:val('gp_country'),family,emergency,recipient,pickup,photo,oldPickup,legalAuthority,legalRestrictions};
@@ -54876,13 +55419,16 @@ function deactivateFamilyContact(linkId){
 }
 
 function familyAuthorityFields(l){
-  return `<section id="fc_authority_section" class="family-authority" ${l.familyMember===false?'hidden':''}><h4>Legal authority</h4><div class="field"><label for="fc_authority">Legal authority for this child</label><select id="fc_authority" data-saved="${esc(l.legalAuthority||'')}" onchange="updateFamilyAuthorityControls()"><option value="">Not recorded</option>${['Yes','No'].map(v=>`<option value="${v}" ${l.legalAuthority===v?'selected':''}>${v}</option>`).join('')}</select></div>${textArea('Restrictions / special arrangements',l.legalRestrictions||'','fc_legal_details')}</section>`;
+  return `<section id="fc_authority_section" class="family-authority" ${l.familyMember===false||['Mother','Father'].includes(l.relationship)?'hidden':''}><div class="field"><label for="fc_authority">Is this person a legal guardian for the child?</label><select id="fc_authority" onchange="updateFamilyAuthorityControls()"><option value="">Select…</option>${['Yes','No'].map(v=>`<option value="${v}" ${l.legalAuthority===v?'selected':''}>${v}</option>`).join('')}</select></div></section>`;
 }
-function updateFamilyAuthorityControls(){
+function updateFamilyAuthorityControls(relationshipChanged=false){
   const family=document.getElementById('fc_family'),authority=document.getElementById('fc_authority'),recipient=document.getElementById('fc_recipient');
   if(!family||!authority||!recipient)return;
-  document.getElementById('fc_authority_section').hidden=!family.checked;
-  const permitted=(family.checked?authority.value:authority.dataset.saved)==='Yes';
+  const relation=val('gp_relationship').trim();
+  const parent=['Mother','Father'].includes(relation);
+  if(relationshipChanged){authority.value='';}
+  document.getElementById('fc_authority_section').hidden=!family.checked||parent;
+  const permitted=family.checked&&(parent||['Yes','No'].includes(authority.value));
   recipient.disabled=!permitted;if(!permitted)recipient.checked=false;
   document.getElementById('fc_authority_hint').hidden=permitted;
 }
@@ -54894,7 +55440,7 @@ function activeTemporaryPickup(childId){
 function canManageTemporaryPickup(childId){return canManageChild(childId)&&canViewPickup(childId)}
 function temporaryPickupValidity(p){return p.legacyValidity||`${p.date===TODAY?'Today':fmtDate(p.date)}${p.from&&p.until?' '+p.from+'–'+p.until:''}`}
 function checkoutAuthorisingGuardians(childId){
-  return childLinks(childId).filter(link=>link.legalAuthority==='Yes'&&!link.deactivated&&db.people.guardians[link.guardianId]?.name);
+  return childLinks(childId).filter(mpsEffectiveGuardianAuthority);
 }
 function preschoolPickupTime(now=new Date()){
   return new Intl.DateTimeFormat('en-GB',{timeZone:mpsPreschoolClockTimezone(),hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now);
@@ -54916,7 +55462,7 @@ function recordCheckoutAuthorisation(childId){
   if(temporaryPickupInstructions(childId).some(p=>p.date===TODAY)){alert('A temporary instruction already exists for today. Review that instruction before handover.');return}
   const guardian=db.people.guardians[link.guardianId],at=new Date().toISOString(),actor=staffActor();
   const instruction={id:'temporary_'+crypto.randomUUID(),childId,name,date:TODAY,from:preschoolPickupTime(),until:'23:59',
-    guardianId:guardian.id,guardianLinkId:link.id,requestedBy:guardian.name,source,reference,recordedAt:at,recordedActor:actor,
+    guardianId:guardian.id,guardianLinkId:link.id,requestedBy:guardian.name,source,reference,authorityBasis:mpsFamilyLegalAuthorityBasis(childId),recordedAt:at,recordedActor:actor,
     origin:'Checkout Guardian authorisation',history:[{at,actor,action:'Guardian authorisation recorded at checkout',before:null}]};
   const family=editableFamily(childId);family.temporaryPickups=family.temporaryPickups||[];family.temporaryPickups.push(instruction);
   openModal('checkout',{childId});
@@ -54945,7 +55491,8 @@ function ensureAttendanceReviewSamples(){
 function temporaryPickupSection(childId){
   if(!canViewPickup(childId))return '';
   const items=temporaryPickupInstructions(childId);
-  return `<section class="temporary-pickup-section"><h4>Temporary pickup</h4>${items.map(p=>`<div class="temporary-instruction"><strong>${esc(p.name)}</strong><p>${esc(temporaryPickupValidity(p))}</p><p>${esc(p.requestContext||[p.requestedBy,p.source].filter(Boolean).join(' · '))}</p><p>${esc(p.reference)}</p><small>Recorded by ${esc(p.recordedActor?.name||'Not recorded')} · ${esc(p.recordedAt||'Not recorded')}</small>${canManageTemporaryPickup(childId)?`<div class="attendance-row-actions">${btn('Edit instruction',`openModal('temporary-pickup-instruction',{childId:'${childId}',id:'${p.id}'})`,'secondary','sm')}</div>`:''}</div>`).join('')||'<p>No temporary pickup instructions recorded.</p>'}${canManageTemporaryPickup(childId)?btn('Add temporary pickup',`openModal('temporary-pickup-instruction',{childId:'${childId}'})`,'secondary'):''}</section>`;
+  const add=canManageTemporaryPickup(childId)?btn('Add temporary pickup',`openModal('temporary-pickup-instruction',{childId:'${childId}'})`,'secondary','sm'):'';
+  return `<section class="temporary-pickup-section"><h4>Temporary pickup</h4>${items.length?items.map(p=>`<div class="temporary-instruction"><strong>${esc(p.name)}</strong><p>${esc(temporaryPickupValidity(p))}</p><p>${esc(p.requestContext||[p.requestedBy,p.source].filter(Boolean).join(' · '))}</p><p>${esc(p.reference)}</p><small>Recorded by ${esc(p.recordedActor?.name||'Not recorded')} · ${esc(attendanceRecordedTime(p.recordedAt))}</small>${canManageTemporaryPickup(childId)?`<div class="attendance-row-actions">${btn('Edit instruction',`openModal('temporary-pickup-instruction',{childId:'${childId}',id:'${p.id}'})`,'secondary','sm')}</div>`:''}</div>`).join('')+add:`<div class="temporary-pickup-empty"><span>None active</span>${add}</div>`}</section>`;
 }
 function temporaryPickupInstructionModal(childId,id){
   if(!canManageTemporaryPickup(childId))return modal('Temporary pickup','',notice('This action is outside your current permissions.','warn'),btn('Close','closeOverlay()','secondary'));
@@ -55028,7 +55575,7 @@ function pickupIdentityCheckField(id){
 function attendanceCurrentRecord(childId){
   const r=db.attendance[childId];
   // An unresolved physical presence must never disappear at a date boundary.
-  return r&&(!r.date||r.date===TODAY||r.status==='present')?r:null;
+  return r&&(!r.date||r.date===TODAY||r.status==='present'||(r.status==='checked_out'&&r.checkoutDate===TODAY))?r:null;
 }
 function prepareAttendanceDailyWrite(childId){
   const previous=db.attendance[childId];
@@ -55223,7 +55770,7 @@ function reconcileCheckoutCorrection(childId,r,correction){
     lp=db.daycare.latePickups[id]={id,childId,childName:r.name||profileChildName(childId),date:r.checkoutDate||r.date,expected:end,grace:latePickupTime(latePickupMinutes(end)+p.graceMinutes),actual:correction.from,minutesBeyond:0,amount:p.amount,status:'pending',policySnapshot:JSON.parse(JSON.stringify(p)),coverageSnapshot:JSON.parse(JSON.stringify(evaluation.coverage)),checkoutSnapshot:{date:r.checkoutDate||r.date,time:r.originalCheckOut||correction.from,collector:r.collector,actor:r.checkoutActor,recordedAt:r.checkoutRecordedAt,verification:r.pickupVerification?JSON.parse(JSON.stringify(r.pickupVerification)):null},createdAt:correction.at};
     evaluation.eventId=id;evaluation.status='pending';
   }
-  const invoices=latePickupLinkedInvoices(lp.id),committed=invoices.filter(i=>i.status!=='draft');
+  const invoices=latePickupLinkedInvoices(lp.id),committed=invoices.filter(i=>!['draft','discarded'].includes(i.status));
   (lp.checkoutCorrections||(lp.checkoutCorrections=[])).push({...JSON.parse(JSON.stringify(correction)),prior:{status:lp.status,actual:lp.actual,minutesBeyond:lp.minutesBeyond,decisionReason:lp.decisionReason,decisionActor:lp.decisionActor,decisionAt:lp.decisionAt}});
   lp.correctedCheckout=correction.to;
   if(committed.length){lp.adjustmentRequired={at:correction.at,invoiceIds:committed.map(i=>i.id),reason:'Checkout corrected after financial commitment. Billing adjustment required; issued records remain unchanged.'};return}
@@ -55293,8 +55840,8 @@ function daycareBulkRows(outcomes,{withException=false}={}){
 }
 function daycareBulkEditor(outcomes,options={}){
  const children=daycareEventChildren();
- if(!children.length)return notice('No booked child is both present and available in your Daycare scope.','info');
- return `<div class="daycare-common-outcome">${daycareOutcomeSelect('care_common_outcome',outcomes,'Apply one outcome to selected children')} ${btn('Apply',`applyDaycareCommonOutcome()`,'secondary','sm')}</div>${daycareBulkRows(outcomes,options)}`;
+ if(!children.length)return notice('No daycare child is both present and available in your scope.','info');
+ return `<p class="daycare-group-help">Choose the children who took part, apply their common outcome, then change any exception before saving once.</p><div class="daycare-common-outcome">${daycareOutcomeSelect('care_common_outcome',outcomes,'Common outcome')} ${btn('Apply to selected',`applyDaycareCommonOutcome()`,'secondary','sm')}</div>${daycareBulkRows(outcomes,options)}`;
 }
 function applyDaycareCommonOutcome(){
  const outcome=val('care_common_outcome');if(!outcome)return eliiraFieldError('care_common_outcome','Choose the outcome to apply.');
@@ -55324,7 +55871,7 @@ function saveDaycareMeal(){
  ensureDaycareEventState();db.daycare.mealRecords.push({id:daycareEventId('meal'),date:TODAY,occurrence,time,outcomes:result.outcomes,actor:staffActor(),at:new Date().toISOString()});closeOverlay();
 }
 function daycareRestModal(){
- return modal('Record rest','Record the rest outcome for booked children who are present.',daycareBulkEditor(DAYCARE_REST_OUTCOMES),`${btn('Cancel','closeOverlay()','secondary')}${btn('Save rest',`saveDaycareRest()`,'primary')}`);
+ return modal('Record rest','Record the rest outcome for daycare children who are present.',daycareBulkEditor(DAYCARE_REST_OUTCOMES),`${btn('Cancel','closeOverlay()','secondary')}${btn('Save rest',`saveDaycareRest()`,'primary')}`);
 }
 function saveDaycareRest(){
  if(!allowed('daycare'))return;eliiraClearValidation(document.getElementById('overlay'));
@@ -55370,13 +55917,81 @@ function daycareActivityCoverage(){
  ensureDaycareEventState();const groups=[...new Set(daycareEventBookings().map(daycareGroupId))],covered=new Set(db.daycare.activities.filter(record=>record.date===TODAY).flatMap(record=>record.groupIds||[]));return groups.filter(group=>!covered.has(group));
 }
 function daycareGroupLabel(group){return group==='daycare'?'Daycare':group==='extension'?'Late care extension':careLabel(group,true)}
+function daycareGroupShortLabel(group){return daycarePlan(group)?.name||daycareGroupLabel(group)}
 function daycareActivityRequirement(){const missing=daycareActivityCoverage();return missing.length?notice(`Activity still needed today for ${missing.map(daycareGroupLabel).join(' and ')}.`,'warn'):''}
+function daycareRecordTime(record){
+ if(record.time)return record.time;
+ if(!record.at||Number.isNaN(Date.parse(record.at)))return null;
+ return new Intl.DateTimeFormat('en-GB',{timeZone:mpsPreschoolClockTimezone(),hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(new Date(record.at));
+}
 function daycareTodayRecords(){
- ensureDaycareEventState();const items=[...db.daycare.mealRecords.filter(r=>r.date===TODAY).map(r=>({kind:'Meal/snack',title:r.occurrence,time:r.time,count:r.outcomes.length})),...db.daycare.restSessions.filter(r=>r.date===TODAY).map(r=>({kind:'Rest',title:'Rest session',time:null,count:r.outcomes.length})),...db.daycare.activities.filter(r=>r.date===TODAY).map(r=>({kind:'Activity',title:r.title,time:r.time,count:r.outcomes.length})),...db.daycare.careNotes.filter(r=>r.date===TODAY).map(r=>({kind:'Care note',title:profileChildName(r.childId),time:null,count:1}))];
- return items.length?`<div class="daycare-event-list">${items.map(item=>`<article><div><span class="eyebrow">${esc(item.kind)}</span><strong>${esc(item.title)}</strong></div><small>${item.time?staffTimeLabel(item.time)+' · ':''}${item.count} ${item.count===1?'child':'children'} · recorded by staff</small></article>`).join('')}</div>`:'<div class="empty daycare-records-empty">No daycare care events recorded today.</div>';
+ ensureDaycareEventState();const items=[...db.daycare.mealRecords.filter(r=>r.date===TODAY).map(r=>({kind:'Meal/snack',title:r.occurrence,time:daycareRecordTime(r),count:r.outcomes.length,id:r.id})),...db.daycare.restSessions.filter(r=>r.date===TODAY).map(r=>({kind:'Rest',title:'Rest session',time:daycareRecordTime(r),count:r.outcomes.length,id:r.id})),...db.daycare.activities.filter(r=>r.date===TODAY).map(r=>({kind:'Activity',title:r.title,time:daycareRecordTime(r),count:r.outcomes.length,id:r.id})),...db.daycare.careNotes.filter(r=>r.date===TODAY).map(r=>({kind:'Care note',title:profileChildName(r.childId),time:daycareRecordTime(r),count:1,id:r.id}))].sort((a,b)=>(a.time||'99:99').localeCompare(b.time||'99:99')||String(a.id).localeCompare(String(b.id)));
+ return items.length?`<div class="daycare-event-list">${items.map(item=>`<article><div><span class="eyebrow">${esc(item.kind)}</span><strong>${esc(item.title)}</strong></div><small>${item.time?staffTimeLabel(item.time)+' · ':''}${item.count} ${item.count===1?'child':'children'}</small></article>`).join('')}</div>`:'<div class="empty daycare-records-empty">No care records yet.</div>';
 }
 function daycareChildRecordSummary(childId){
- const records=daycareRecordsForChild(childId);return records.length?`<div class="daycare-child-records">${records.map(record=>`<div><strong>${esc(record.kind)}</strong> · ${esc(record.text)}</div>`).join('')}</div>`:'<span class="daycare-not-recorded">Not recorded</span>';
+ const records=daycareRecordsForChild(childId);return records.length?`<div class="daycare-child-records">${records.map(record=>`<div><strong>${esc(record.kind)}</strong> · ${esc(record.text)}</div>`).join('')}</div>`:'<span class="daycare-not-recorded">No care records yet</span>';
+}
+function daycareLatestEvent(records){return records.filter(r=>r.date===TODAY).sort((a,b)=>(daycareRecordTime(b)||'').localeCompare(daycareRecordTime(a)||''))[0]||null}
+function daycareCareStatus(label,detail,action,modalName,needed=false){return `<article class="daycare-care-status${needed?' needs-care':''}"><div><h3>${label}</h3><p>${esc(detail)}</p></div>${btn(action,`openModal('${modalName}')`,needed?'primary':'secondary','sm')}</article>`}
+function daycareTodayCare(eventChildren){
+ ensureDaycareEventState();const meal=daycareLatestEvent(db.daycare.mealRecords),rest=daycareLatestEvent(db.daycare.restSessions),activity=daycareLatestEvent(db.daycare.activities),missing=daycareActivityCoverage();
+ const detail=missing.length?`Activity still needed for ${missing.map(daycareGroupShortLabel).join(' and ')}`:activity?`${activity.title} · ${activity.outcomes.length} ${activity.outcomes.length===1?'child':'children'}`:'Not recorded yet';
+ return `<section class="daycare-care-section"><h2>Today's care</h2>${eventChildren.length?`<div class="daycare-care-grid">${daycareCareStatus('Meal / snack',meal?`${meal.occurrence} · ${meal.outcomes.length} ${meal.outcomes.length===1?'child':'children'}`:'Not recorded yet','Record meal/snack','daycare-meal')}${daycareCareStatus('Rest',rest?`${rest.outcomes.length} ${rest.outcomes.length===1?'child':'children'} recorded`:'Not recorded yet','Record rest','daycare-rest')}${daycareCareStatus('Activity',detail,'Record activity','daycare-activity',missing.length>0)}</div>`:notice('Care recording becomes available after Attendance records an expected daycare child as present.','info')}</section>`;
+}
+function daycareSafetyContext(childId){
+ if(!canViewChildHealth(childId))return '';
+ const health=db.health.profiles?.[childId],parts=[];
+ if(health?.allergies&&!/^(none|no allergies|not recorded)/i.test(health.allergies))parts.push(`Allergy: ${health.allergies}`);
+ const dietary=String(health?.dietaryRestrictions||'').trim();
+ if(dietary&&!/^(none(?: declared)?|no(?: dietary restrictions?)?(?: declared)?|not recorded)$/i.test(dietary))parts.push(`Dietary restriction: ${dietary}`);
+ const auth=db.health.medAuth?.[childId];if(auth?.status==='current'&&auth.medication)parts.push(`Medication: ${auth.medication}`);
+ return parts.length?`<div class="daycare-safety"><strong>Care safety</strong> · ${parts.map(esc).join(' · ')} ${allowed('health')?auth?.status==='current'&&auth.medication?btn('Open medication',`openMedicationForChild('${childId}')`,'secondary','sm'):btn('Open Health',`openHealthForChild('${childId}')`,'secondary','sm'):''}</div>`:'';
+}
+function daycarePickupContext(childId){
+ if(!canViewPickup(childId))return '';
+ const temporary=activeTemporaryPickup(childId),late=Object.values(db.daycare.latePickups||{}).some(item=>item.childId===childId&&item.date===TODAY&&item.status==='pending');
+ return [temporary?'Temporary pickup instruction':null,late?'Late pickup review':null].filter(Boolean).map(item=>`<span class="daycare-pickup-cue">${esc(item)}</span>`).join('');
+}
+function setDaycareTab(tab){if(!['today','week'].includes(tab))return;ui().daycareTab=tab;if(tab==='week'&&!ui().daycareWeek)ui().daycareWeek=mpsMondayForDate(TODAY);save();render()}
+function changeDaycareWeek(delta){const start=ui().daycareWeek||mpsMondayForDate(TODAY);ui().daycareWeek=isoAddDays(start,delta*7);save();render()}
+function daycareWeekStart(){return mpsMondayForDate(ui().daycareWeek)||mpsMondayForDate(TODAY)}
+function daycareWeekDateLabel(date,options={day:'numeric',month:'short'}){return lessonShortDate(new Date(`${date}T12:00:00Z`),options)}
+function daycareWeekLabel(start){
+ const end=isoAddDays(start,4),first=new Date(`${start}T12:00:00Z`),last=new Date(`${end}T12:00:00Z`);
+ const firstLabel=first.getUTCFullYear()===last.getUTCFullYear()?(first.getUTCMonth()===last.getUTCMonth()?String(first.getUTCDate()):daycareWeekDateLabel(start)):daycareWeekDateLabel(start,{day:'numeric',month:'short',year:'numeric'});
+ return `Week of ${firstLabel}–${daycareWeekDateLabel(end,{day:'numeric',month:'short',year:'numeric'})}`;
+}
+function daycareWeekEvents(date){
+ ensureDaycareEventState();
+ const scope=new Set((has('Head Teacher')?Object.values(db.people.children):currentChildrenInScope()).map(child=>child.id));
+ const visible=outcomes=>(outcomes||[]).filter(item=>scope.has(profileChildId(item.childId)||item.childId));
+ const items=[
+  ...db.daycare.mealRecords.filter(r=>r.date===date).map(r=>({kind:'Meal / snack',title:r.occurrence,time:r.time,at:r.at,id:r.id,outcomes:visible(r.outcomes)})),
+  ...db.daycare.restSessions.filter(r=>r.date===date).map(r=>({kind:'Rest',title:'Rest',time:null,at:r.at,id:r.id,outcomes:visible(r.outcomes)})),
+  ...db.daycare.activities.filter(r=>r.date===date).map(r=>({kind:'Activity',title:r.title,time:r.time,at:r.at,id:r.id,outcomes:visible(r.outcomes)})),
+  ...db.daycare.careNotes.filter(r=>r.date===date&&scope.has(profileChildId(r.childId)||r.childId)).map(r=>({kind:'Care note',title:profileChildName(r.childId),time:null,at:r.at,id:r.id,childId:r.childId,context:r.context,text:r.text}))
+ ];
+ return items.filter(item=>item.kind==='Care note'||item.outcomes.length).sort((a,b)=>(a.time||daycareRecordTime({at:a.at})||'99:99').localeCompare(b.time||daycareRecordTime({at:b.at})||'99:99')||String(a.id).localeCompare(String(b.id)));
+}
+function daycareOutcomeSummary(outcomes){const counts=new Map();for(const item of outcomes||[])if(item.outcome)counts.set(item.outcome,(counts.get(item.outcome)||0)+1);return [...counts].map(([outcome,count])=>`${count} ${outcome}`).join(' · ')}
+function daycareWeekEventCard(event){
+ if(event.kind==='Care note')return `<article class="daycare-week-event daycare-week-note"><small>Care note · ${esc(event.title)}</small><p>${esc([event.context,event.text].filter(Boolean).join(' · '))}</p></article>`;
+ const outcomes=event.outcomes||[],count=outcomes.length,details=outcomes.map(item=>`<li>${esc(profileChildName(item.childId))} · ${esc(item.outcome)}${item.note?` · ${esc(item.note)}`:''}</li>`).join('');
+ return `<details class="daycare-week-event"><summary><small>${esc(event.kind)}${event.time?` · ${esc(staffTimeLabel(event.time))}`:''}</small><strong>${esc(event.title)}</strong><span>${count} ${count===1?'child':'children'}</span><span>${esc(daycareOutcomeSummary(outcomes))}</span><em>View children</em></summary><ul>${details}</ul></details>`;
+}
+function daycareFutureCare(date){
+ const scope=new Set(currentChildrenInScope().map(child=>child.id)),roster=daycareRoster(date).filter(b=>scope.has(profileChildId(b.childId)||b.childId));
+ if(!roster.length)return '';
+ const counts=new Map();for(const booking of roster){const label=booking.recurring?daycareGroupShortLabel(daycareGroupId(booking)):booking.care||'One-day care';counts.set(label,(counts.get(label)||0)+1)}
+ return `<p class="daycare-future-context">${roster.length} expected · ${[...counts].map(([label,count])=>`${count} ${label}`).join(' · ')}</p>`;
+}
+function daycareCareWeek(){
+ const start=daycareWeekStart(),dates=Array.from({length:7},(_,index)=>isoAddDays(start,index));
+ const visible=dates.filter((date,index)=>index<5||(date<=TODAY?daycareWeekEvents(date).length:daycareFutureCare(date)!==''));
+ return `<section class="daycare-week-workspace"><div class="daycare-week-heading"><div><h2>Care week</h2><p>${esc(daycareWeekLabel(start))}</p></div><div class="daycare-week-actions">${btn('‹ Previous','changeDaycareWeek(-1)','secondary','sm')}${btn('Next ›','changeDaycareWeek(1)','secondary','sm')}</div></div><div class="daycare-week-board">${visible.map(date=>{
+  const events=date>TODAY?[]:daycareWeekEvents(date),future=date>TODAY,day=new Intl.DateTimeFormat('en-GB',{weekday:'short',timeZone:'UTC'}).format(new Date(`${date}T12:00:00Z`));
+  return `<section class="daycare-week-day${date===TODAY?' is-today':''}" data-care-date="${date}"><h3>${esc(day)} <time datetime="${date}">${esc(daycareWeekDateLabel(date))}</time>${date===TODAY?' <span class="lesson-today-label">Today</span>':''}</h3>${future?daycareFutureCare(date):events.length?events.map(daycareWeekEventCard).join(''):`<p class="daycare-week-quiet">${date===TODAY?'No care records yet':'No care records'}</p>`}</section>`;
+ }).join('')}</div></section>`;
 }
 
 const bq113ModalView=modalView;
@@ -55393,11 +56008,12 @@ modalView=function(m){
 saveCareRecord=function(){return false};
 
 renderDaycare=function(){
- ensureDaycareEventState();const roster=daycareRoster(),eligible=currentChildrenInScope(),eventChildren=daycareEventChildren(),allCurrent=Object.values(db.people.children).filter(c=>currentOperationalChild(c.id)),canBook=eligible.length&&offeredDaycarePlans().length,canRecord=eventChildren.length>0;
- const emptyCopy=!allCurrent.length?'No children are eligible for Daycare yet. Children appear after Admissions, enrolment and pre-start readiness.':!eligible.length?'No children are available in your Daycare scope.':`No daycare bookings today · ${db.daycare.capacity-roster.length} places available`,emptyAction=!allCurrent.length&&allowed('admissions')?btn('Open Admissions',"setRoute('admissions')",'secondary','sm'):'';
- const recordActions=canRecord?`<section class="daycare-record-actions"><div><div class="eyebrow">Today’s care</div><h2>Record what happened</h2><p>Each fact is recorded once in its own event.</p></div><div class="daycare-record-buttons">${btn('Record meal/snack',"openModal('daycare-meal')",'secondary')}${btn('Record rest',"openModal('daycare-rest')",'secondary')}${btn('Record activity',"openModal('daycare-activity')",'primary')}</div></section>${daycareActivityRequirement()}`:roster.length?notice('Care recording becomes available for booked children after Attendance records them as present.','info'):'';
- const rosterSummary=roster.length?`<p class="daycare-roster-summary" data-daycare-roster-summary>${roster.length} booked · ${db.daycare.capacity-roster.length} places available</p>`:'';
- return shell(`${pageHead('Extended care','Daycare','Bookings create the roster; physical attendance remains the single presence truth.',canBook?btn('Add ad-hoc booking',"openModal('daycare-booking')",'primary'):'')}${recordActions}${latePickupReviewCards()}<div class="section-title">Today’s roster</div>${rosterSummary}<div class="table-wrap operational-roster-wrap"><table class="table operational-roster daycare-roster"><thead><tr><th>Child</th><th>Care</th><th>Presence</th><th>Today’s records</th><th></th></tr></thead><tbody>${roster.map(b=>{const childId=profileChildId(b.childId)||b.childId,att=attendanceCurrentRecord(childId),present=eventChildren.some(item=>item.childId===childId);return `<tr data-child-id="${esc(childId)}"><td class="roster-identity"><div class="name">${attendanceChildIdentity(childId,profileChildName(childId,b.childName))}</div></td><td class="roster-care"><span class="operational-mobile-only">Care · </span>${esc(bookingCoverageLabel(b))}${b.date>TODAY?btn('Amend coverage',`openModal('amend-care',{id:'${b.id}'})`,'secondary','sm'):''}</td><td class="roster-status">${att?badge(attendanceStatusLabel(att.status),att.status==='present'?'green':'grey'):badge('Not checked in','grey')}</td><td class="roster-detail"><span class="operational-mobile-only">Today · </span>${daycareChildRecordSummary(childId)}</td><td class="roster-actions">${present?btn('Add care note',`openModal('daycare-note',{childId:'${childId}'})`,'secondary','sm'):badge('Not present','grey')}</td></tr>`}).join('')}</tbody></table>${roster.length?'':`<div class="empty operational-empty"><strong>${emptyCopy}</strong>${emptyAction}</div>`}</div>${roster.length?`<div class="section-title">Today’s records</div>${daycareTodayRecords()}`:''}${futureCareBookings()}`);
+ ensureDaycareEventState();const allRoster=daycareRoster(),eligible=currentChildrenInScope(),scope=new Set(eligible.map(child=>child.id)),roster=allRoster.filter(booking=>scope.has(profileChildId(booking.childId)||booking.childId)),eventChildren=daycareEventChildren(),allCurrent=Object.values(db.people.children).filter(c=>currentOperationalChild(c.id)),canBook=eligible.length&&offeredDaycarePlans().length;
+ const closedToday=['Closed','Closed Day'].includes(operatingStatusForDate(TODAY).text),emptyCopy=closedToday?'Daycare is closed today.':!allCurrent.length?'No children are eligible for Daycare yet. Children appear after Admissions, enrolment and pre-start readiness.':!eligible.length?'No children are available in your Daycare scope.':'No daycare children expected today.',emptyAction=!allCurrent.length&&allowed('admissions')?btn('Open Admissions',"setRoute('admissions')",'secondary','sm'):'';
+ const rosterSummary=`<p class="daycare-roster-summary" data-daycare-roster-summary>${roster.length} expected today · ${eventChildren.length} present</p>`;
+ const tab=ui().daycareTab==='week'?'week':'today',tabs=`<div class="tabs daycare-tabs" role="tablist" aria-label="Daycare views"><button class="tab ${tab==='today'?'active':''}" role="tab" aria-selected="${tab==='today'}" onclick="setDaycareTab('today')">Today</button><button class="tab ${tab==='week'?'active':''}" role="tab" aria-selected="${tab==='week'}" onclick="setDaycareTab('week')">Care week</button></div>`;
+ if(tab==='week')return shell(`${pageHead('Extended care','Daycare','')}${tabs}${daycareCareWeek()}`);
+ return shell(`${pageHead('Extended care','Daycare','',canBook?btn('Add one-day care',"openModal('daycare-booking')",'secondary'):'')}${tabs}${rosterSummary}${roster.length?daycareTodayCare(eventChildren):''}${latePickupReviewCards()}<div class="section-title">Today's roster</div><div class="table-wrap operational-roster-wrap"><table class="table operational-roster daycare-roster"><thead><tr><th>Child</th><th>Care</th><th>Presence</th><th>Today's records</th><th></th></tr></thead><tbody>${roster.map(b=>{const childId=profileChildId(b.childId)||b.childId,att=attendanceCurrentRecord(childId),present=eventChildren.some(item=>item.childId===childId);return `<tr data-child-id="${esc(childId)}"><td class="roster-identity"><div class="name">${attendanceChildIdentity(childId,profileChildName(childId,b.childName))}</div>${daycareSafetyContext(childId)}${daycarePickupContext(childId)}</td><td class="roster-care"><span class="operational-mobile-only">Care · </span>${esc(b.recurring?daycareGroupLabel(daycareGroupId(b)):b.care||'One-day care')}${b.date>TODAY&&!b.recurring?btn('Amend coverage',`openModal('amend-care',{id:'${b.id}'})`,'secondary','sm'):''}</td><td class="roster-status">${att?badge(attendanceStatusLabel(att.status),att.status==='present'?'green':'grey'):badge('Not checked in','grey')}</td><td class="roster-detail"><span class="operational-mobile-only">Today · </span>${daycareChildRecordSummary(childId)}</td><td class="roster-actions">${present?btn('Add care note',`openModal('daycare-note',{childId:'${childId}'})`,'secondary','sm'):''}</td></tr>`}).join('')}</tbody></table>${roster.length?'':`<div class="empty operational-empty"><strong>${emptyCopy}</strong>${emptyAction}</div>`}</div><div class="section-title">Recorded today</div>${daycareTodayRecords()}${futureCareBookings()}`);
 };
 // BQ-103: one parent submission, reused by staff readiness and operational profiles.
 const applicationSections=['Child details','Guardian details','Health & care','Permissions & communication','Review & submit'];
@@ -55407,7 +56023,8 @@ function applicationFamilyEditable(id){
 }
 function applicationFamilyDraft(id){
   const c=db.admissions[id],o=ensureOnboarding(id);
-  c.application.draft=c.application.draft||{childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:careLabel(c.daycarePlanId),daycarePlanId:c.daycarePlanId,start:c.start,note:''};
+  c.application.draft=c.application.draft||{childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:careLabel(c.daycarePlanId),daycarePlanId:c.daycarePlanId,start:c.start};
+  if(applicationFamilyEditable(id))delete c.application.draft.note;
   return o.draft;
 }
 function applicationUniformConfigured(c){return c.application?.uniformRequired??db.organization?.applicationUniformRequired??false}
@@ -55422,6 +56039,12 @@ function applicationHealthAnswerChanged(id,control){
   if(!applicationFamilyEditable(id))return;
   syncApplicationDraft(id);render();byId(control)?.focus();
 }
+function applicationEmergencyFields(id,d){
+  const choices=applicationRecipientChoices(id),em=d.emergency||{},selected=em.kind==='guardian'?'guardian:'+em.guardianId:em.kind==='other'?'other':'';
+  const options=choices.map(({g,id})=>`<option value="guardian:${esc(id)}" ${selected==='guardian:'+id?'selected':''}>${esc(g.name||'Guardian')} · ${esc(g.relationship||'Relationship not set')}</option>`).join('');
+  const detail=em.kind==='guardian'?(()=>{const g=choices.find(x=>x.id===em.guardianId)?.g;return g?`<p class="field-help">${esc(g.name)} · ${esc(g.phone||'Add a phone number to this Guardian')}</p>`:''})():em.kind==='other'?`<div class="form-grid">${field('Name',em.name||'','text',false,'po_ec_name')}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other'],em.relationship||'Select…','po_ec_relationship')}${mpsPhoneCountrySelect('po_ec_country',em.phoneCountry)}${field('Phone',em.phone||'','tel',false,'po_ec_phone')}</div>`:'';
+  return `<section class="application-emergency"><div class="section-title">Emergency contact</div><div class="field"><label for="po_emergency_choice">Who should we contact in an emergency?</label><select id="po_emergency_choice" onchange="syncApplicationDraft('${id}');render()"><option value="" ${!selected?'selected':''}>Select a person…</option>${options}<option value="other" ${selected==='other'?'selected':''}>Someone else</option></select></div>${detail}</section>`;
+}
 function applicationFamilyFields(id,step){
   const c=db.admissions[id],d=applicationFamilyDraft(id),a=c.application.draft;
   // Reuse the established field vocabulary and contact controls.
@@ -55435,14 +56058,22 @@ function applicationFamilyFields(id,step){
   if(step===2){
     html=d.guardians.map((g,i)=>{
       let card=guardianCard(g,i);
-      card=card.replace(selectField('Legal decision-making authority',['Select…','Yes','No'],g.legalAuthority||'Select…',`po_g${i}_auth`),'');
       const country=mpsOnboardingPhoneCountry(id,g);
       const local=country==='LK'&&/^\+94\d{9}$/.test(g.phone||'')?'0'+g.phone.slice(3):g.phone||'';
       card=card.replace(`value="${esc(g.phone||'')}"`, `value="${esc(local)}"`);
       card=card.replace(`id="po_g${i}_work"`,`id="po_g${i}_work" onchange="syncApplicationDraft('${id}');render()"`);
-      if(g.working!=='Yes')card=card.replace(field('Workplace / company name',g.company,'text',false,`po_g${i}_company`),'');
-      return card;
-    }).join('')+btn('+ Add another guardian',`syncApplicationDraft('${id}');addGuardian('${id}')`,'secondary','sm');
+      card=card.replace(`id="po_g${i}_rel"`,`id="po_g${i}_rel" onchange="syncApplicationDraft('${id}');render()"`);
+      const authorityField=selectField('Legal decision-making authority',['Select…','Yes','No'],g.legalAuthority||'Select…',`po_g${i}_auth`);
+      const otherRelationship=g.relationship&&g.relationship!=='Select…'&&!['Mother','Father'].includes(g.relationship);
+      card=card.replace(authorityField,otherRelationship?selectField('Is this person a legal guardian for the child?',['Select…','Yes','No'],g.legalAuthority||'Select…',`po_g${i}_auth`):'');
+      if(g.working!=='Yes'){
+        card=card.replace(field('Workplace / company name',g.company,'text',false,`po_g${i}_company`),'');
+        card=card.replace(field('Job title',g.jobTitle||'','text',false,`po_g${i}_job_title`),'');
+      }
+      const template=document.createElement('template');template.innerHTML=card;
+      template.content.querySelector('.form-grid').insertAdjacentHTML('beforeend',`<div class="field guardian-communications"><label class="check-row"><input data-guardian-communications="${i}" type="checkbox" ${checked(!!g.communicationRequested)}> Send preschool communications to this guardian</label><p class="field-help">Includes ordinary notices, parent reports, invoices and receipts.</p></div>`);
+      return template.innerHTML;
+    }).join('')+btn('+ Add another guardian',`syncApplicationDraft('${id}');addGuardian('${id}')`,'secondary','sm')+`<div class="section-title">Legal arrangements</div>${selectField('Are there any court orders, custody arrangements or other legal restrictions or special arrangements we should know about?',['Select…','No','Yes'],d.legalRestrictions?.answer?.startsWith('Yes')?'Yes':d.legalRestrictions?.answer||'Select…','po_legal_restrict').replace('id="po_legal_restrict"',`id="po_legal_restrict" onchange="syncApplicationDraft('${id}');render()"`)}${d.legalRestrictions?.answer?.startsWith('Yes')?textArea('Details',d.legalRestrictions.details||'','po_legal_details'):''}${applicationEmergencyFields(id,d)}`;
   }
   if(step===3){
     const template=document.createElement('template');template.innerHTML=html;
@@ -55450,32 +56081,47 @@ function applicationFamilyFields(id,step){
       template.content.querySelector('#'+control).setAttribute('onchange',`applicationHealthAnswerChanged('${id}','${control}')`);
       if(d.health[key]!=='Yes')template.content.querySelector('#'+detail).closest('.field').remove();
     }
+    if(d.health.medication==='Yes')template.content.querySelector('#po_medication_detail').closest('.field').insertAdjacentHTML('afterend',selectField('Will the preschool need to give this medication while your child is in our care?',['Select…','Yes','No'],d.health.preschoolAdministration||'Select…','po_medication_at_preschool'));
     html=template.innerHTML;
   }
   if(step===4){
-    html=html.replace(`<div class="field"><label>Who should receive communications from ${ORG}?</label>${onboardingRecipientFields(id)}</div>`,`<div class="field"><label>Who should receive communications from ${ORG}?</label>${applicationRecipientFields(id)}</div>`);
-    html=html.replace('markParentDocUploaded(',`syncApplicationDraft('${id}');markParentDocUploaded(`);
+    html=html.replace(`<div class="field"><label>Family communications</label><p class="field-help">Choose one or both authorised guardians for routine reports, invoices, receipts and preschool notices.</p>${onboardingRecipientFields(id)}</div>`,'');
     html=html.replace(selectField('Books / accessories status',['Pending collection','Collected'],d.starter.books,'po_books'),'');
     if(!applicationUniformConfigured(c))html=html.replace(selectField('Uniform size',['Select size…','Size 22','Size 24','Size 26','Size 28'],d.starter.uniform||'Select size…','po_uniform'),'');
     html=html.replace(kv('Agreed daycare arrangement',c.service),kv('Agreed daycare arrangement',esc(a.service||c.service)));
+    const template=document.createElement('template');template.innerHTML=html;
+    const documentLabel=[...template.content.querySelectorAll('.field > label')].find(label=>label.textContent==='Birth certificate copy');
+    if(documentLabel)documentLabel.closest('.field').outerHTML=mpsBirthCertificateParentField(id,d.documents);
+    html=template.innerHTML;
   }
   return html;
 }
 function applicationRecipientChoices(id){
-  return applicationFamilyDraft(id).guardians.map((g,index)=>({g,id:db.people.links[id+':'+index]?.guardianId||'guardian_'+id+'_'+index}));
+  return applicationFamilyDraft(id).guardians.map((g,index)=>{
+    // Keep the identity with the Guardian draft, even if cards are reordered.
+    g.guardianId=g.guardianId||db.people.links[id+':'+index]?.guardianId||(id.startsWith('case_')?'guardian_'+crypto.randomUUID():'guardian_'+id+'_'+index);
+    return {g,id:g.guardianId};
+  });
 }
-function applicationRecipientFields(id){
-  const requested=applicationFamilyDraft(id).requestedRecipientGuardianIds||[];
-  return applicationRecipientChoices(id).map(x=>`<label class="check-row"><input data-recipient type="checkbox" value="${esc(x.id)}" ${checked(requested.includes(x.id))}> ${esc(x.g.name)}</label>`).join('');
+function applicationGuardianReview(g){
+  const parent=['Mother','Father'].includes(g.relationship);
+  const communication=g.communicationRequested===true?'Receives family communications':g.communicationRequested===false?'Does not receive family communications':'Family communications not recorded';
+  return `<div class="application-review-guardian"><h4>${esc(g.name)}</h4><p class="application-review-guardian-context">${esc(g.relationship)} · ${fmtDate(g.dob)}</p><p class="application-review-guardian-phone"><span>Phone:</span> ${esc(g.phone)}</p>${parent?'':`<p class="application-review-guardian-detail"><span>Legal guardian:</span> ${esc(g.legalAuthority||'Not recorded')}</p>`}${g.working==='Yes'?`<div class="application-review-guardian-work"><strong>Work</strong><p class="application-review-guardian-detail"><span>Job title:</span> ${esc(g.jobTitle||'Not recorded')}</p><p class="application-review-guardian-detail"><span>Workplace / company:</span> ${esc(g.company||'Not recorded')}</p></div>`:`<p class="application-review-guardian-detail">${g.working==='No'?'Not currently working':'Work status not recorded'}</p>`}<p class="application-review-guardian-communications">${communication}</p></div>`;
+}
+function applicationEmergencySummary(d){
+  const e=d.emergency;if(!e?.kind)return '';
+  const source=e.kind==='guardian'?'Selected Guardian':'Someone else';
+  return `<section class="card flat" style="margin-bottom:12px"><h3>Emergency contact <span class="application-provenance">Parent selected</span></h3>${kv('Contact',esc(e.name||'Not recorded'))}${kv('Relationship',esc(e.relationship||'Not recorded'))}${kv('Phone',esc(e.phone||'Not recorded'))}${kv('Source',source)}</section>`;
 }
 function applicationFamilySummary(data){
   const d=data.family;if(!d)return '<p>No detailed family submission recorded.</p>';
   const rows=(title,body)=>`<section class="card flat" style="margin-bottom:12px"><h3>${title}</h3>${body}</section>`;
   return rows('Child',kv('Legal name',esc(d.child.legalName))+kv('Called name',esc(d.child.preferred))+kv('Date of birth',fmtDate(d.child.dob))+kv('Gender',esc(d.child.gender))+kv('Address',esc(d.child.address))+kv('Home languages',esc(d.child.languages.join(', ')))+kv('Siblings',d.child.hasSiblings==='Yes'?d.child.siblings.map(s=>`${esc(s.relationship)} · ${fmtDate(s.dob)}`).join('<br>'):esc(d.child.hasSiblings)))+
     rows('Placement',kv('Service',esc(data.service))+kv('Desired start',fmtDate(data.start)))+
-    rows('Guardians',d.guardians.map(g=>kv(esc(g.name),`${esc(g.relationship)} · ${fmtDate(g.dob)} · ${esc(g.phone)}<br>Working: ${esc(g.working)}${g.working==='Yes'?' · '+esc(g.company):''}`)).join(''))+
-    rows('Health & care',[['Allergies','allergies','allergyDetails'],['Medical conditions','conditions','conditionDetails'],['Regular medication','medication','medicationDetails'],['Dietary restrictions','dietary','dietaryDetails'],['Other health/care','other','otherDetails']].map(([label,key,detail])=>kv(label,esc(d.health[key])+(d.health[key]==='Yes'?' · '+esc(d.health[detail]):''))).join('')+kv('Emergency instructions',esc(d.health.emergencyInstructions||'Not supplied')))+
-    rows('Permissions & setup',kv('Facebook photo permission',esc(d.facebook))+kv('Communication recipients',esc((d.requestedRecipients||d.recipients||[]).join(', ')))+kv('Birth certificate',d.documents.birthCertificate?'Provided':'Not provided')+(d.starter.uniform?kv('Uniform size',esc(d.starter.uniform)):''));
+    rows('Guardians',d.guardians.map(applicationGuardianReview).join(''))+
+    (d.legalRestrictions?.answer?rows('Legal arrangements',kv('Restrictions / special arrangements',esc(d.legalRestrictions.answer)+(d.legalRestrictions.answer.startsWith('Yes')?` · ${esc(d.legalRestrictions.details||'')}`:''))):'')+applicationEmergencySummary(d)+
+    rows('Health & care',[['Allergies','allergies','allergyDetails'],['Medical conditions','conditions','conditionDetails'],['Regular medication','medication','medicationDetails'],['Dietary restrictions','dietary','dietaryDetails'],['Other health/care','other','otherDetails']].map(([label,key,detail])=>kv(label,esc(d.health[key])+(d.health[key]==='Yes'?' · '+esc(d.health[detail]):''))).join('')+(d.health.medication==='Yes'?kv('Preschool to give medication',esc(d.health.preschoolAdministration||'Not answered')):'')+kv('Emergency instructions',esc(d.health.emergencyInstructions||'Not supplied')))+
+    rows('Permissions & setup',kv('Facebook photo permission',esc(d.facebook))+kv('Family communications',esc((d.requestedRecipients||d.recipients||[]).join(', ')))+kv('Birth certificate',mpsBirthCertificateState(d.documents).label)+(d.starter.uniform?kv('Uniform size',esc(d.starter.uniform)):''));
 }
 renderParentApplication=function(){
   const id=ui().parentApplicationCase,c=db.admissions[id];if(!c)return '';
@@ -55483,7 +56129,7 @@ renderParentApplication=function(){
   if(editable)ui().parentApplicationStep=step;
   const d=editable?applicationFamilyDraft(id):null,a=c.application.draft||{};
   const submitted=!!c.application.snapshot||['submitted','accepted','declined','withdrawn'].includes(c.application.status);
-  const body=editable?(step<5?applicationFamilyFields(id,step):applicationFamilySummary({...a,family:d})+textArea('Anything else you’d like the preschool to know?',a.note||'','pa_note')):notice(submitted?'Your submitted Application is retained. No further parent form is required.':'This Application is not available for submission.','info');
+  const body=editable?(step<5?applicationFamilyFields(id,step):applicationFamilySummary({...a,family:d})):notice(submitted?'Your submitted Application is retained. No further parent form is required.':'This Application is not available for submission.','info');
   return `<div class="parent-view"><div style="max-width:680px;margin:0 auto 8px;text-align:right">${btn('Exit parent preview','exitParentPreview()','secondary','sm')}</div><div class="parent-card"><div class="parent-brand"><strong>${esc(mpsOrganisationName())}</strong><p>Secure Application</p></div><div class="parent-content"><div class="stepper">${applicationSections.map((_,i)=>`<span class="${i<step?'active':''}"></span>`).join('')}</div><div class="eyebrow">${editable?`Step ${step} of 5`:''}</div><h2>${editable?applicationSections[step-1]:(submitted?'Application submitted':'Application unavailable')}</h2>${body}${editable?`<div class="parent-foot">${step>1?btn('Back',`applicationFamilyBack('${id}')`,'secondary'):'<span></span>'}${btn(step===5?'Submit application':'Continue',step===5?`submitApplication('${id}')`:`appContinue('${id}')`,'primary')}</div>`:''}</div></div></div>`;
 };
 syncApplicationDraft=function(id){
@@ -55496,36 +56142,72 @@ syncApplicationDraft=function(id){
         for(const [key,suffix] of [['name','name'],['relationship','rel'],['dob','dob'],['working','work']]){
           const value=val(`po_g${i}_${suffix}`);g[key]=value.startsWith('Select')?'':value;
         }
+        g.legalAuthority=['Mother','Father'].includes(g.relationship)?'':(val(`po_g${i}_auth`).startsWith('Select')?'':val(`po_g${i}_auth`));
         g.phoneCountry=val(`po_g${i}_phone_country`)||mpsOnboardingPhoneCountry(id,g);
         const phone=mpsOptionalNormalisePhone(val(`po_g${i}_phone`),g.phoneCountry);
         g.phone=phone.ok?phone.value:val(`po_g${i}_phone`);
         g.company=g.working==='Yes'?val(`po_g${i}_company`):'';
+        g.jobTitle=g.working==='Yes'?val(`po_g${i}_job_title`):'';
+        g.communicationRequested=!!document.querySelector(`[data-guardian-communications="${i}"]`)?.checked;
       });
+      d.legalRestrictions={answer:val('po_legal_restrict').startsWith('Select')?'':val('po_legal_restrict'),details:val('po_legal_restrict').startsWith('Yes')?val('po_legal_details'):''};
+      const choices=applicationRecipientChoices(id);
+      d.requestedRecipientGuardianIds=choices.filter(({g})=>g.communicationRequested).map(({id})=>id);
+      d.requestedRecipients=choices.filter(({g})=>g.communicationRequested).map(({g})=>g.name);
+      const selected=val('po_emergency_choice');
+      if(selected.startsWith('guardian:')){
+        const choice=choices.find(({id})=>id===selected.slice(9));
+        d.emergency=choice?{kind:'guardian',guardianId:choice.id,name:choice.g.name,relationship:choice.g.relationship,phone:choice.g.phone,phoneCountry:choice.g.phoneCountry||mpsOnboardingPhoneCountry(id,choice.g)}:{};
+      }else if(selected==='other'){
+        const previous=d.emergency?.kind==='other'?d.emergency:{};
+        d.emergency={kind:'other',contactId:previous.contactId||'contact_'+crypto.randomUUID(),name:byId('po_ec_name')?val('po_ec_name').trim():previous.name||'',relationship:byId('po_ec_relationship')&&!val('po_ec_relationship').startsWith('Select')?val('po_ec_relationship'):previous.relationship||'',phone:byId('po_ec_phone')?val('po_ec_phone').trim():previous.phone||'',phoneCountry:byId('po_ec_country')?val('po_ec_country'):previous.phoneCountry||mpsDefaultPhoneCountry()};
+      }else d.emergency={};
     }else if(step===4){
       const recipients=d.recipients,ids=d.recipientGuardianIds;
-      const selected=Array.from(document.querySelectorAll('[data-recipient]:checked')).map(x=>x.value),choices=applicationRecipientChoices(id);
       syncOnboarding(id,5);
       d.recipients=recipients;d.recipientGuardianIds=ids;
-      d.requestedRecipientGuardianIds=selected.filter(id=>choices.some(x=>x.id===id));
-      d.requestedRecipients=d.requestedRecipientGuardianIds.map(id=>choices.find(x=>x.id===id).g.name);
     }else syncOnboarding(id,step>2?step+1:step);
-    if(step===3)for(const [key,detail] of applicationHealthDetails)if(d.health[key]==='No')d.health[detail]='';
+    if(step===3){
+      d.health.preschoolAdministration=d.health.medication==='Yes'?(byId('po_medication_at_preschool')?val('po_medication_at_preschool'):d.health.preschoolAdministration||''):'';
+      if(d.health.preschoolAdministration==='Select…')d.health.preschoolAdministration='';
+      for(const [key,detail] of applicationHealthDetails)if(d.health[key]==='No')d.health[detail]='';
+    }
     d.starter.books=books;
     if(step===1){a.daycarePlanId=careInput('pa_service');a.service=careLabel(a.daycarePlanId);a.start=val('pa_start')}
-  }else a.note=val('pa_note');
+  }
   Object.assign(a,{childName:d.child.legalName,dob:d.child.dob,guardian:d.guardians[0]?.name||'',phone:d.guardians[0]?.phone||''});save();
 };
 function validateApplicationFamilyStep(id,step){
   const c=db.admissions[id],d=applicationFamilyDraft(id);
   if(step===4){
-    if(!d.facebook||!d.requestedRecipientGuardianIds?.length||(applicationUniformConfigured(c)&&!d.starter.uniform)){alert('Please complete photo consent, communication recipients and any configured uniform size.');return false}
+    if(!d.facebook||(applicationUniformConfigured(c)&&!d.starter.uniform)){alert('Please complete photo consent and any configured uniform size.');return false}
     return true;
   }
   if(step===2){
-    if(!d.guardians.length||d.guardians.some(g=>!g.name||!g.relationship||!g.dob||!g.working||(g.working==='Yes'&&!g.company))){alert('Please complete the required guardian details.');return false}
+    if(!d.guardians.length||d.guardians.some(g=>!g.name||!g.relationship||!g.dob||!g.working)){alert('Please complete the required guardian details.');return false}
+    if(d.guardians.some(g=>!['Mother','Father'].includes(g.relationship)&&!['Yes','No'].includes(g.legalAuthority))){alert('Choose Yes or No for each other person’s legal guardianship.');return false}
+    if(d.guardians.some(g=>g.working==='Yes'&&(!g.company?.trim()||!g.jobTitle?.trim()))){alert('For each working guardian, enter a Workplace / company name and Job title.');return false}
+    if(!d.legalRestrictions?.answer||(d.legalRestrictions.answer.startsWith('Yes')&&!d.legalRestrictions.details?.trim())){alert('Complete the family legal restrictions question.');return false}
+    if(!d.requestedRecipientGuardianIds?.length){alert('Select at least one guardian for Family communications.');return false}
+    const choices=applicationRecipientChoices(id);
+    if(d.requestedRecipientGuardianIds.some(id=>!choices.some(choice=>choice.id===id))){alert('Select a captured guardian for Family communications.');return false}
     for(const g of d.guardians){const phone=mpsOptionalNormalisePhone(g.phone,mpsOnboardingPhoneCountry(id,g));if(!phone.ok){alert(phone.error);return false}}
     if(!d.guardians.some(g=>g.phone)){alert('At least one guardian must have the registered WhatsApp/mobile number.');return false}
+    const e=d.emergency||{};
+    if(e.kind==='guardian'){
+      const choice=choices.find(x=>x.id===e.guardianId);
+      if(!choice){alert('Choose a current Guardian for the emergency contact.');return false}
+      const phone=mpsNormalisePhone(choice.g.phone,mpsOnboardingPhoneCountry(id,choice.g));
+      if(!phone.ok){alert('Complete the selected Guardian’s usable phone number.');return false}
+      Object.assign(e,{name:choice.g.name,relationship:choice.g.relationship,phone:phone.value});
+    }else if(e.kind==='other'){
+      if(!e.contactId||!e.name||!e.relationship){alert('Enter the emergency contact name and relationship.');return false}
+      const phone=mpsNormalisePhone(e.phone,e.phoneCountry||mpsDefaultPhoneCountry());
+      if(!phone.ok){alert(`Emergency contact: ${phone.error}`);return false}
+      e.phone=phone.value;
+    }else{alert('Choose who we should contact in an emergency.');return false}
   }else if(!validateOnboardingStep(id,step>2?step+1:step))return false;
+  if(step===3&&d.health.medication==='Yes'&&!['Yes','No'].includes(d.health.preschoolAdministration)){alert('Please say whether the preschool needs to give this medication.');return false}
   if(step===1&&!(c.application.draft.daycarePlanId===null||offeredDaycarePlan(c.application.draft.daycarePlanId))){alert('Choose the agreed care arrangement.');return false}
   if(step===1&&(!c.application.draft.service||!c.application.draft.start)){alert('Please complete service and desired start.');return false}
   return true;
@@ -55548,11 +56230,13 @@ submitApplication=function(id){
 
   const c=db.admissions[id],o=c.onboarding,at=new Date().toISOString();
   const data=JSON.parse(JSON.stringify({...c.application.draft,family:o.draft}));
+  // An older in-progress draft may still carry the retired field. Never copy it into new evidence.
+  delete data.note;
   // Deferred safety facts are not represented as parent Application evidence.
   delete data.family.child.photo;
-  data.family.guardians.forEach(g=>delete g.legalAuthority);
-  for(const key of ['legalRestrictions','emergency','pickup','recipients','recipientGuardianIds'])delete data.family[key];
-  c.application.snapshot={submittedAt:at,source:'Parent Application',data};c.application.status='submitted';
+  for(const key of ['pickup','recipients','recipientGuardianIds'])delete data.family[key];
+  if(c.application.snapshot)c.applicationVersions=[...(c.applicationVersions||[]),c.application.snapshot];
+  c.application.snapshot={versionId:'application_'+crypto.randomUUID(),submittedAt:at,source:'Parent Application',data};c.application.status='submitted';
   if(c.application.link){c.application.link.status='Submitted';c.application.link.submittedAt=at}
   // Existing profile/readiness consumers reuse this evidence; no Health approval.
   o.status='submitted';o.submittedAt=at;o.healthConfirmed=false;
@@ -55566,50 +56250,232 @@ submitApplication=function(id){
 // No second parent collection workflow. Historical evidence remains stored.
 sendOnboarding=function(){return};
 submitOnboarding=function(){return};
-renderParentOnboarding=function(){return `<div class="parent-view"><div class="parent-card"><div class="parent-content"><h2>Family information</h2><p>Family information is collected through the Application. No second parent form is required.</p>${btn('Exit parent preview','exitParentPreview()','secondary')}</div></div></div>`};
+renderParentOnboarding=function(){return `<div class="parent-view"><div class="parent-card"><div class="parent-content"><h2>Family information</h2><p>The preschool already has your family information from the application. There is nothing more to fill in here.</p>${btn('Exit parent preview','exitParentPreview()','secondary')}</div></div></div>`};
 openParentOnboarding=function(id){ui().parentApplicationCase=id;ui().parentApplicationStep=1;ui().route='parent-application';save();render()};
 // Read operational safety setup without rewriting the parent-submitted evidence.
 const applicationPreviousSafetyComplete=onboardingSafetyComplete;
-onboardingSafetyComplete=function(o){
-  const c=Object.values(db.admissions).find(c=>c.onboarding===o);
-  if(!c?.application?.snapshot?.data?.family||!db.family?.[c.childId])return applicationPreviousSafetyComplete(o);
+function applicationGuardianIdentitySetup(c){
+  const family=c.application?.snapshot?.source==='Parent Application'?c.application.snapshot.data?.family:null;
+  if(!family||!c.childId||!db.people?.children?.[c.childId])return null;
+  // Older submissions without stable Guardian identities keep their historical readiness path.
+  if(!family.guardians?.length||family.guardians.some(g=>!g.guardianId))return null;
+  const guardians=family.guardians||[],links=childLinks(c.childId).filter(l=>l.caseId===c.id&&familyPersonCurrent(c.childId,l.guardianId)&&l.familyMember!==false);
+  const complete=c.application.status==='accepted'&&guardians.length>0&&guardians.every(g=>{
+    const link=links.find(l=>l.guardianId===g.guardianId),person=link&&db.people.guardians[link.guardianId];
+    return !!(link&&person?.name&&person.dob&&link.relationship&&person.working&&
+      (person.working==='No'||(person.company&&person.jobTitle))&&
+      (['Mother','Father'].includes(link.relationship)||['Yes','No'].includes(link.declaredLegalAuthority||link.legalAuthority)));
+  })&&links.some(l=>db.people.guardians[l.guardianId]?.phone)&&['Yes','No'].includes(family.legalRestrictions?.answer);
+  return {complete,links};
+}
+function applicationGuardianLegalReadiness(c){
+  const setup=applicationGuardianIdentitySetup(c);
+  if(!setup)return null;
+  if(!setup.complete)return 'Outstanding';
+  return setup.links.some(mpsEffectiveGuardianAuthority)?'Confirmed':'Outstanding';
+}
+function applicationEmergencyReady(c){
+  if(!c.childId||!db.people?.children?.[c.childId])return false;
+  const emergency=familyRecord(c.childId).emergency;
+  return !!(emergency?.guardianId&&db.people.guardians[emergency.guardianId]&&emergency.name&&emergency.relationship&&mpsNormalisePhone(emergency.phone,emergency.phoneCountry||mpsDefaultPhoneCountry()).ok&&
+    childLinks(c.childId).some(l=>l.guardianId===emergency.guardianId&&!l.deactivated));
+}
+function applicationPickupReady(c){
+  if(!c.childId||!db.people?.children?.[c.childId])return false;
+  const pickup=familyRecord(c.childId).pickup||[];
+  return !!(pickup.length&&pickup.every(p=>p.name&&p.relationship&&p.photo&&(p.verificationPhoto||p.photoName)));
+}
+function carryApplicationEmergencyContact(c){
+  const e=c.application?.snapshot?.source==='Parent Application'?c.application.snapshot.data?.family?.emergency:null;
+  if(c.application?.status!=='accepted'||!c.enrolment||!c.childId||!e||!['guardian','other'].includes(e.kind))return;
+  const record=editableFamily(c.childId);
+  if(record.emergency?.sourceApplicationCaseId===c.id)return;
+  let personId=e.kind==='guardian'?e.guardianId:e.contactId;
+  if(!personId)return;
+  if(e.kind==='guardian'){
+    if(!childLinks(c.childId).some(l=>l.caseId===c.id&&l.guardianId===personId&&l.familyMember!==false&&!l.deactivated))return;
+  }else{
+    if(!db.people.guardians[personId])db.people.guardians[personId]={id:personId,name:e.name,phone:e.phone,history:[]};
+    const linkId='family_'+c.childId+'_'+personId;
+    if(!childLinks(c.childId).some(l=>l.guardianId===personId))db.people.links[linkId]={id:linkId,childId:c.childId,guardianId:personId,relationship:e.relationship,familyMember:false,source:'Parent Application emergency contact',history:[]};
+  }
+  const person=db.people.guardians[personId];
+  record.emergency={guardianId:personId,name:person.name,phone:person.phone,relationship:e.kind==='guardian'?childLinks(c.childId).find(l=>l.guardianId===personId)?.relationship:e.relationship,source:'Parent Application',sourceApplicationCaseId:c.id};
+  record.history=record.history||[];
+  record.history.push({actor:staffActor(),at:new Date().toISOString(),text:'Emergency contact reused from reviewed Application',sourceApplicationCaseId:c.id,guardianId:personId});
+}
+function applicationOperationalReadinessDraft(c){
+  const o=c.onboarding;
+  const base={...o.draft,health:initialHealthSubmission(c)?.health||o.draft.health};
+  if(!c.application?.snapshot?.data?.family||!db.family?.[c.childId])return base;
   const family=familyRecord(c.childId),links=childLinks(c.childId).filter(l=>familyPersonCurrent(c.childId,l.guardianId)&&l.familyMember!==false);
-  const draft={...o.draft,guardians:links.map(l=>({...db.people.guardians[l.guardianId],relationship:l.relationship,legalAuthority:l.legalAuthority})),emergency:family.emergency,pickup:family.pickup,recipients:family.recipientGuardianIds};
+  const draft={...base,guardians:links.map(l=>({...db.people.guardians[l.guardianId],relationship:l.relationship,legalAuthority:l.legalAuthority})),emergency:family.emergency,pickup:family.pickup,recipients:family.recipientGuardianIds};
   if(links.length&&links.every(l=>['Yes','No'].includes(l.legalAuthority))){
     const details=links.map(l=>l.legalRestrictions||'').filter(Boolean).join('; ');
     draft.legalRestrictions={answer:details?'Yes':'No',details};
   }
-  return applicationPreviousSafetyComplete({...o,draft});
+  return draft;
+}
+onboardingSafetyComplete=function(o){
+  const c=Object.values(db.admissions).find(c=>c.onboarding===o);
+  if(c&&applicationGuardianLegalReadiness(c)!==null){
+    const d=applicationOperationalReadinessDraft(c),h=d.health||{},detailOk=(answer,detail)=>answer==='No'||(answer==='Yes'&&!!String(detail||'').trim());
+    const childOk=!!(d.child?.legalName&&d.child?.preferred&&d.child?.dob&&d.child?.gender&&d.child?.address&&Array.isArray(d.child.languages)&&d.child.languages.length);
+    const siblingOk=d.child?.hasSiblings==='No'||(d.child?.hasSiblings==='Yes'&&d.child.siblings?.length&&d.child.siblings.every(s=>s.relationship&&s.dob));
+    const healthOk=detailOk(h.allergies,h.allergyDetails)&&detailOk(h.conditions,h.conditionDetails)&&detailOk(h.medication,h.medicationDetails)&&detailOk(h.dietary,h.dietaryDetails)&&detailOk(h.other,h.otherDetails);
+    return !!(childOk&&siblingOk&&applicationGuardianLegalReadiness(c)==='Confirmed'&&applicationEmergencyReady(c)&&applicationPickupReady(c)&&healthOk&&d.facebook&&linkedRecipientIds(c.childId).length);
+  }
+  return applicationPreviousSafetyComplete(c?{...o,draft:applicationOperationalReadinessDraft(c)}:o);
 };
 const applicationPreviousPrestart=admissionPrestart;
+function prestartReadinessRow(key,label,state,tone,action=''){
+  return `<div class="prestart-readiness-row" data-prestart-check="${key}"><strong>${label}</strong>${badge(state,tone)}${action?`<div class="prestart-readiness-action">${action}</div>`:''}</div>`;
+}
+function prestartSourceRow(key,label,state,tone,go,action=''){
+  const content=`<strong>${label}</strong>${badge(state,tone)}<span class="prestart-source-chevron" aria-hidden="true">›</span>`;
+  return `<div class="prestart-source-wrap" data-prestart-check="${key}">${go?`<button type="button" class="prestart-source-row" onclick="${go}">${content}</button>`:`<div class="prestart-source-row">${content}</div>`}${action?`<div class="prestart-readiness-action">${action}</div>`:''}</div>`;
+}
+function prestartApplicableItems(c){
+  const childId=c.childId||c.id,child=db.people?.children?.[childId];
+  if(!child)return mpsOnboardingStarterItems(c.onboarding).map(item=>({...item,scope:'Preschool'}));
+  const enrolment=childEnrolment(child);
+  if(!enrolment)return mpsOnboardingStarterItems(c.onboarding).map(item=>({...item,scope:'Preschool'}));
+  const authorised=new Set((enrolment.careArrangements||[]).filter(arr=>arr.status==='authorised').map(arr=>arr.id));
+  return mpsChildItemSources(childId).filter(item=>item.scope==='Preschool'||(item.scope==='Daycare'&&item.careArrangementId&&authorised.has(item.careArrangementId)));
+}
+function prestartItemRow(c,item){
+  const done=mpsItemDone(item),family=item.suppliedBy==='Family',scope=item.scope==='Daycare'?'Daycare':'Preschool';
+  const state=done?(family?'Received':scope==='Daycare'?'Provided':'Collected'):(family?'Outstanding':scope==='Daycare'?'Pending provision':'Pending collection');
+  const childId=c.childId||c.id,initial=item.origin==='Pre-start'||item.id==='legacy-books';
+  const canComplete=initial?allowed('admissions'):canManageChild(childId);
+  const command=item.id==='legacy-books'?`markStarterComplete('${c.id}')`:initial?`mpsMarkStarterItem('${c.id}','${item.configuredItemId}')`:`mpsCompleteChildItem('${childId}','${item.id}')`;
+  const action=!done&&canComplete?btn(mpsItemWholeAction(item,family?'received':scope==='Daycare'?'provided':'collected'),command,'secondary','sm'):'';
+  return prestartReadinessRow(`starter-${esc(item.id)}`,`${item.quantity>1?`${item.quantity} × `:''}${esc(item.name)}`,state,done?'green':'amber',action);
+}
 admissionPrestart=function(c){
-  const template=document.createElement('template');
-  template.innerHTML=applicationPreviousPrestart(c);
-  for(const heading of template.content.querySelectorAll('h3')){
-    if(heading.textContent==='Parent onboarding')heading.closest('.card').innerHTML=`<h3>Application information</h3><p>${c.application.snapshot?.data?.family?'Submitted family information is reused for staff review.':'Existing submitted evidence is retained. Missing information remains outstanding for staff follow-up.'}</p>`;
-    if(heading.textContent==='New Family Onboarding link')heading.closest('.card').remove();
+  if(!c.enrolment)return applicationPreviousPrestart(c);
+  const o=ensureOnboarding(c.id),d=applicationOperationalReadinessDraft(c),childId=c.childId||c.id;
+  const detailOk=(answer,detail)=>answer==='No'||(answer==='Yes'&&!!String(detail||'').trim());
+  const childOk=!!(d.child?.legalName&&d.child?.preferred&&d.child?.dob&&d.child?.gender&&d.child?.address&&Array.isArray(d.child?.languages)&&d.child.languages.length);
+  const siblingOk=d.child?.hasSiblings==='No'||(d.child?.hasSiblings==='Yes'&&d.child.siblings?.length&&d.child.siblings.every(s=>s.relationship&&s.dob));
+  const guardiansOk=!!(d.guardians?.length&&d.guardians.every(g=>g.name&&g.relationship&&g.dob&&g.legalAuthority&&g.working&&(g.working==='No'||g.company))&&d.guardians.some(g=>g.legalAuthority==='Yes'&&g.phone));
+  const legalOk=!!(d.legalRestrictions?.answer&&(d.legalRestrictions.answer==='No'||String(d.legalRestrictions.details||'').trim()));
+  const emergencyOk=!!(d.emergency?.name&&d.emergency?.relationship&&d.emergency?.phone);
+  const pickupOk=!!(d.pickup?.length&&d.pickup.every(p=>p.name&&p.relationship&&p.photo));
+  const h=d.health||{};
+  const healthDetailsOk=detailOk(h.allergies,h.allergyDetails)&&detailOk(h.conditions,h.conditionDetails)&&detailOk(h.medication,h.medicationDetails)&&detailOk(h.dietary,h.dietaryDetails)&&detailOk(h.other,h.otherDetails);
+  const communicationsOk=!!d.recipients?.length,photoOk=!db.people||childPhotoReady(c),submitted=o.status==='submitted';
+  const safetyReady=mpsApplicationBaseReadiness(c),starterItems=prestartApplicableItems(c),birthReceived=mpsBirthCertificateState(o.draft.documents).complete;
+  const practicalRemaining=Number(!birthReceived)+starterItems.filter(item=>!mpsItemDone(item)).length;
+  const familyGo=canOpenChildProfile(childId)?`openApplicationFamilySetup('${childId}')`:'';
+  const healthGo=allowed('health')&&canViewChildHealth(childId)?`openHealthForChild('${childId}')`:'';
+  const healthAction=!o.healthConfirmed&&submitted&&has('Head Teacher')?btn('Review Health',`openModal('review-health',{caseId:'${c.id}'})`,'secondary','sm'):'';
+  const childAction=canManageChild(childId)?btn('Open child profile',`openChildProfile('${childId}')`,'secondary','sm'):'';
+  const applicationAction=allowed('admissions')?btn('Open Application',"setAdmissionTab('application')",'secondary','sm'):'';
+  const applicationGuardianState=applicationGuardianLegalReadiness(c);
+  const guardianState=applicationGuardianState??(guardiansOk&&legalOk?'Confirmed':'Outstanding');
+  const guardianReady=guardianState==='Confirmed',emergencyReady=applicationGuardianState!==null?applicationEmergencyReady(c):emergencyOk,pickupReady=applicationGuardianState!==null?applicationPickupReady(c):pickupOk,healthReady=healthDetailsOk&&o.healthConfirmed;
+  const communicationsReady=!!(applicationGuardianState!==null?linkedRecipientIds(childId).length:communicationsOk);
+  const safetyEntries=[
+    {done:guardianReady,html:prestartSourceRow('guardian','Guardian & legal authority',guardianState,guardianReady?'green':'amber',familyGo)},
+    {done:emergencyReady,html:prestartSourceRow('emergency','Emergency contact',emergencyReady?'Confirmed':'Outstanding',emergencyReady?'green':'amber',familyGo)},
+    {done:pickupReady,html:prestartSourceRow('pickup','Authorised pickup',pickupReady?'Confirmed':'Outstanding',pickupReady?'green':'amber',familyGo)},
+    {done:healthReady,html:prestartSourceRow('health','Health',healthReady?'Confirmed':submitted&&healthDetailsOk?'Review required':'Outstanding',healthReady?'green':'amber',healthGo,healthAction)},
+    {done:communicationsReady,html:prestartSourceRow('communications','Family communications',communicationsReady?'Confirmed':'Outstanding',communicationsReady?'green':'amber',familyGo)}
+  ];
+  let medicationCheck=null;
+  if(typeof mpsMedicationRequirement==='function'){
+    const requirement=mpsMedicationRequirement(childId),auth=mpsMedicationAuthorisation(childId),medReady=requirement==='home_only'||requirement==='not_reported'||requirement==='required'&&mpsMedicationValid(auth);
+    if(requirement==='required'||requirement==='clarify')medicationCheck=medReady;
+    if(requirement==='required'||requirement==='clarify')safetyEntries.push({done:medReady,html:prestartSourceRow('medication-authorisation','Medication authorisation',requirement==='clarify'?'Review required':medReady?'Current':auth?.pendingReplacement||auth?.status==='awaiting_signed_form'?'Awaiting signed form':auth?mpsMedicationCurrentLabel(auth):'Required',medReady?'green':'amber',allowed('health')?`openMedicationForChild('${childId}')`:'')});
   }
-  if(c.enrolment&&c.application.snapshot?.data?.family){
-    const childId=c.childId||c.id;
-    for(const row of template.content.querySelectorAll('.child-row')){
-      const label=row.querySelector('strong')?.textContent;
-      if(['Guardian & legal authority','Emergency & pickup'].includes(label)){
-        const links=childLinks(childId).filter(l=>l.familyMember!==false&&familyPersonCurrent(childId,l.guardianId)),f=familyRecord(childId);
-        const complete=label==='Guardian & legal authority'?links.length&&links.every(l=>['Yes','No'].includes(l.legalAuthority)):f.emergency?.name&&f.emergency?.phone&&f.pickup.length&&f.pickup.every(p=>p.name&&p.relationship&&p.photo);
-        row.innerHTML=`<strong>${label}</strong><span>${badge(complete?'Recorded':'Outstanding',complete?'green':'amber')}</span><span class="hide-mobile">Confirm in Family & pickup</span><span>${canManageChild(childId)?btn('Manage',`openApplicationFamilySetup('${childId}')`,'secondary','sm'):''}</span>`;
-      }
-    }
-  }
-  return template.innerHTML;
+  if(!childOk||!siblingOk||!d.facebook)safetyEntries.push({done:false,html:prestartReadinessRow('child-information','Child information & permissions','Outstanding','amber',applicationAction)});
+  if(!photoOk)safetyEntries.push({done:false,html:prestartReadinessRow('photo','Child photo','Outstanding','amber',childAction)});
+  if(!submitted)safetyEntries.push({done:false,html:prestartReadinessRow('submission','Application submission','Outstanding','amber',applicationAction)});
+  if(!safetyReady&&submitted&&guardianReady&&emergencyReady&&pickupReady&&healthReady&&communicationsOk&&childOk&&siblingOk&&d.facebook&&photoOk)safetyEntries.push({done:false,html:prestartReadinessRow('other','Readiness review','Review required','amber',applicationAction)});
+  const completedSafety=safetyEntries.filter(entry=>entry.done),pendingSafety=safetyEntries.filter(entry=>!entry.done);
+  const safetyRows=safetyEntries.map(entry=>entry.html).join('');
+  const documentRows=(typeof mpsSignedApplicationPrestart==='function'?mpsSignedApplicationPrestart(c):'')+mpsBirthCertificateStaffRow(c);
+  const itemRows=['Preschool','Daycare'].map(scope=>{
+    const items=starterItems.filter(item=>item.scope===scope);
+    const uniformSize=scope==='Preschool'?c.onboarding?.childSetup?.uniformSize:null;
+    return items.length||uniformSize?`<h4 class="prestart-item-scope">${scope}</h4>${uniformSize?kv('Uniform size',esc(uniformSize)):''}${items.map(item=>prestartItemRow(c,item)).join('')}`:'';
+  }).join('');
+  const signedRequired=typeof mpsSignedApplicationVersion==='function'&&!!mpsSignedApplicationVersion(c),signedReady=signedRequired&&mpsSignedApplicationValid(c);
+  const completeCount=Number(guardianReady)+Number(emergencyReady)+Number(pickupReady)+Number(healthReady)+Number(communicationsOk)+Number(birthReceived)+Number(signedReady)+Number(medicationCheck===true)+starterItems.filter(mpsItemDone).length;
+  const percent=Math.round(100*completeCount/(6+Number(signedRequired)+Number(medicationCheck!==null)+starterItems.length));
+  const starterInvoice=mpsStarterPackInvoice(c);
+  const discardedStarter=Object.values(db.billing?.invoices||{}).some(inv=>inv.category==='starter_pack'&&inv.admissionsCaseId===c.id&&inv.status==='discarded');
+  const billingLink=starterInvoice?.status==='draft'&&allowed('billing')?`<div class="prestart-starter-billing-link"><span>Starter Pack draft</span>${btn('Open in Billing',`openBillingInvoice('${starterInvoice.id}')`,'secondary','sm')}</div>`
+    :!starterInvoice&&discardedStarter&&allowed('billing')?`<div class="prestart-starter-billing-link"><span>Starter Pack charge still needs Billing</span>${btn('Prepare draft',`mpsReprepareStarterPackDraft('${c.id}')`,'secondary','sm')}</div>`:'';
+  const documentTotal=1+Number(signedRequired),documentComplete=Number(birthReceived)+Number(signedRequired&&signedReady);
+  const itemsComplete=starterItems.filter(mpsItemDone).length,itemsTotal=starterItems.length;
+  const section=(key,title,icon,summary,complete,content)=>`<details class="prestart-section ${complete?'is-complete':'needs-work'}" data-prestart-section="${key}" ${key==='safety'||!complete?'open':''}><summary>${mpsLineIcon(icon)}<span class="prestart-section-label"><strong>${title}</strong><small>${summary}</small></span><span class="prestart-section-state">${complete?'Complete':'Needs attention'}</span><span class="prestart-section-chevron" aria-hidden="true">⌄</span></summary><div class="prestart-section-body">${content}</div></details>`;
+  return `${db.people?childPhotoPrestart(c):''}<div class="card prestart-readiness"><div class="prestart-setup-summary"><div><h3>Start setup</h3><p>${percent}% complete · ${practicalRemaining?`${practicalRemaining} document${practicalRemaining===1?' or item':'s or items'} remaining`:'Documents and items complete'}</p></div><div class="progress prestart-overall-progress" role="progressbar" aria-label="Overall Pre-start setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><span style="width:${percent}%"></span></div></div>${section('safety','Safety checks','heart-pulse',`${completedSafety.length} of ${safetyEntries.length} confirmed`,pendingSafety.length===0,safetyRows)}${section('documents','Documents','file-text',`${documentComplete} of ${documentTotal} complete`,birthReceived&&(!signedRequired||signedReady),documentRows)}${section('items','Items & equipment','clipboard-list',`${itemsComplete} of ${itemsTotal} complete`,itemsComplete===itemsTotal,itemRows||'<p>No items assigned.</p>')}${billingLink}</div>`;
 };
-function openApplicationFamilySetup(id){if(!canManageChild(id))return;openChildProfile(id);document.querySelectorAll('.profile-sections summary').forEach(h=>{if(h.textContent==='Family & pickup')h.scrollIntoView({block:'start'})})}
+function openApplicationFamilySetup(id){if(!canOpenChildProfile(id))return;openChildProfile(id);document.querySelectorAll('.profile-sections summary').forEach(h=>{if(h.textContent==='Family & pickup')h.scrollIntoView({block:'start'})})}
 const applicationPreviousReview=admissionApplication;
 admissionApplication=function(c){
   const html=admissionPlacementReview(c)+applicationPreviousReview(c),data=c.application?.snapshot?.data;
   if(!data?.family||!has('Head Teacher'))return html;
-  return html+`<details class="card application-details"><summary><span class="application-details-title">Application details</span><span class="application-provenance">Parent submitted</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></summary><div class="application-details-body">${applicationFamilySummary(data)}${data.note?kv('Anything else',esc(data.note)):''}</div></details>`;
+  return html+`<details class="card application-details"><summary><span class="application-details-title">Application details</span><span class="application-provenance">Parent submitted</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></summary><div class="application-details-body">${applicationFamilySummary(data)}${data.note?kv('Historical parent-submitted note',esc(data.note)):''}</div></details>`;
 };
 render();
+// BQ-150: a document status names the evidence actually retained.
+function mpsBirthCertificateState(documents){
+  const attachment=documents?.birthCertificateAttachment;
+  if(attachment?.data&&/^data:(application\/pdf|image\/(jpeg|png));base64,/.test(attachment.data))return {label:'Uploaded',complete:true,attachment};
+  if(documents?.birthCertificateReceivedInPerson?.at&&documents.birthCertificateReceivedInPerson.actor)return {label:'Received in person',complete:true};
+  if(documents?.birthCertificate||documents?.birthCertificateFile)return {label:'Previously recorded · copy unavailable',complete:false};
+  return {label:'Outstanding',complete:false};
+}
+function mpsBirthCertificateParentField(caseId,documents){
+  const state=mpsBirthCertificateState(documents);
+  return `<div class="field"><label for="po_birth_certificate">Birth certificate copy</label>${state.label==='Uploaded'?`<div class="notice ok">Uploaded · ${esc(state.attachment.name)}</div>`:state.label!=='Outstanding'?`<div class="notice info">${esc(state.label)}</div>`:''}<input id="po_birth_certificate" type="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" onchange="markParentDocUploaded('${caseId}',this.files[0])"><small>Choose a PDF, JPG or PNG copy under 750 KB.</small></div>`;
+}
+markParentDocUploaded=async function(caseId,file){
+  if(!applicationFamilyEditable(caseId)||!file)return false;
+  if(!['application/pdf','image/jpeg','image/png'].includes(file.type)||file.size>750*1024||!file.size){alert('Choose a PDF, JPG or PNG copy under 750 KB.');return false}
+  syncApplicationDraft(caseId);
+  const data=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>resolve(null);reader.readAsDataURL(file)});
+  if(typeof data!=='string'||!/^data:(application\/pdf|image\/(jpeg|png));base64,/.test(data)){alert('This copy could not be saved. Choose another file.');return false}
+  const documents=ensureOnboarding(caseId).draft.documents,previous={...documents};
+  documents.birthCertificateAttachment={id:'document_'+crypto.randomUUID(),data,name:file.name.slice(0,160),mimeType:file.type,size:file.size,uploadedAt:mpsPreschoolBusinessNow().toISOString(),source:'Parent Application'};
+  documents.birthCertificateFile=file.name.slice(0,160);
+  documents.birthCertificate=true;
+  if(!save()){for(const key of Object.keys(documents))delete documents[key];Object.assign(documents,previous);return false}
+  render();return true;
+};
+function mpsCanReadBirthCertificate(caseId){
+  const c=db.admissions?.[caseId];return !!c&&(allowed('admissions')||(has('Head Teacher')&&c.childId&&canViewChild(c.childId)));
+}
+function mpsViewBirthCertificate(caseId){
+  if(!mpsCanReadBirthCertificate(caseId)||!mpsBirthCertificateState(db.admissions[caseId].onboarding?.draft?.documents).attachment)return false;
+  openModal('birth-certificate-copy',{caseId});return true;
+}
+function mpsBirthCertificateStaffRow(c){
+  const state=mpsBirthCertificateState(c.onboarding?.draft?.documents);
+  const action=state.attachment&&mpsCanReadBirthCertificate(c.id)?mpsUtilityAction('View copy',`mpsViewBirthCertificate('${c.id}')`,'file-text')
+    :!state.complete&&allowed('admissions')?btn('Mark received',`markOnboardingDocument('${c.id}')`,'secondary','sm'):'';
+  return prestartReadinessRow('birth-certificate','Birth certificate copy',state.label,state.complete?'green':'amber',action);
+}
+markOnboardingDocument=function(caseId){
+  const c=db.admissions?.[caseId];if(!c?.enrolment||!allowed('admissions'))return false;
+  const documents=c.onboarding?.draft?.documents;if(!documents||mpsBirthCertificateState(documents).complete)return false;
+  const previous={...documents};
+  documents.birthCertificateReceivedInPerson={at:mpsPreschoolBusinessNow().toISOString(),actor:staffActor()};
+  documents.birthCertificate=true;
+  if(!save()){for(const key of Object.keys(documents))delete documents[key];Object.assign(documents,previous);return false}
+  render();return true;
+};
+const mpsBirthCertificateBaseModalView=modalView;
+modalView=function(m){
+  if(m?.name!=='birth-certificate-copy')return mpsBirthCertificateBaseModalView(m);
+  const caseId=m.data?.caseId,attachment=mpsCanReadBirthCertificate(caseId)?mpsBirthCertificateState(db.admissions[caseId].onboarding?.draft?.documents).attachment:null;
+  if(!attachment)return modal('Copy unavailable','',notice('No retrievable copy is available to your account.','warn'),btn('Close','closeOverlay()','secondary'));
+  const content=attachment.mimeType==='application/pdf'?`<iframe title="Birth certificate copy" src="${esc(attachment.data)}" style="width:100%;height:min(65vh,620px);border:0"></iframe>`:`<img src="${esc(attachment.data)}" alt="Birth certificate copy" style="display:block;max-width:100%;max-height:65vh;object-fit:contain;margin:auto">`;
+  return modal('Birth certificate copy',esc(attachment.name),content,btn('Close','closeOverlay()','secondary'));
+};
 // BQ-109. Local authentication model and provider simulators only.
 // Staff IDs own membership/history; auth identities own mutable verified email.
 // Production must replace browser state, credential storage, delivery and assertions.
@@ -55873,7 +56739,7 @@ render=function(){
 };
 mpsMigrateEmailAuth();save();
 // Preschool settings use the existing section authority and save validator on a workspace page.
-routes['preschool-settings']={label:'Preschool settings',icon:'⚙'};
+routes['preschool-settings']={label:'Preschool settings',icon:'settings'};
 function mpsCanOpenPreschoolSettings(){return !ui().signedOut&&(mpsCurrentIsAccountAdmin()||has('Head Teacher'))}
 const _settingsAllowed=allowed;
 allowed=function(route){return route==='preschool-settings'?mpsCanOpenPreschoolSettings()&&_settingsAllowed('calendar'):_settingsAllowed(route)};
@@ -55966,8 +56832,8 @@ mpsPreschoolSettingsContent=function(){
  const configured=mpsTenantCurriculum(),pack=mpsCurriculumPack(configured.primaryPackId),version=mpsCurrentCurriculumVersion(pack);
  const teaching=head?`<section class="card settings-overview-section" data-overview-section="teaching"><header><h3>Teaching setup</h3>${btn('Add level','mpsSettingsAddLevel()','secondary','sm')}</header><div class="settings-levels">${c.levels.filter(l=>!l.retired).map(l=>{
  const rooms=c.classrooms.filter(r=>r.levelId===l.id&&!r.retired),supported=!!mpsB09BandsForRange(l.minMonths,l.maxMonths);
- return `<article class="settings-level" data-settings-level="${esc(l.id)}"><div class="settings-level-summary" data-settings-read="level" data-read-id="${esc(l.id)}"><div><h4>${esc(l.name)}</h4><span>${supported?'Ages':'Existing planning range'} ${esc(educationAgeYears(l.minMonths))}–${esc(educationAgeYears(l.maxMonths))}${supported?'':' · Needs review'}</span></div>${mpsSettingsEditButton('Edit level','level',l.id)}</div><div data-settings-editor="level" data-editor-id="${esc(l.id)}" hidden>${levelFields.get(l.id)}</div>${mpsSettingsActions('level',l.id)}<div class="settings-classroom-summaries">${rooms.map(r=>`<div data-settings-read="room" data-read-id="${esc(r.id)}"><span>${esc(r.name)}</span>${mpsSettingsEditButton('Edit classroom','room',r.id)}</div>`).join('')}${btn('Add classroom',`mpsSettingsAddRoom('${l.id}')`,'secondary','sm')}</div><div data-settings-editor="rooms" data-editor-id="${esc(l.id)}" hidden>${roomFields.get(l.id)}</div>${mpsSettingsActions('room',l.id)}</article>`;
- }).join('')}</div><div id="settings-new-level" data-settings-editor="new-level" hidden><div id="add_education_level"></div><div id="education_rooms"></div></div>${mpsSettingsActions('new-level')}<div class="settings-curriculum" data-settings-section="curriculum"><header><h4>Curriculum</h4>${mpsSettingsEditButton('Edit curriculum','curriculum')}</header><div data-settings-read="curriculum"><dl>${mpsSettingsSummaryRow('Framework',pack?.name||'Not configured')}${mpsSettingsSummaryRow('Planning version',version?.label||'Not available')}${configured.adoptionDate?mpsSettingsSummaryRow('Adoption date',fmtDate(configured.adoptionDate)):''}</dl></div><div data-settings-editor="curriculum" hidden>${curriculumEditor}</div>${mpsSettingsActions('curriculum')}</div>${c.levels.some(l=>l.retired)||c.classrooms.some(r=>r.retired)?`<details class="settings-retired"><summary>Retired levels & classrooms</summary>${c.levels.filter(l=>l.retired).map(l=>`<p>${esc(l.name)} · Retired</p>`).join('')}${c.classrooms.filter(r=>r.retired).map(r=>`<p>${esc(educationLevel(r.levelId)?.name||'Level')} · ${esc(r.name)} · Retired</p>`).join('')}</details>`:''}</section>`:'';
+ return `<article class="settings-level" data-settings-level="${esc(l.id)}"><div class="settings-level-read"><div class="settings-level-summary" data-settings-read="level" data-read-id="${esc(l.id)}"><div><h4>${esc(l.name)}</h4><span>${supported?'Ages':'Existing planning range'} ${esc(educationAgeYears(l.minMonths))}–${esc(educationAgeYears(l.maxMonths))}${supported?'':' · Needs review'}</span></div>${mpsSettingsEditButton('Edit level','level',l.id)}</div><div class="settings-classroom-summaries"><div class="settings-classroom-list">${rooms.map(r=>`<div class="settings-classroom-row" data-settings-read="room" data-read-id="${esc(r.id)}"><span>${esc(r.name)}</span>${mpsSettingsEditButton('Edit classroom','room',r.id)}</div>`).join('')}</div>${btn('Add classroom',`mpsSettingsAddRoom('${l.id}')`,'secondary','sm')}</div></div><div data-settings-editor="level" data-editor-id="${esc(l.id)}" hidden>${levelFields.get(l.id)}</div>${mpsSettingsActions('level',l.id)}<div data-settings-editor="rooms" data-editor-id="${esc(l.id)}" hidden>${roomFields.get(l.id)}</div>${mpsSettingsActions('room',l.id)}</article>`;
+ }).join('')}</div><div id="settings-new-level" data-settings-editor="new-level" hidden><div id="add_education_level"></div><div id="education_rooms"></div></div>${mpsSettingsActions('new-level')}<div class="settings-curriculum" data-settings-section="curriculum"><header><h4>Curriculum</h4>${mpsSettingsEditButton('Edit curriculum','curriculum')}</header><div data-settings-read="curriculum"><dl>${mpsSettingsSummaryRow('Framework',pack?.name||'Not configured')}${mpsSettingsSummaryRow('Planning version',version?.label==='Prototype curriculum sample'?'Sample curriculum content':version?.label||'Not available')}${configured.adoptionDate?mpsSettingsSummaryRow('Adoption date',fmtDate(configured.adoptionDate)):''}</dl></div><div data-settings-editor="curriculum" hidden>${curriculumEditor}</div>${mpsSettingsActions('curriculum')}</div>${c.levels.some(l=>l.retired)||c.classrooms.some(r=>r.retired)?`<details class="settings-retired"><summary>Retired levels & classrooms</summary>${c.levels.filter(l=>l.retired).map(l=>`<p>${esc(l.name)} · Retired</p>`).join('')}${c.classrooms.filter(r=>r.retired).map(r=>`<p>${esc(educationLevel(r.levelId)?.name||'Level')} · ${esc(r.name)} · Retired</p>`).join('')}</details>`:''}</section>`:'';
  const operations=head?mpsSettingsCard('operations','Preschool operations',`<dl>${mpsSettingsSummaryRow('Preschool hours',`${staffTimeLabel(c.preschool.start)} – ${staffTimeLabel(c.preschool.end)}`)}${c.plans.map(p=>mpsSettingsSummaryRow(p.name,p.offered===false?'Not offered':`${staffTimeLabel(p.start)} – ${staffTimeLabel(p.end)}`)).join('')}</dl>`,operationEditor,mpsSettingsEditButton('Edit operations','operations')):'';
  const feeSummary=`<dl>${mpsSettingsSummaryRow('Currency','Sri Lankan Rupee (LKR)')}</dl><h4>Admission</h4><dl>${mpsSettingsSummaryRow('Admission fee',money(fees.admissionFee))}${mpsSettingsSummaryRow('Due after acceptance',fees.admissionDueDays+' days')}</dl><h4>Monthly fees</h4>${fees.monthlyReview?notice('Previous combined fees need review.','warn'):''}<dl>${mpsSettingsSummaryRow('Preschool monthly fee',money(fees.monthly.preschool))}${mpsSettingsSummaryRow('Standard Daycare add-on',money(fees.monthly.daycareAddons?.standard))}${mpsSettingsSummaryRow('Extended Daycare add-on',money(fees.monthly.daycareAddons?.extended))}${mpsSettingsSummaryRow('Monthly fee due day',mpsFeeOrdinalDay(fees.monthlyDueDay)+' of each month')}</dl><h4>Late pickup</h4><dl>${mpsSettingsSummaryRow('Charge a late pickup fee',fees.latePickupEnabled===false?'Off':'On')}${mpsSettingsSummaryRow('Grace period',fees.latePickupGraceMinutes+' minutes')}${mpsSettingsSummaryRow('Late pickup fee',money(fees.latePickupFee))}</dl>`;
  const feeCard=head?mpsSettingsCard('fees','Fees',feeSummary,feesEditor,mpsSettingsEditButton('Edit fees','fees')).replace('data-overview-section="fees"','data-overview-section="fees" data-settings-section="fees"'):'';
@@ -56020,6 +56886,87 @@ mpsFocusSchoolTermSettings=function(){mpsBeginSettingsEdit('academic');mpsFocusS
 const mpsOpenLevelPlanningSetupOriginal=mpsOpenLevelPlanningSetup;
 mpsOpenLevelPlanningSetup=function(day){const result=mpsOpenLevelPlanningSetupOriginal(day);if(result){const room=educationRoom(ui().lessonClass);mpsBeginSettingsEdit('level',room?.levelId||educationConfig().levels.find(l=>!l.retired)?.id||'')}return result};
 render();
+// BQ-137: tenant-owned practical starter items; no Billing writer is invoked here.
+function mpsStarterCatalogue(){return Array.isArray(db.organization?.starterItems)?db.organization.starterItems:[]}
+function mpsItemScope(item){return item.scope==='Daycare'?'Daycare':'Preschool'}
+function mpsIsBirthCertificateItem(name){return /birth certificate/i.test(String(name||''))}
+function mpsActiveStarterItems(scope='Preschool'){return mpsStarterCatalogue().filter(item=>item.active!==false&&mpsItemScope(item)===scope&&!mpsIsBirthCertificateItem(item.name))}
+function mpsItemRequiredQuantity(item){return Number.isSafeInteger(item?.requiredQuantity)&&item.requiredQuantity>=1?item.requiredQuantity:1}
+function mpsItemSnapshotPrice(item){return item?.suppliedBy==='Preschool'?(item.unitPrice??item.price??null):null}
+function mpsStarterSnapshot(){return mpsActiveStarterItems().map(item=>({id:item.id,assignmentId:'childitem_'+crypto.randomUUID(),configuredItemId:item.id,scope:'Preschool',name:item.name,quantity:mpsItemRequiredQuantity(item),suppliedBy:item.suppliedBy,price:mpsItemSnapshotPrice(item),unitPrice:mpsItemSnapshotPrice(item),status:item.suppliedBy==='Family'?'Outstanding':'Pending collection',createdAt:new Date().toISOString(),history:[]}))}
+function mpsItemWholeAction(item,verb){const quantity=Number.isSafeInteger(item?.quantity)&&item.quantity>1?item.quantity:1;return quantity>1?`Mark all ${quantity} ${verb}`:`Mark ${verb}`}
+const mpsPreviousSeedOnboarding=seedOnboarding;
+seedOnboarding=function(...args){
+  const onboarding=mpsPreviousSeedOnboarding(...args);
+  onboarding.starterItems=mpsStarterSnapshot();
+  // The former sample Books field is retained on historical records only.
+  // New onboarding receives exactly the configured item snapshot, including [].
+  if(onboarding.draft?.starter)delete onboarding.draft.starter.books;
+  if(onboarding.snapshot?.data?.starter)delete onboarding.snapshot.data.starter.books;
+  return onboarding;
+};
+function mpsOnboardingStarterItems(onboarding){
+  if(Array.isArray(onboarding?.starterItems))return onboarding.starterItems;
+  // Existing saved onboarding predates BQ-137. Keep its recorded Books status and
+  // meaning; never reinterpret it using the current tenant catalogue.
+  const books=onboarding?.draft?.starter?.books;
+  return books==='Collected'||books==='Pending collection'?
+    [{id:'legacy-books',name:'Books',suppliedBy:'Preschool',price:null,status:books==='Collected'?'Collected':'Outstanding'}]:[];
+}
+function mpsStarterItemDone(item){return item.suppliedBy==='Family'?item.status==='Received':item.status==='Collected'}
+const mpsPreviousOnboardingChecklistComplete=onboardingChecklistComplete;
+onboardingChecklistComplete=function(onboarding){
+  if(!Array.isArray(onboarding?.starterItems))return mpsPreviousOnboardingChecklistComplete(onboarding);
+  return !!onboarding.draft.documents?.birthCertificate&&onboarding.starterItems.every(mpsStarterItemDone);
+};
+function mpsMarkStarterItem(caseId,itemId){
+  const c=db.admissions?.[caseId];
+  if(!allowed('admissions')||!c?.enrolment||!Array.isArray(c.onboarding?.starterItems))return false;
+  const item=c.onboarding.starterItems.find(item=>item.id===itemId);if(!item)return false;
+  const before=item.status,history=[...(item.history||[])];item.status=item.suppliedBy==='Family'?'Received':'Collected';
+  (item.history||(item.history=[])).push({at:new Date().toISOString(),actor:staffActor(),text:item.status});
+  if(!save()){item.status=before;item.history=history;return false}render();return true;
+}
+let mpsStarterEditing=null,mpsStarterEditingScope='Preschool';
+const mpsPreviousBeginSettingsEdit=mpsBeginSettingsEdit;
+mpsBeginSettingsEdit=function(...args){if(mpsStarterEditing){showFeedback('Save or cancel the current item first.');return false}return mpsPreviousBeginSettingsEdit(...args)};
+const mpsPreviousSettingsContent=mpsPreschoolSettingsContent;
+mpsPreschoolSettingsContent=function(){
+  const existing=mpsPreviousSettingsContent();
+  if(!has('Head Teacher'))return existing;
+  const items=mpsStarterCatalogue().filter(item=>!mpsIsBirthCertificateItem(item.name));
+  const rows=scope=>items.filter(item=>mpsItemScope(item)===scope).map(item=>`<div class="starter-setting-row" data-starter-config="${esc(item.id)}"><div><strong>${esc(item.name)}</strong><small>Required: ${mpsItemRequiredQuantity(item)} · ${esc(item.suppliedBy)}${item.suppliedBy==='Preschool'&&mpsItemSnapshotPrice(item)!=null?' · '+money(mpsItemSnapshotPrice(item))+' each':''} · ${item.active===false?'Inactive':'Active'}</small></div><div class="starter-setting-actions">${btn('Edit',`mpsBeginStarterEdit('${item.id}')`,'secondary','sm')}${btn(item.active===false?'Activate':'Deactivate',`mpsSetStarterActive('${item.id}',${item.active===false})`,'secondary','sm')}</div></div>`).join('')+(!mpsActiveStarterItems(scope).length?`<p>No ${scope.toLowerCase()} items configured for new children.</p>`:'');
+  const item=items.find(row=>row.id===mpsStarterEditing),editing=!!mpsStarterEditing;
+  const form=editing?`<div class="starter-setting-editor"><div class="form-grid">${field('Item name',item?.name||'','text',false,'starter_item_name')}<div class="field"><label for="starter_item_provider">Supplied by</label><select id="starter_item_provider" onchange="mpsStarterProviderChanged()"><option value="Preschool" ${item?.suppliedBy!=='Family'?'selected':''}>Preschool</option><option value="Family" ${item?.suppliedBy==='Family'?'selected':''}>Family</option></select></div><div class="field"><label for="starter_item_quantity">Required quantity</label><input id="starter_item_quantity" type="number" min="1" max="100" step="1" inputmode="numeric" value="${mpsItemRequiredQuantity(item)}"><small>How many one child needs.</small></div><div class="field" id="starter_item_price_wrap" ${item?.suppliedBy==='Family'?'hidden':''}><label for="starter_item_price">Unit price · Rs (optional)</label><input id="starter_item_price" type="number" min="0" step="1" inputmode="numeric" value="${item?.suppliedBy==='Preschool'&&mpsItemSnapshotPrice(item)!=null?esc(String(mpsItemSnapshotPrice(item))):''}"></div></div><div class="starter-setting-actions">${btn('Cancel','mpsCancelStarterEdit()','secondary')}${btn('Save item','mpsSaveStarterItem()','primary')}</div></div>`:'';
+  return existing.replace(/<\/div>\s*$/,`<section class="card settings-overview-section starter-settings" data-overview-section="items-equipment"><header><h3>Items & equipment</h3></header>${['Preschool','Daycare'].map(scope=>`<div class="starter-settings-group"><header><h4>${scope}</h4>${!editing?btn('Add item',`mpsBeginStarterEdit('new','${scope}')`,'secondary','sm'):''}</header>${rows(scope)}${editing&&mpsStarterEditingScope===scope?form:''}</div>`).join('')}</section></div>`);
+};
+function mpsBeginStarterEdit(id,scope='Preschool'){
+  if(!has('Head Teacher')||!allowed('preschool-settings'))return false;
+  if(mpsSettingsEditing&&mpsSettingsSignature()!==mpsSettingsBaseline){showFeedback('Save or cancel the current edit first.');return false}
+  mpsSettingsEditing=null;mpsStarterEditing=id;mpsStarterEditingScope=id==='new'?scope:mpsItemScope(mpsStarterCatalogue().find(item=>item.id===id)||{});render();document.getElementById('starter_item_name')?.focus();return true;
+}
+function mpsCancelStarterEdit(){mpsStarterEditing=null;render()}
+function mpsStarterProviderChanged(){const wrap=document.getElementById('starter_item_price_wrap');if(wrap)wrap.hidden=val('starter_item_provider')==='Family';if(wrap?.hidden){const price=document.getElementById('starter_item_price');if(price)price.value=''}}
+function mpsSaveStarterItem(){
+  if(!has('Head Teacher')||!allowed('preschool-settings')||!mpsStarterEditing)return false;
+  const name=val('starter_item_name').trim(),suppliedBy=val('starter_item_provider'),raw=val('starter_item_price').trim(),quantityRaw=val('starter_item_quantity').trim();
+  if(!name||name.length>100||mpsIsBirthCertificateItem(name)||!['Preschool','Family'].includes(suppliedBy)){showFeedback('Enter an item name and who supplies it. Birth certificate copy belongs to Documents.');return false}
+  if(!/^\d+$/.test(quantityRaw)||!Number.isSafeInteger(Number(quantityRaw))||Number(quantityRaw)<1||Number(quantityRaw)>100){showFeedback('Enter a whole-number required quantity from 1 to 100.');return false}
+  if(suppliedBy==='Preschool'&&raw&&(!/^\d+$/.test(raw)||!Number.isSafeInteger(Number(raw)))){showFeedback('Enter a valid whole-number amount.');return false}
+  const price=suppliedBy==='Preschool'&&raw?Number(raw):null,items=mpsStarterCatalogue(),previous=JSON.parse(JSON.stringify(db.organization));
+  let item=items.find(row=>row.id===mpsStarterEditing);
+  if(!item){item={id:'item_'+crypto.randomUUID(),active:true};db.organization.starterItems=[...items,item]}
+  Object.assign(item,{name,scope:mpsStarterEditingScope,suppliedBy,requiredQuantity:Number(quantityRaw),unitPrice:price,price});
+  (db.organization.settingsHistory||(db.organization.settingsHistory=[])).push({at:new Date().toISOString(),byId:currentPersona().id,by:currentPersona().name,changes:[`starter item ${mpsStarterEditing==='new'?'added':'updated'}: ${name}`]});
+  if(!save()){db.organization=previous;return false}mpsStarterEditing=null;render();return true;
+}
+function mpsSetStarterActive(id,active){
+  if(!has('Head Teacher')||!allowed('preschool-settings'))return false;
+  const item=mpsStarterCatalogue().find(row=>row.id===id);if(!item)return false;
+  const before=JSON.parse(JSON.stringify(db.organization));item.active=active;
+  (db.organization.settingsHistory||(db.organization.settingsHistory=[])).push({at:new Date().toISOString(),byId:currentPersona().id,by:currentPersona().name,changes:[`starter item ${active?'activated':'deactivated'}: ${item.name}`]});
+  if(!save()){db.organization=before;return false}render();return true;
+}
 // BQ-111: separate, append-only financial records; issued invoices stay untouched.
 function billingFinance(){return db.billing.finance||{accounts:{},childAccounts:{},corrections:{},credits:{},applications:{},refunds:{}}}
 function billingFinanceWrite(){return db.billing.finance||(db.billing.finance=billingFinance())}
@@ -56032,7 +56979,7 @@ function billingActor(){return {actor:staffActor(),at:new Date().toISOString()}}
 function billingCustomerForInvoice(inv){const f=billingFinance();return f.accounts[f.childAccounts[inv.childId]]||null}
 function billingUses(creditId){return Object.values(billingFinance().applications).flatMap(a=>a.sources.filter(s=>s.creditId===creditId).map(s=>({amount:a.type==='release'?-s.amount:s.amount})))}
 function billingCreditAvailable(credit){const refunds=Object.values(billingFinance().refunds).flatMap(r=>r.sources.filter(s=>s.creditId===credit.id));return (billingCents(credit.amount)-billingUses(credit.id).reduce((sum,r)=>sum+Math.round(r.amount*100),0)-billingCents(billingSum(refunds)))/100}
-function billingAvailable(accountId,currency='LKR'){return Object.values(billingFinance().credits).filter(c=>c.accountId===accountId&&c.currency===currency).reduce((sum,c)=>sum+Math.round(billingCreditAvailable(c)*100),0)/100}
+function billingAvailable(accountId,currency='LKR',childId=null){return Object.values(billingFinance().credits).filter(c=>c.accountId===accountId&&c.currency===currency&&(!childId||(profileChildKey(c.childId)||c.childId)===(profileChildKey(childId)||childId))).reduce((sum,c)=>sum+Math.round(billingCreditAvailable(c)*100),0)/100}
 function billingInvoiceApplications(inv){return Object.values(billingFinance().applications).filter(a=>a.invoiceId===inv.id)}
 function billingApplied(inv){return billingInvoiceApplications(inv).reduce((sum,a)=>sum+(a.type==='release'?-1:1)*billingCents(a.amount),0)/100}
 function billingReductions(inv,kind){return billingSum(Object.values(billingFinance().corrections).filter(c=>c.invoiceId===inv.id&&(!kind||c.kind===kind)&&c.kind!=='additional'))}
@@ -56048,9 +56995,9 @@ function billingCorrectionLimit(inv,kind){
 function billingError(message){const el=byId('billing_error');if(el){el.textContent=message;el.classList.add('notice','warn');el.hidden=false;el.focus()}else alert(message);return false}
 function billingErrorMarkup(){return '<div id="billing_error" class="billing-credit-error" role="alert" tabindex="-1" hidden></div>'}
 function billingTransaction(action,deferSave=false){const before=JSON.parse(JSON.stringify(db));try{action();if(!deferSave&&!save()){db=before;return false}return true}catch(error){db=before;return billingError(error.message)}}
-function billingSources(accountId,currency,amount){
+function billingSources(accountId,currency,amount,childId=null){
   let left=billingCents(amount);const result=[];
-  for(const c of Object.values(billingFinance().credits).filter(c=>c.accountId===accountId&&c.currency===currency).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id))){const use=Math.min(left,Math.round(billingCreditAvailable(c)*100));if(use>0){result.push({creditId:c.id,amount:use/100});left-=use}if(left===0)break}
+  for(const c of Object.values(billingFinance().credits).filter(c=>c.accountId===accountId&&c.currency===currency&&(!childId||(profileChildKey(c.childId)||c.childId)===(profileChildKey(childId)||childId))).sort((a,b)=>a.at.localeCompare(b.at)||a.id.localeCompare(b.id))){const use=Math.min(left,Math.round(billingCreditAvailable(c)*100));if(use>0){result.push({creditId:c.id,amount:use/100});left-=use}if(left===0)break}
   if(left!==0)throw Error('The available Customer credit has changed. Review the balance and try again.');return result;
 }
 function billingRecordCorrection({id,invoiceId,kind,amount,reason,source,accountId,deferSave=false}){
@@ -56073,7 +57020,9 @@ function billingRecordCorrection({id,invoiceId,kind,amount,reason,source,account
       createSupplementaryInvoice(pcid,{deferSave:true});
       const draft=Object.values(db.billing.invoices).find(i=>i.status==='draft'&&i.lines.some(l=>l.sourceId===pcid));
       if(!draft)throw Error('The supplementary draft could not be prepared.');
-      draft.currency=record.currency;draft.currencyDisplay=record.currencyDisplay;draft.correctionId=id;record.draftInvoiceId=draft.id;f.invoiceAccounts[draft.id]=record.accountId;
+      draft.currency=record.currency;draft.currencyDisplay=record.currencyDisplay;draft.correctionId=id;
+      draft.invoiceRelation={type:'additional',sourceInvoiceId:inv.id};
+      record.draftInvoiceId=draft.id;f.invoiceAccounts[draft.id]=record.accountId;
     }
   },deferSave);
 }
@@ -56082,8 +57031,8 @@ function billingApplyCredit(invoiceId,amount,id){
   const f=billingFinanceWrite(),inv=db.billing.invoices[invoiceId],customer=inv&&billingCustomerForInvoice(inv),cents=billingCents(amount);
   if(f.applications[id])return true;
   if(!inv||inv.status!=='draft'||!customer||cents===null||cents<=0)return billingError('Choose a draft invoice and a positive credit amount.');
-  const currency=billingCurrency(inv);if(cents>Math.round(Math.min(billingAvailable(customer.id,currency.currency),invoiceOutstanding(inv))*100))return billingError('Credit cannot exceed the available Customer credit or invoice amount due.');
-  return billingTransaction(()=>{f.applications[id]={id,type:'apply',accountId:customer.id,invoiceId,amount:cents/100,sources:billingSources(customer.id,currency.currency,cents/100),...currency,...billingActor()}});
+  const currency=billingCurrency(inv);if(cents>Math.round(Math.min(billingAvailable(customer.id,currency.currency,inv.childId),invoiceOutstanding(inv))*100))return billingError('Credit cannot exceed the available Customer credit or invoice amount due.');
+  return billingTransaction(()=>{f.applications[id]={id,type:'apply',accountId:customer.id,childId:inv.childId,invoiceId,amount:cents/100,sources:billingSources(customer.id,currency.currency,cents/100,inv.childId),...currency,...billingActor()}});
 }
 function billingReleaseCredit(invoiceId,id){
   if(!allowed('billing'))return billingError('Billing authority is required.');
@@ -56092,12 +57041,15 @@ function billingReleaseCredit(invoiceId,id){
   const net=new Map();for(const a of billingInvoiceApplications(inv))for(const s of a.sources)net.set(s.creditId,(net.get(s.creditId)||0)+(a.type==='release'?-1:1)*billingCents(s.amount));
   return billingTransaction(()=>{f.applications[id]={id,type:'release',invoiceId,accountId:billingInvoiceApplications(inv)[0].accountId,amount:billingApplied(inv),sources:[...net].filter(([,n])=>n>0).map(([creditId,n])=>({creditId,amount:n/100})),...billingCurrency(inv),...billingActor()}});
 }
-function billingRefund(accountId,{id,amount,date,method,reference='',note=''}){
+function billingRefund(accountId,{id,amount,date,method,reference='',note='',childId=null}){
   if(!allowed('billing'))return billingError('Billing authority is required.');
   const f=billingFinanceWrite(),account=f.accounts[accountId],cents=billingCents(amount);if(f.refunds[id])return true;
   if(!account||cents===null||cents<=0||!educationDate(date)||!['Cash','Bank transfer'].includes(method))return billingError('Enter a valid amount, refund date and Cash or Bank transfer method.');
-  if(cents>Math.round(billingAvailable(accountId)*100))return billingError('The refund exceeds available Customer credit.');
-  return billingTransaction(()=>{const sources=billingSources(accountId,'LKR',cents/100),credit=f.credits[sources[0].creditId];f.refunds[id]={id,accountId,amount:cents/100,date,method,reference:reference.trim(),note:note.trim(),sources,currency:credit.currency,currencyDisplay:credit.currencyDisplay,...billingActor()}});
+  const owners=[...new Set(Object.values(f.credits).filter(c=>c.accountId===accountId&&billingCreditAvailable(c)>0).map(c=>profileChildKey(c.childId)||c.childId))];
+  const owner=childId||owners.length===1&&owners[0];
+  if(!owner||!owners.includes(profileChildKey(owner)||owner))return billingError('Choose the child whose Customer credit is being refunded.');
+  if(cents>Math.round(billingAvailable(accountId,'LKR',owner)*100))return billingError('The refund exceeds available Customer credit.');
+  return billingTransaction(()=>{const sources=billingSources(accountId,'LKR',cents/100,owner),credit=f.credits[sources[0].creditId];f.refunds[id]={id,accountId,childId:owner,amount:cents/100,date,method,reference:reference.trim(),note:note.trim(),sources,currency:credit.currency,currencyDisplay:credit.currencyDisplay,...billingActor()}});
 }
 function billingFormComplete(ok){if(ok){closeOverlay();showFeedback('Billing change saved.')}}
 function billingCanVoidReplace(inv){return !!inv&&inv.status==='issued'&&invoicePaid(inv)===0&&!billingApplied(inv)&&!billingReductions(inv)}
@@ -56108,24 +57060,24 @@ function billingCorrectionOptions(inv){
   return options;
 }
 function billingCorrectionHelp(label){const inv=db.billing.invoices[ui().modal?.data?.id],option=inv&&billingCorrectionOptions(inv).find(x=>x.label===label),el=byId('bc_path_help');if(el)el.textContent=option?.help||''}
-function billingInvoiceCorrectionGuidance(inv){return notice('This issued invoice and its payment history stay unchanged. Use Correct invoice only when a confirmed correction is needed.','info')}
+function billingInvoiceCorrectionGuidance(inv){return `<div class="billing-invoice-guidance">${billingCanVoidReplace(inv)?notice('This issued invoice and its payment history stay unchanged. Use Correct invoice only when a confirmed correction is needed.','info'):notice(invoicePaid(inv)>0?'This invoice has verified payment history and stays unchanged. If more is owed, create a new invoice. If a payment is wrong, correct the payment record.':'This invoice has financial adjustment history. Use the authorised financial correction process; the original invoice stays in history.','info')}</div>`}
 function billingCorrectionModal(invoiceId,source=null){
   const inv=db.billing.invoices[invoiceId];if(!allowed('billing')||inv?.status!=='issued')return modal('Billing correction','',notice('This invoice is not available for correction.','warn'),btn('Close','closeOverlay()'));
   const customer=billingCustomerForInvoice(inv),id=billingId(),options=billingCorrectionOptions(inv),selected=options[0];
   const replace=billingCanVoidReplace(inv)?`<details class="billing-void-option"><summary>Replace this unpaid invoice</summary><p>Use only when the issued invoice itself is wrong. The original stays in history and a replacement draft is created.</p>${btn('Void & replace',`voidAndReplace('${inv.id}')`,'secondary','sm')}</details>`:'';
-  return modal('Correct invoice','The original invoice and payment history stay unchanged.',billingErrorMarkup()+kv('Invoice',esc(inv.number))+kv('Child',esc(inv.childName))+kv('Amount still owed',billingMoney(invoiceOutstanding(inv),inv))+kv('Verified paid',billingMoney(invoicePaid(inv),inv))+selectField('Correction needed',options.map(x=>x.label),selected.label,'bc_kind',"billingCorrectionHelp(this.value)")+`<p id="bc_path_help" class="billing-correction-help">${esc(selected.help)}</p>`+field('Amount ('+billingCurrency(inv).currencyDisplay+')','','number',false,'bc_amount')+textArea('Reason','','bc_reason')+(options.some(x=>x.kind==='paid')&&customer?kv('Customer',esc(customer.name)):'')+replace,btn('Cancel','closeOverlay()','secondary')+btn('Save correction',`billingSubmitCorrection('${invoiceId}','${id}')`,'primary'));
+  return modal(billingCanVoidReplace(inv)?'Correct invoice':'Financial correction','The original invoice and payment history stay unchanged.',billingErrorMarkup()+kv('Invoice',esc(inv.number))+kv('Child',esc(inv.childName))+kv('Amount still owed',billingMoney(invoiceOutstanding(inv),inv))+kv('Verified paid',billingMoney(invoicePaid(inv),inv))+selectField('Correction needed',options.map(x=>x.label),selected.label,'bc_kind',"billingCorrectionHelp(this.value)")+`<p id="bc_path_help" class="billing-correction-help">${esc(selected.help)}</p>`+field('Amount ('+billingCurrency(inv).currencyDisplay+')','','number',false,'bc_amount')+textArea('Reason','','bc_reason')+(options.some(x=>x.kind==='paid')&&customer?kv('Customer',esc(customer.name)):'')+replace,btn('Cancel','closeOverlay()','secondary')+btn('Save correction',`billingSubmitCorrection('${invoiceId}','${id}')`,'primary'));
 }
 function billingSubmitCorrection(invoiceId,id){const inv=db.billing.invoices[invoiceId],kind=billingCorrectionOptions(inv).find(x=>x.label===val('bc_kind'))?.kind;billingFormComplete(billingRecordCorrection({id,invoiceId,kind,amount:val('bc_amount'),reason:val('bc_reason'),accountId:billingCustomerForInvoice(inv)?.id}))}
-function billingApplyModal(invoiceId){const inv=db.billing.invoices[invoiceId],customer=inv&&billingCustomerForInvoice(inv);if(!allowed('billing')||inv?.status!=='draft'||!customer)return modal('Apply Customer credit','',notice('Customer credit is not available for this invoice.','warn'),btn('Close','closeOverlay()'));const available=billingAvailable(customer.id),id=billingId();return modal('Apply Customer credit','',billingErrorMarkup()+kv('Customer',esc(customer.name))+kv('Invoice total',billingMoney(invoiceTotal(inv),inv))+kv('Available customer credit',billingMoney(available,inv))+kv('Credit applied',billingMoney(billingApplied(inv),inv))+kv('Amount due',billingMoney(invoiceOutstanding(inv),inv))+field('Credit to apply ('+billingCurrency(inv).currencyDisplay+')',String(Math.min(available,invoiceOutstanding(inv))),'number',false,'bc_apply'),btn('Cancel','closeOverlay()','secondary')+btn('Apply credit',`billingFormComplete(billingApplyCredit('${invoiceId}',val('bc_apply'),'${id}'))`,'primary'))}
-function billingRefundModal(accountId){const a=billingFinance().accounts[accountId];if(!allowed('billing')||!a)return modal('Record refund','',notice('Customer credit is not available.','warn'),btn('Close','closeOverlay()'));const id=billingId();return modal('Record refund','Record money already returned to the customer.',billingErrorMarkup()+kv('Customer',esc(a.name))+kv('Available customer credit',billingMoney(billingAvailable(a.id)))+field('Amount (Rs)','','number',false,'bc_refund')+field('Refund date',mpsAdmissionToday(),'date',false,'bc_date')+selectField('Method',['Cash','Bank transfer'],'Cash','bc_method')+field('Reference (optional)','','text',false,'bc_reference')+textArea('Note (optional)','','bc_note'),btn('Cancel','closeOverlay()','secondary')+btn('Record refund',`billingFormComplete(billingRefund('${a.id}',{id:'${id}',amount:val('bc_refund'),date:val('bc_date'),method:val('bc_method'),reference:val('bc_reference'),note:val('bc_note')}))`,'primary'))}
-function billingCustomerHistory(accountId){const f=billingFinance(),a=f.accounts[accountId];if(!allowed('billing')||!a)return '';const rows=[...Object.values(f.credits).filter(c=>c.accountId===accountId).map(c=>({...c,title:'Customer credit created',detail:c.reason+' · '+(db.billing.invoices[c.invoiceId]?.number||c.invoiceId)})),...Object.values(f.applications).filter(c=>c.accountId===accountId).map(c=>({...c,title:c.type==='release'?'Credit released from draft':'Credit applied',detail:db.billing.invoices[c.invoiceId]?.number||c.invoiceId})),...Object.values(f.refunds).filter(c=>c.accountId===accountId).map(c=>({...c,title:'Refund recorded',detail:[c.date,c.method,c.reference,c.note].filter(Boolean).join(' · ')}))].sort((a,b)=>b.at.localeCompare(a.at));return modal('Customer credit history',a.name,kv('Available credit',billingMoney(billingAvailable(a.id)))+rows.map(r=>`<article class="card flat billing-credit-history-item"><strong>${esc(r.title)} · ${billingMoney(r.amount,r)}</strong><p>${esc(r.detail)}</p>${r.sources?.length?`<details><summary>Source credit</summary>${r.sources.map(s=>kv(esc(db.billing.invoices[f.credits[s.creditId]?.invoiceId]?.number||'Original correction'),billingMoney(s.amount,r))).join('')}</details>`:''}<p>${esc(staffHistoryDate(r.at))}${r.actor?.name?' · by '+esc(r.actor.name):''}</p></article>`).join(''),btn('Close','closeOverlay()','secondary'))}
+function billingApplyModal(invoiceId){const inv=db.billing.invoices[invoiceId],customer=inv&&billingCustomerForInvoice(inv);if(!allowed('billing')||inv?.status!=='draft'||!customer)return modal('Apply Customer credit','',notice('Customer credit is not available for this invoice.','warn'),btn('Close','closeOverlay()'));const available=billingAvailable(customer.id,billingCurrency(inv).currency,inv.childId),id=billingId();return modal('Apply Customer credit','',billingErrorMarkup()+kv('Customer',esc(customer.name))+kv('Invoice total',billingMoney(invoiceTotal(inv),inv))+kv('Available customer credit',billingMoney(available,inv))+kv('Credit applied',billingMoney(billingApplied(inv),inv))+kv('Amount due',billingMoney(invoiceOutstanding(inv),inv))+field('Credit to apply ('+billingCurrency(inv).currencyDisplay+')',String(Math.min(available,invoiceOutstanding(inv))),'number',false,'bc_apply'),btn('Cancel','closeOverlay()','secondary')+btn('Apply credit',`billingFormComplete(billingApplyCredit('${invoiceId}',val('bc_apply'),'${id}'))`,'primary'))}
+function billingRefundModal(accountId,childId=null){const a=billingFinance().accounts[accountId],owners=[...new Set(Object.values(billingFinance().credits).filter(c=>c.accountId===accountId&&billingCreditAvailable(c)>0).map(c=>c.childId))],owner=childId||owners.length===1&&owners[0];if(!allowed('billing')||!a||!owner)return modal('Record refund','',notice('Choose the child whose credit is being refunded.','warn'),btn('Close','closeOverlay()'));const id=billingId();return modal('Record refund','Record money already returned to the customer.',billingErrorMarkup()+kv('Child',esc(profileChildName(owner)))+kv('Available customer credit',billingMoney(billingAvailable(a.id,'LKR',owner)))+field('Amount (Rs)','','number',false,'bc_refund')+field('Refund date',mpsAdmissionToday(),'date',false,'bc_date')+selectField('Method',['Cash','Bank transfer'],'Cash','bc_method')+field('Reference (optional)','','text',false,'bc_reference')+textArea('Note (optional)','','bc_note'),btn('Cancel','closeOverlay()','secondary')+btn('Record refund',`billingFormComplete(billingRefund('${a.id}',{id:'${id}',childId:'${owner}',amount:val('bc_refund'),date:val('bc_date'),method:val('bc_method'),reference:val('bc_reference'),note:val('bc_note')}))`,'primary'))}
+function billingCustomerHistory(accountId,childId=null){const f=billingFinance(),a=f.accounts[accountId];if(!allowed('billing')||!a)return '';const rows=[...Object.values(f.credits).filter(c=>c.accountId===accountId&&(!childId||c.childId===childId)).map(c=>({...c,title:'Customer credit created',detail:c.reason+' · '+(db.billing.invoices[c.invoiceId]?.number||c.invoiceId)})),...Object.values(f.applications).filter(c=>c.accountId===accountId&&(!childId||(c.childId||db.billing.invoices[c.invoiceId]?.childId)===childId)).map(c=>({...c,title:c.type==='release'?'Credit released from draft':'Credit applied',detail:db.billing.invoices[c.invoiceId]?.number||c.invoiceId})),...Object.values(f.refunds).filter(c=>c.accountId===accountId&&(!childId||(c.childId||f.credits[c.sources?.[0]?.creditId]?.childId)===childId)).map(c=>({...c,title:'Refund recorded',detail:[c.date,c.method,c.reference,c.note].filter(Boolean).join(' · ')}))].sort((a,b)=>b.at.localeCompare(a.at));return modal('Customer credit history',a.name,kv('Available credit',billingMoney(billingAvailable(a.id,'LKR',childId)))+rows.map(r=>`<article class="card flat billing-credit-history-item"><strong>${esc(r.title)} · ${billingMoney(r.amount,r)}</strong><p>${esc(r.detail)}</p>${r.sources?.length?`<details><summary>Source credit</summary>${r.sources.map(s=>kv(esc(db.billing.invoices[f.credits[s.creditId]?.invoiceId]?.number||'Original correction'),billingMoney(s.amount,r))).join('')}</details>`:''}<p>${esc(staffHistoryDate(r.at))}${r.actor?.name?' · by '+esc(r.actor.name):''}</p></article>`).join(''),btn('Close','closeOverlay()','secondary'))}
 function billingCustomerCards(){if(!allowed('billing'))return '';return Object.values(billingFinance().accounts).map(a=>{const balance=billingAvailable(a.id),hasHistory=Object.values(billingFinance().credits).some(c=>c.accountId===a.id);return balance>0?`<div class="card"><h3>${esc(a.name)}</h3>${kv('Available customer credit',billingMoney(balance))}<div class="billing-credit-actions">${btn('Record refund',`openModal('customer-refund',{id:'${a.id}'})`,'secondary','sm')}${btn('Credit history',`openModal('customer-credit-history',{id:'${a.id}'})`,'secondary','sm')}</div></div>`:hasHistory?`<details><summary>${esc(a.name)} · Customer credit history</summary>${btn('View history',`openModal('customer-credit-history',{id:'${a.id}'})`,'secondary','sm')}</details>`:''}).join('')}
-function billingInvoiceCreditContent(inv){if(!allowed('billing'))return '';const customer=billingCustomerForInvoice(inv),available=customer?billingAvailable(customer.id):0,applied=billingApplied(inv),adjusted=billingReductions(inv,'outstanding'),records=Object.values(billingFinance().corrections).filter(c=>c.invoiceId===inv.id);return (available||applied||adjusted?`<div class="section-title">Customer credit & adjustments</div>${available?kv('Available customer credit',billingMoney(available,inv)):''}${applied?kv('Credit applied',billingMoney(applied,inv)):''}${adjusted?kv('Credit adjustments',billingMoney(adjusted,inv)):''}${kv('Amount due',billingMoney(invoiceOutstanding(inv),inv))}`:'')+billingInvoiceApplyActions(inv)+records.map(c=>notice(`${c.kind==='additional'?'Supplementary draft':c.kind==='paid'?'Customer credit created':'Credit adjustment'} · ${billingMoney(c.amount,c)} · ${esc(c.reason)} · ${esc(c.actor.name)} · ${esc(attendanceRecordedTime(c.at))}`,'info')).join('')}
-function billingInvoiceCreditActions(inv){return allowed('billing')&&inv.status==='issued'?btn('Correct invoice',`openModal('billing-correction',{id:'${inv.id}'})`,'secondary'):''}
-function billingInvoiceApplyActions(inv){const customer=billingCustomerForInvoice(inv),available=customer?billingAvailable(customer.id):0;if(!allowed('billing')||inv.status!=='draft')return '';return `<div class="billing-credit-actions">${available>0&&invoiceOutstanding(inv)>0?btn('Apply Customer credit',`openModal('apply-customer-credit',{id:'${inv.id}'})`,'secondary','sm'):''}${billingApplied(inv)>0?btn('Release credit',`billingFormComplete(billingReleaseCredit('${inv.id}','${billingId()}'))`,'secondary','sm'):''}</div>`}
+function billingInvoiceCreditContent(inv){if(!allowed('billing'))return '';const customer=billingCustomerForInvoice(inv),available=customer?billingAvailable(customer.id,billingCurrency(inv).currency,inv.childId):0,applied=billingApplied(inv),adjusted=billingReductions(inv,'outstanding'),records=Object.values(billingFinance().corrections).filter(c=>c.invoiceId===inv.id);return (available||applied||adjusted?`<div class="section-title">Customer credit & adjustments</div>${available?kv('Available customer credit',billingMoney(available,inv)):''}${applied?kv('Credit applied',billingMoney(applied,inv)):''}${adjusted?kv('Credit adjustments',billingMoney(adjusted,inv)):''}${kv('Amount due',billingMoney(invoiceOutstanding(inv),inv))}`:'')+billingInvoiceApplyActions(inv)+records.map(c=>notice(`${c.kind==='additional'?'Supplementary draft':c.kind==='paid'?'Customer credit created':'Credit adjustment'} · ${billingMoney(c.amount,c)} · ${esc(c.reason)} · ${esc(c.actor.name)} · ${esc(attendanceRecordedTime(c.at))}`,'info')).join('')}
+function billingInvoiceCreditActions(inv){if(!allowed('billing'))return '';const account=billingCustomerForInvoice(inv),available=account?billingAvailable(account.id,billingCurrency(inv).currency,inv.childId):0;return (inv.status==='issued'&&invoicePaid(inv)===0?btn(billingCanVoidReplace(inv)?'Correct invoice':'Financial correction',`openModal('billing-correction',{id:'${inv.id}'})`,'secondary'):'')+(available?btn('Record refund',`openModal('customer-refund',{id:'${account.id}',childId:'${inv.childId}'})`,'secondary','sm'):'')+(account&&Object.values(billingFinance().credits).some(c=>c.accountId===account.id&&c.childId===inv.childId)?btn('Credit history',`openModal('customer-credit-history',{id:'${account.id}',childId:'${inv.childId}'})`,'secondary','sm'):'')}
+function billingInvoiceApplyActions(inv){const customer=billingCustomerForInvoice(inv),available=customer?billingAvailable(customer.id,billingCurrency(inv).currency,inv.childId):0;if(!allowed('billing')||inv.status!=='draft')return '';return `<div class="billing-credit-actions">${available>0&&invoiceOutstanding(inv)>0?btn('Apply Customer credit',`openModal('apply-customer-credit',{id:'${inv.id}'})`,'secondary','sm'):''}${billingApplied(inv)>0?btn('Release credit',`billingFormComplete(billingReleaseCredit('${inv.id}','${billingId()}'))`,'secondary','sm'):''}</div>`}
 
 const _billingCreditModal=modalView;
-modalView=function(m){const id=m?.data?.id;if(m?.name==='billing-correction')return billingCorrectionModal(id);if(m?.name==='apply-customer-credit')return billingApplyModal(id);if(m?.name==='customer-refund')return billingRefundModal(id);if(m?.name==='customer-credit-history')return billingCustomerHistory(id);return _billingCreditModal(m)};
+modalView=function(m){const id=m?.data?.id;if(m?.name==='billing-correction')return billingCorrectionModal(id);if(m?.name==='apply-customer-credit')return billingApplyModal(id);if(m?.name==='customer-refund')return billingRefundModal(id,m?.data?.childId);if(m?.name==='customer-credit-history')return billingCustomerHistory(id,m?.data?.childId);return _billingCreditModal(m)};
 const _billingCreditRender=renderBilling;
 renderBilling=function(){const html=_billingCreditRender(),cards=billingCustomerCards();return cards?html.replace('<div class="section-title">Invoices</div>',`<div class="section-title">Customer credit</div>${cards}<div class="section-title">Invoices</div>`):html};
 const _billingCreditUpdateDraft=updateDraftInvoice;
@@ -56137,6 +57089,23 @@ voidAndReplace=function(id){const inv=db.billing.invoices[id];if(!allowed('billi
 function billingEnsureCustomers(persist=true){
   const f=billingFinanceWrite();f.invoiceAccounts=f.invoiceAccounts||{};f.paymentAccounts=f.paymentAccounts||{};f.accountLinks=f.accountLinks||[];
   let changed=false;
+  // A past explicit family link remains in the historical invoice/payment bindings.
+  // Only the active child relationship is separated for future invoices.
+  const groups={};for(const [childId,accountId] of Object.entries(f.childAccounts))(groups[accountId]||(groups[accountId]=[])).push(childId);
+  for(const [accountId,children] of Object.entries(groups)){
+    const owners=new Map();
+    for(const ref of children){const owner=db.admissions?.[ref]?.childId||profileChildKey(ref)||ref;owners.set(owner,[...(owners.get(owner)||[]),ref])}
+    // A pre-enrolment case key and its Child UID are one owner, not siblings.
+    if(owners.size<2)continue;
+    const keeper=children.find(childId=>Object.values(f.credits).some(c=>c.accountId===accountId&&(profileChildKey(c.childId)||c.childId)===childId&&billingCreditAvailable(c)>0))||children[0];
+    const keeperOwner=db.admissions?.[keeper]?.childId||profileChildKey(keeper)||keeper;
+    for(const [childId,refs] of owners)if(childId!==keeperOwner){
+      const id=billingId();f.accounts[id]={id,name:profileChildName(childId)+' Billing',...billingActor()};
+      f.accountLinks.push({childId,previousAccountId:accountId,accountId:id,source:'BQ-133 child-specific active Billing',...billingActor()});
+      for(const ref of refs)f.childAccounts[ref]=id;
+      changed=true;
+    }
+  }
   for(const inv of Object.values(db.billing.invoices)){
     if(f.invoiceAccounts[inv.id])continue;
     const childId=profileChildKey(inv.childId)||inv.childId;
@@ -56148,19 +57117,10 @@ function billingEnsureCustomers(persist=true){
   if(changed&&persist)save();
 }
 billingCustomerForInvoice=function(inv){const f=billingFinance();return inv?f.accounts[f.invoiceAccounts?.[inv.id]||f.childAccounts[profileChildKey(inv.childId)||inv.childId]]||null:null};
-function billingLinkCustomer(childId,accountId){
-  if(!allowed('billing'))return billingError('Billing authority is required.');billingEnsureCustomers();const f=billingFinanceWrite(),key=profileChildKey(childId)||childId;
-  if(!db.people.children[key]||!f.accounts[accountId])return billingError('Choose a child and an existing Customer account.');
-  if(f.childAccounts[key]===accountId)return true;
-  const drafts=Object.values(db.billing.invoices).filter(i=>i.status==='draft'&&(profileChildKey(i.childId)||i.childId)===key);
-  if(drafts.some(i=>billingApplied(i)>0||invoicePaid(i)>0))return billingError('Release credit from this child’s draft before changing its Customer account.');
-  return billingTransaction(()=>{f.accountLinks.push({childId:key,previousAccountId:f.childAccounts[key]||null,accountId,draftBindings:drafts.map(i=>({invoiceId:i.id,previousAccountId:f.invoiceAccounts[i.id]})),source:'Explicit Accounts link',...billingActor()});f.childAccounts[key]=accountId;drafts.forEach(i=>f.invoiceAccounts[i.id]=accountId)});
-}
-function billingLinkCustomerModal(){if(!allowed('billing'))return '';billingEnsureCustomers();const children=Object.values(db.people.children),accounts=Object.values(billingFinance().accounts);return modal('Link family for Billing','Link siblings only when they share the same paying family. Existing issued invoices and credit keep their recorded Customer account.',billingErrorMarkup()+`<div class="field"><label for="bc_child">Child</label><select id="bc_child"><option value="">Select child</option>${children.map(c=>`<option value="${esc(c.id)}">${esc(c.legalName||profileChildName(c.id))}</option>`).join('')}</select></div><div class="field"><label for="bc_customer">Customer account</label><select id="bc_customer"><option value="">Select paying family</option>${accounts.map(a=>`<option value="${a.id}">${esc(a.name)}</option>`).join('')}</select></div>`,btn('Cancel','closeOverlay()','secondary')+btn('Save link',"billingFormComplete(billingLinkCustomer(val('bc_child'),val('bc_customer')))",'primary'))}
 const _billingCustomerModal=modalView;
-modalView=function(m){if(allowed('billing')&&['invoice-detail','billing-correction','apply-customer-credit','customer-refund','customer-credit-history','verify-payment','verify-admission-payment'].includes(m?.name))billingEnsureCustomers();if(m?.name==='billing-link-customer')return billingLinkCustomerModal();return _billingCustomerModal(m)};
+modalView=function(m){if(m?.name==='billing-link-customer')return '';if(allowed('billing')&&['invoice-detail','billing-correction','apply-customer-credit','customer-refund','customer-credit-history','verify-payment','verify-admission-payment'].includes(m?.name))billingEnsureCustomers();return _billingCustomerModal(m)};
 const _billingCustomerRender=renderBilling;
-renderBilling=function(){if(allowed('billing'))billingEnsureCustomers();let html=_billingCustomerRender();return allowed('billing')&&Object.keys(billingFinance().accounts).length?html.replace('<div class="section-title">Invoices</div>',`${btn('Link family for Billing',"openModal('billing-link-customer')",'secondary','sm')}<div class="section-title">Invoices</div>`):html};
+renderBilling=function(){if(allowed('billing'))billingEnsureCustomers();return _billingCustomerRender()};
 function billingSameCustomerPayment(payment,invoice){const f=billingFinance();return !f.paymentAccounts?.[payment.id]||f.paymentAccounts[payment.id]===billingCustomerForInvoice(invoice)?.id}
 function billingLateKey(lp){return lp.id+':'+(lp.checkoutCorrections?.length||0)}
 function billingLateReview(lp){return lp.financialCorrectionReviews?.find(r=>r.key===billingLateKey(lp))}
@@ -56212,7 +57172,23 @@ function enquiryGuidanceSnapshot(dob,start){
  return {version:1,recordedAt:new Date().toISOString(),dob:dob||null,plannedStart:start||null,months:s.months,levelId:s.levelId,label:s.label,range:level?{minMonths:level.minMonths,maxMonths:level.maxMonths}:null,detail:s.detail};
 }
 function guidanceFacts(s,ageLabel){
- return kv('Child DOB',educationDate(s.dob)?fmtDate(s.dob):esc(s.dob||'Not recorded'))+kv('Planned start',educationDate(s.plannedStart)?fmtDate(s.plannedStart):esc(s.plannedStart||'Not recorded'))+(s.months!==null?kv(ageLabel,esc(educationAgeAtStartLabel(s.months))):'')+(s.levelId?kv('Likely level',esc(s.label))+kv('Configured level range',esc(educationLevelRangeLabel(s.range))):badge('Needs staff review','amber')+`<p class="guidance-reason">${esc(s.months===null?s.detail:s.detail.split(' · ').slice(1).join(' · '))}</p>`);
+ return kv('Child DOB',educationDate(s.dob)?fmtDate(s.dob):esc(s.dob||'Not recorded'))+(s.months!==null?kv(ageLabel,esc(educationAgeAtStartLabel(s.months))):'')+(s.levelId?kv('Likely level',esc(s.label))+kv('Age range for this level',esc(educationLevelRangeLabel(s.range))):badge('Needs staff review','amber')+`<p class="guidance-reason">${esc(s.months===null?s.detail:s.detail.split(' · ').slice(1).join(' · '))}</p>`);
+}
+function enquiryGuidanceChanges(original,current){
+ const changes=[];
+ const add=(label,before,after)=>{if(before!==after)changes.push(kv(label,`${esc(before)} → ${esc(after)}`))};
+ const date=value=>educationDate(value)?fmtDate(value):value||'Not recorded';
+ const age=value=>value===null||value===undefined?'Not available':educationAgeAtStartLabel(value);
+ const level=s=>s.levelId?s.label||s.levelId:'Needs staff review';
+ const range=s=>s.levelId&&s.range?educationLevelRangeLabel(s.range):'Not available';
+ add('Child DOB',date(original.dob),date(current.dob));
+ add('Planned start',date(original.plannedStart),date(current.plannedStart));
+ add('Age at planned start',age(original.months),age(current.months));
+ if(original.levelId!==current.levelId||level(original)!==level(current))add('Likely level',level(original),level(current));
+ add('Age range for this level',range(original),range(current));
+ const reason=s=>s.levelId?'':s.months===null?s.detail||'':(s.detail||'').split(' · ').slice(1).join(' · ');
+ if(!original.levelId||!current.levelId)add('Guidance',reason(original),reason(current));
+ return changes.length?`<div class="enquiry-changes" data-enquiry-changes><h4>Changed since enquiry</h4>${changes.join('')}</div>`:'';
 }
 function admissionPlacementGuidance(c){
  const p=educationPlacement(c.enrolment)||c.application?.acceptedPlacement||c.confirmedPlacement;
@@ -56220,7 +57196,7 @@ function admissionPlacementGuidance(c){
  const current=enquiryGuidanceSnapshot(c.dob,c.enrolment?.start||c.start);
  const historical=!!(c.closed||c.migrationHistory);
  const content=historical?'':confirmed?kv('Confirmed level',esc(educationLevel(p.levelId).shortName||educationLevel(p.levelId).name))+kv('Classroom',esc(educationRoom(p.classroomId).name)):guidanceFacts(current,'Age at planned start');
- const retained=original?`<details class="enquiry-original"><summary>At original enquiry</summary>${guidanceFacts(original,'Age at planned start')}</details>`:'';
+ const retained=original?enquiryGuidanceChanges(original,current):'';
  return content||retained?`<section class="card admission-guidance" data-placement-guidance><h3>Placement guidance</h3>${content}${retained}</section>`:'';
 }
 const _placementContextOverview=admissionOverview;
@@ -56243,68 +57219,424 @@ function childAdmissionsBackground(child){
  const rows=(c.source?kv('How they heard about us',esc(c.source)):'')+(c.reason?kv('What made them interested',esc(c.reason)):'')+(educationDate(date)?kv('Original enquiry',fmtDate(date)):'');
  return rows?profileSection('Admissions background',rows):'';
 }
-// S04: Accounts staff see current financial work before invoice history.
-function billingPriorityPendingPayments(){
-  return Object.values(db.billing.payments).filter(p=>p.status==='pending'&&!p.admissionsCaseId)
-}
+// BQ-133: Billing opens on financial facts and the invoice workspace.
+function billingPriorityPendingPayments(){return Object.values(db.billing.payments).filter(p=>p.status==='pending')}
+function billingPriorityCharges(){return Object.values(db.billing.pendingCharges).filter(pc=>(pc.status==='proposed'||pc.status==='held')&&!billingLegacyRetiredCorrectionCharge(pc))}
 
-function billingPriorityCharges(){
-  return Object.values(db.billing.pendingCharges).filter(pc=>pc.status==='proposed'||pc.status==='held')
+function billingPaymentInvoice(payment){
+  if(payment.invoiceId){const inv=db.billing.invoices[payment.invoiceId];return inv?.status==='issued'&&inv.childId===payment.childId&&invoiceOutstanding(inv)>0&&billingSameCustomerPayment(payment,inv)?inv:null}
+  const candidates=Object.values(db.billing.invoices).filter(inv=>inv.status==='issued'&&inv.category!=='admission_fee'&&!payment.admissionsCaseId&&inv.childId===payment.childId&&invoiceOutstanding(inv)>0&&billingSameCustomerPayment(payment,inv));
+  return candidates.length===1?candidates[0]:null;
 }
+function billingInvoicePayments(inv){return billingPriorityPendingPayments().filter(p=>billingPaymentInvoice(p)?.id===inv.id)}
 
-function billingPriorityAdmissionCases(){
-  return Object.values(db.admissions).filter(c=>c?.application?.status==='accepted'&&!c?.enrolment&&!c?.closed)
+// BQ-135: a smaller genuine receipt is a payment fact, never an instalment plan.
+function billingRecordInvoicePaymentModal(invoiceId){
+  const inv=db.billing.invoices[invoiceId];
+  if(!allowed('billing')||inv?.status!=='issued'||invoiceOutstanding(inv)<=0||billingInvoicePayments(inv).length)return modal('Record payment','',notice('This invoice is not available for another payment entry.','warn'),btn('Close','closeOverlay()'));
+  return modal('Record payment','Record the amount received. It stays pending until someone verifies it against the bank or cash record.',billingErrorMarkup()+kv('Invoice',esc(inv.number))+kv('Child',esc(inv.childName))+kv('Outstanding',money(invoiceOutstanding(inv)))+selectField('Method',['Bank transfer','Cash'],'Bank transfer','billing_record_method')+field('Payment date',TODAY,'date',false,'billing_record_date')+field('Amount',String(invoiceOutstanding(inv)),'number',false,'billing_record_amount')+field('Reference','','text',false,'billing_record_reference'),btn('Cancel','closeOverlay()','secondary')+btn('Record payment',`billingRecordInvoicePayment('${invoiceId}')`,'primary'));
 }
+function billingRecordInvoicePayment(invoiceId){
+  if(!allowed('billing'))return billingError('Billing authority is required.');
+  const inv=db.billing.invoices[invoiceId],cents=billingCents(val('billing_record_amount'));
+  if(!inv||inv.status!=='issued'||invoiceOutstanding(inv)<=0||billingInvoicePayments(inv).length)return billingError('Review the current invoice and pending payments before recording another payment.');
+  if(cents===null||cents<=0||cents>Math.round(invoiceOutstanding(inv)*100))return billingError('Enter the actual amount received, above zero and no more than the current outstanding balance.');
+  const date=val('billing_record_date'),method=val('billing_record_method'),reference=val('billing_record_reference').trim();
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!['Bank transfer','Cash'].includes(method))return billingError('Enter a valid payment date and method.');
+  const id=billingId(),at=new Date().toISOString(),amount=cents/100;
+  if(!billingTransaction(()=>{
+    billingEnsureCustomers(false);
+    const accountId=billingCustomerForInvoice(inv)?.id;
+    if(!accountId)throw Error('The invoice Customer account is unavailable.');
+    db.billing.payments[id]={id,invoiceId:inv.id,childId:inv.childId,childName:inv.childName,amount,paymentDate:date,method,reference:reference||'No reference',status:'pending',recordedBy:staffActor(),recordedById:currentPersona().id,recordedAt:at};
+    billingFinanceWrite().paymentAccounts[id]=accountId;
+    inv.history.push({actor:staffActor(),at,text:`Payment recorded · ${money(amount)} · Pending verification`});
+  }))return false;
+  closeOverlay();return true;
+}
+const _billingPriorityModal=modalView;
+modalView=function(m){if(m?.name==='record-invoice-payment')return billingRecordInvoicePaymentModal(m.data?.id);return _billingPriorityModal(m)};
 
-function billingPriorityPaymentCard(payments){
-  if(!payments.length)return '';
-  return `<div class="span-6 card" data-billing-payment-work><h3>Pending payment verification</h3>${payments.map(p=>`<div class="child-row"><strong>${money(p.amount)}</strong><span>${badge(p.method,'blue')}</span><span class="hide-mobile">${esc(p.reference||'No reference')}</span><span>${btn('Verify',`openModal('verify-payment',{id:'${p.id}'})`,'primary','sm')}</span></div>`).join('')}</div>`;
+// BQ-134: only a Billing-created monthly snapshot establishes a monthly obligation.
+// Match its recurring components to retained invoice lines; never infer older invoices
+// from their description or the child's current enrolment/fee settings.
+function billingMonthlyParts(inv){
+  const snapshot=inv.policySnapshot,components=snapshot?.components;
+  if(!['draft','issued'].includes(inv.status)||inv.category==='admission_fee'||snapshot?.type!=='monthly'||!/^\d{4}-(0[1-9]|1[0-2])$/.test(snapshot.invoiceMonth||'')||!Array.isArray(components)||!components.length||!Array.isArray(inv.lines)||inv.lines.length<components.length)return null;
+  if(components[0]?.id!=='preschool'||components.slice(1).some(c=>!['standard','extended'].includes(c.id))||components.length>2)return null;
+  if(components.some((c,index)=>!Number.isFinite(c.amount)||c.amount<0||inv.lines[index]?.sourceId||inv.lines[index]?.id!==`${inv.id}_${index}`||inv.lines[index]?.description!==c.description||!Number.isFinite(inv.lines[index]?.amount)||inv.lines[index]?.amount<0))return null;
+  const extra=inv.lines.slice(components.length);
+  if(extra.some(line=>!Number.isFinite(line.amount)||line.amount<0))return null;
+  return {month:snapshot.invoiceMonth,expected:inv.lines.slice(0,components.length).reduce((sum,line)=>sum+line.amount,0),mixed:extra.length>0};
 }
-
-function billingPriorityChargeCard(charges){
-  if(!charges.length)return '';
-  return `<div class="span-6 card" data-billing-charge-work><h3>Charges to add</h3>${charges.map(pc=>`<div class="child-row"><strong>${esc(pc.childName)}</strong><span>${badge(pc.status,pc.status==='proposed'?'amber':'blue')}</span><span class="hide-mobile">${esc(pc.description)} · ${money(pc.amount)}</span><span>${pc.status==='proposed'?`${btn('Add to next draft',`addChargeToDraft('${pc.id}')`,'primary','sm')}${btn('Standalone draft',`createChargeDraft('${pc.id}')`,'secondary','sm')}`:'Awaiting Head Teacher review'}</span></div>`).join('')}</div>`;
+function billingVerifiedAllocated(inv){
+  return (inv.allocations||[]).reduce((sum,a)=>sum+(db.billing.payments[a.paymentId]?.status==='verified'&&Number.isFinite(a.amount)?a.amount:0),0);
 }
-
-function billingPriorityAdmissionCard(cases){
-  if(!cases.length)return '';
-  return `<div class="span-12" data-admission-fee-finance><h3 class="billing-work-heading">Admission-fee finance</h3>${mpsAdmissionFeeBillingRows()}</div>`;
+function billingMonthlyFigures(invs,month){
+  let expected=0,received=0,outstanding=0,incomplete=false,count=0;
+  invs.forEach(inv=>{
+    const parts=billingMonthlyParts(inv);
+    if(!parts||parts.month!==month)return;
+    count++;expected+=parts.expected;
+    const paid=billingVerifiedAllocated(inv),total=invoiceTotal(inv),due=invoiceOutstanding(inv);
+    if(parts.mixed){
+      if(paid===0&&due===total){outstanding+=parts.expected;return}
+      if(paid>=total){received+=parts.expected;return}
+      incomplete=true;return;
+    }
+    received+=paid;outstanding+=due;
+  });
+  return {month,count,expected,received,outstanding,incomplete};
 }
-
-function billingPriorityAttention(){
-  const payments=billingPriorityPendingPayments(),charges=billingPriorityCharges(),cases=billingPriorityAdmissionCases(),adjustments=latePickupBillingAlerts();
-  const work=billingPriorityPaymentCard(payments)+billingPriorityChargeCard(charges)+billingPriorityAdmissionCard(cases);
-  return `<section class="billing-attention" data-billing-attention><div class="section-title">Needs attention</div>${adjustments}${work?`<div class="grid billing-attention-grid">${work}</div>`:'<div class="card flat billing-attention-empty">Nothing needs attention right now.</div>'}</section>`;
+function billingMonthlyMonths(invs){const current=TODAY.slice(0,7);return [...new Set(invs.map(inv=>billingMonthlyParts(inv)?.month).filter(month=>month&&month<=current))].sort().reverse()}
+function billingMonthlyValue(amount,incomplete){return incomplete?'<span class="billing-incomplete">Incomplete</span>':money(amount)}
+function billingMonthLabel(month){return new Intl.DateTimeFormat('en-GB',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'))}
+function billingMonthlyCurrent(invs){
+  const month=TODAY.slice(0,7),figures=billingMonthlyFigures(invs,month);
+  return `<section class="billing-monthly-current" data-billing-monthly-current><div class="section-title billing-monthly-head"><span>${esc(billingMonthLabel(month))} monthly fees</span>${billingChildren().length?btn('Create monthly draft',"openModal('draft-invoice')",'secondary','sm'):''}</div><div class="metric-row billing-monthly-metrics"><div class="metric"><strong>${money(figures.expected)}</strong><span>Expected monthly fees</span></div><div class="metric"><strong>${billingMonthlyValue(figures.received,figures.incomplete)}</strong><span>Received</span></div><div class="metric"><strong>${billingMonthlyValue(figures.outstanding,figures.incomplete)}</strong><span>Still to collect</span></div></div>${figures.incomplete?'<p class="billing-monthly-caveat">A mixed invoice is partly paid. Its payment cannot be split reliably between monthly fees and other charges.</p>':''}</section>`;
 }
+function billingMonthlyHistory(invs){
+  const months=billingMonthlyMonths(invs),figures=months.map(month=>billingMonthlyFigures(invs,month));
+  const overall=figures.reduce((total,row)=>({expected:total.expected+row.expected,received:total.received+row.received,outstanding:total.outstanding+row.outstanding,incomplete:total.incomplete||row.incomplete}),{expected:0,received:0,outstanding:0,incomplete:false});
+  const rows=figures.map(row=>`<tr><td data-label="Month">${esc(billingMonthLabel(row.month))}</td><td data-label="Expected">${money(row.expected)}</td><td data-label="Received">${billingMonthlyValue(row.received,row.incomplete)}</td><td data-label="Outstanding">${billingMonthlyValue(row.outstanding,row.incomplete)}</td><td data-label="Collection %">${row.incomplete?'Incomplete':row.expected?`${Math.round(row.received/row.expected*100)}%`:'—'}</td></tr>`).join('');
+  return `<section data-billing-monthly-history><div class="section-title">Monthly fee collection history</div>${figures.length?`<div class="metric-row compact-metrics billing-monthly-overall" data-billing-monthly-overall><div class="metric"><strong>${money(overall.expected)}</strong><span>Expected overall</span></div><div class="metric"><strong>${billingMonthlyValue(overall.received,overall.incomplete)}</strong><span>Received overall</span></div><div class="metric"><strong>${billingMonthlyValue(overall.outstanding,overall.incomplete)}</strong><span>Outstanding overall</span></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Month</th><th>Expected</th><th>Received</th><th>Outstanding</th><th>Collection %</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty operational-empty"><strong>No established monthly fee invoices yet.</strong></div>'}${overall.incomplete?'<p class="billing-monthly-caveat">A partly paid invoice also contains another charge. Received, Outstanding and Collection % are incomplete until its monthly portion can be identified.</p>':''}</section>`;
+}
+let billingPriorityView='current';
+function billingShowView(view){billingPriorityView=view==='history'?'history':'current';render()}
+function billingPriorityTabs(){return `<div class="tabs billing-view-tabs" role="group" aria-label="Billing view"><button class="tab ${billingPriorityView==='current'?'active':''}" onclick="billingShowView('current')">Current</button><button class="tab ${billingPriorityView==='history'?'active':''}" onclick="billingShowView('history')">History</button></div>`}
 
 function billingPrioritySummary(invs){
-  const outstanding=invs.filter(i=>i.status==='issued').reduce((sum,i)=>sum+invoiceOutstanding(i),0),overdue=invs.filter(i=>invoiceStatus(i).text.startsWith('Overdue')).length,pending=Object.values(db.billing.payments).filter(p=>p.status==='pending').length,drafts=invs.filter(i=>i.status==='draft').length;
-  return `<details class="billing-overview" data-billing-summary><summary>Billing overview</summary><div class="metric-row compact-metrics"><div class="metric"><strong>${money(outstanding)}</strong><span>Outstanding</span><small>Issued balances</small></div><div class="metric"><strong>${overdue}</strong><span>Overdue</span><small>Staff-led follow-up</small></div><div class="metric"><strong>${pending}</strong><span>Payment to verify</span><small>Real-source verification</small></div><div class="metric"><strong>${drafts}</strong><span>Draft invoices</span><small>Editable before issue</small></div></div></details>`;
+  const overdue=invs.filter(i=>invoiceStatus(i).text.startsWith('Overdue')).length,pending=billingPriorityPendingPayments().length,drafts=invs.filter(i=>i.status==='draft').length;
+  return `<div class="metric-row compact-metrics billing-summary" data-billing-summary><div class="metric"><strong>${overdue}</strong><span>Overdue</span></div><div class="metric"><strong>${pending}</strong><span>${pending===1?'Payment':'Payments'} to verify</span></div><div class="metric"><strong>${drafts}</strong><span>Draft ${drafts===1?'invoice':'invoices'}</span></div></div>`;
 }
 
-function billingPriorityCustomerCredit(){
-  const cards=Object.values(billingFinance().accounts).map(account=>{const balance=billingAvailable(account.id);return balance>0?`<div class="card"><h3>${esc(account.name)}</h3>${kv('Available customer credit',billingMoney(balance))}<div class="billing-credit-actions">${btn('Record refund',`openModal('customer-refund',{id:'${account.id}'})`,'secondary','sm')}${btn('Credit history',`openModal('customer-credit-history',{id:'${account.id}'})`,'secondary','sm')}</div></div>`:''}).join('');
-  return cards?`<section data-billing-credit><div class="section-title">Customer credit</div><div class="billing-credit-grid">${cards}</div></section>`:'';
+function billingInvoiceDate(inv){
+  if(!['draft','discarded'].includes(inv.status))return inv.issued||'';
+  if(educationDate(inv.createdDate))return inv.createdDate;
+  const first=inv.createdAt||inv.created||inv.history?.[0]?.at||'';
+  return /^\d{4}-\d{2}-\d{2}/.test(first)?first.slice(0,10):'';
 }
-
 function billingPriorityInvoices(invs){
-  const rows=invs.map(inv=>{const state=invoiceStatus(inv);return `<tr><td><div class="name">${esc(inv.number)}</div></td><td>${profileChildLink(inv.childId,inv.childName)}</td><td>${inv.status==='draft'?'Draft':`${fmtDate(inv.issued)} / ${fmtDate(inv.due)}`}</td><td>${money(invoiceTotal(inv))}</td><td>${inv.status==='draft'?'—':money(invoiceOutstanding(inv))}</td><td>${badge(state.text,state.tone)}</td><td>${btn(inv.status==='draft'?'Review':'Open',`openModal('invoice-detail',{id:'${inv.id}'})`,'secondary','sm')}</td></tr>`}).join('');
+  const ordered=[...invs].sort((a,b)=>billingInvoiceDate(b).localeCompare(billingInvoiceDate(a))||(b.number||'').localeCompare(a.number||''));
+  const rows=ordered.map(inv=>{
+    const state=invoiceStatus(inv),payments=billingInvoicePayments(inv),admission=inv.category==='admission_fee',caseId=inv.admissionsCaseId;
+    const paymentActions=payments.map(p=>`<div class="billing-row-payment">${badge('Payment to verify','amber')} ${btn('Verify',admission?`openModal('verify-admission-payment',{caseId:'${caseId}',paymentId:'${p.id}'})`:`openModal('verify-payment',{id:'${p.id}'})`,'secondary','sm')}</div>`).join('');
+    const recordAction=inv.status==='issued'&&invoiceOutstanding(inv)>0&&!payments.length?(admission&&caseId?btn('Record payment',`openModal('record-admission-payment',{caseId:'${caseId}'})`,'secondary','sm'):!admission?btn('Record payment',`openModal('record-invoice-payment',{id:'${inv.id}'})`,'secondary','sm'):''):'';
+    return `<tr data-invoice-id="${esc(inv.id)}"><td data-label="Invoice"><div class="name">${esc(inv.number)}</div>${admission?'<small>Admission fee</small>':inv.category==='starter_pack'?'<small>Starter Pack</small>':''}</td><td data-label="Child">${profileChildLink(inv.childId,inv.childName)}</td><td data-label="Date / due">${billingInvoiceDate(inv)?fmtDate(billingInvoiceDate(inv)):'—'} / ${inv.due?fmtDate(inv.due):'Not set yet'}</td><td data-label="Total">${money(invoiceTotal(inv))}</td><td data-label="Outstanding">${['draft','cancelled','void'].includes(inv.status)?'—':money(invoiceOutstanding(inv))}</td><td data-label="Status">${badge(state.text,state.tone)}</td><td data-label="Action"><div class="billing-row-actions">${btn(inv.status==='draft'?'Review':'Open',`openModal('invoice-detail',{id:'${inv.id}'})`,'secondary','sm')}${recordAction}${paymentActions}</div></td></tr>`;
+  }).join('');
   const lookup='<div class="billing-lookup"><input aria-label="Find invoice" placeholder="Find by child or invoice number…" onkeydown="if(event.key===\'Enter\')mpsBillingInvoiceSearch(this.value)"/><button class="btn secondary sm" onclick="mpsBillingInvoiceSearch(this.previousElementSibling.value)">Find</button></div>';
-  return `<section data-billing-history><div class="section-title">Invoices</div>${invs.length?lookup:''}<div class="table-wrap"><table class="table"><thead><tr><th>Invoice</th><th>Family</th><th>Issued / due</th><th>Total</th><th>Outstanding</th><th>Status</th><th></th></tr></thead><tbody>${rows}</tbody></table>${invs.length?'':'<div class="empty operational-empty"><strong>No invoices yet.</strong><span>Invoices appear here when an enrolled child reaches a Billing step.</span></div>'}</div></section>`;
+  return `<section data-billing-history><div class="section-title">Invoices</div>${invs.length?lookup:''}<div class="table-wrap"><table class="table"><thead><tr><th>Invoice</th><th>Child</th><th>Date / due</th><th>Total</th><th>Outstanding</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>${invs.length?'':'<div class="empty operational-empty"><strong>No invoices yet.</strong><span>Invoices appear here when a child reaches a Billing step.</span></div>'}</div></section>`;
 }
 
-function billingPriorityMaintenance(){
-  const accounts=Object.values(billingFinance().accounts),children=Object.values(db.people.children),history=accounts.filter(a=>billingAvailable(a.id)<=0&&Object.values(billingFinance().credits).some(c=>c.accountId===a.id));
-  const processed=Object.values(db.billing.pendingCharges).filter(pc=>pc.status!=='proposed'&&pc.status!=='held');
-  if(!children.length&&!history.length&&!processed.length)return '';
-  return `<details class="billing-maintenance" data-billing-maintenance><summary>Billing maintenance</summary><div class="billing-maintenance-body">${children.length&&accounts.length?`<p>Link a child only when Accounts has confirmed the same paying family.</p>${btn('Link family for Billing',"openModal('billing-link-customer')",'secondary','sm')}`:''}${history.map(a=>`<div class="billing-maintenance-row"><span>${esc(a.name)} · Customer credit history</span>${btn('View history',`openModal('customer-credit-history',{id:'${a.id}'})`,'secondary','sm')}</div>`).join('')}${processed.length?`<details class="billing-processed-charges"><summary>Processed operational charges</summary>${processed.map(pc=>`<div class="child-row"><strong>${esc(pc.childName)}</strong><span>${badge(pc.status,'grey')}</span><span class="hide-mobile">${esc(pc.description)} · ${money(pc.amount)}</span><span>✓</span></div>`).join('')}</details>`:''}</div></details>`;
+function billingPriorityExceptions(){
+  const charges=billingPriorityCharges(),unlinked=billingPriorityPendingPayments().filter(p=>!billingPaymentInvoice(p));
+  const rows=charges.map(pc=>`<div class="child-row"><strong>${esc(pc.childName)}</strong><span>${badge(pc.status,pc.status==='proposed'?'amber':'blue')}</span><span>${esc(pc.description)} · ${money(pc.amount)}</span><span>${pc.status==='proposed'?`${btn('Add to next draft',`addChargeToDraft('${pc.id}')`,'secondary','sm')}${btn('Standalone draft',`createChargeDraft('${pc.id}')`,'secondary','sm')}`:'Awaiting Head Teacher review'}</span></div>`).join('');
+  const payments=unlinked.map(p=>`<div class="child-row"><strong>${esc(p.childName||profileChildName(p.childId))}</strong><span>${badge('Payment to verify','amber')}</span><span>${money(p.amount)} · ${esc(p.reference||'No reference')}</span><span>${btn('Verify',p.admissionsCaseId?`openModal('verify-admission-payment',{caseId:'${p.admissionsCaseId}',paymentId:'${p.id}'})`:`openModal('verify-payment',{id:'${p.id}'})`,'secondary','sm')}</span></div>`).join('');
+  const adjustments=latePickupBillingAlerts();
+  return `${rows?`<section class="billing-exceptions" data-billing-exceptions><div class="section-title">Charges to review</div>${rows}</section>`:''}${adjustments}${payments?`<section class="billing-exceptions" data-billing-unlinked-payments><div class="section-title">Payments to verify</div>${payments}</section>`:''}`;
 }
 
 renderBilling=function(){
   if(allowed('billing'))billingEnsureCustomers();
-  const invoices=Object.values(db.billing.invoices);
-  const create=billingChildren().length?btn('Create draft invoice',"openModal('draft-invoice',{newDraft:true})",'primary'):'';
-  return shell(`${pageHead('Accounts','Billing','Clear invoice states, verified payments and immutable issued history — without becoming a full accounting system.',create)}${billingPriorityAttention()}${billingPriorityCustomerCredit()}${billingPriorityInvoices(invoices)}${billingPrioritySummary(invoices)}${billingPriorityMaintenance()}`);
+  const invoices=Object.values(db.billing.invoices),create=allowed('billing')?btn('+ New invoice',"openModal('new-manual-invoice')",'primary'):'';
+  const active=invoices.filter(inv=>inv.status!=='discarded');
+  return shell(`${pageHead('Accounts','Billing','',create)}${billingPriorityTabs()}${billingPriorityView==='history'?billingMonthlyHistory(active)+billingDiscardedHistory(invoices):billingMonthlyCurrent(active)+billingPrioritySummary(active)+billingPriorityInvoices(active)+billingPriorityExceptions()}`);
+};
+// BQ-138: a Starter Pack draft is created from the child's saved Pre-start items.
+function mpsStarterPackInvoice(c){
+  return Object.values(db.billing?.invoices||{}).find(inv=>inv.category==='starter_pack'&&inv.admissionsCaseId===c?.id&&inv.status!=='discarded')||null;
+}
+function mpsPrepareStarterPackDraft(c){
+  if(!c?.enrolment||!Array.isArray(c.onboarding?.starterItems)||mpsStarterPackInvoice(c))return null;
+  const items=c.onboarding.starterItems.filter(item=>item.suppliedBy==='Preschool'&&billingCents(item.unitPrice??item.price)>0);
+  if(!items.length)return null;
+  const childId=profileChildId(c.childId||c.id)||c.childId||c.id;
+  const id='starterpack_'+crypto.randomUUID(),at=new Date().toISOString();
+  // The durable case relationship, rather than an ID derived from it, prevents duplicates.
+  if(db.billing.invoices[id])return null;
+  const lines=items.map((item,index)=>{
+    const unitPrice=item.unitPrice??item.price,quantity=Number.isSafeInteger(item.quantity)&&item.quantity>0?item.quantity:1;
+    const line={id:`${id}_line_${index}`,starterItemId:item.id,sourceId:item.id,childItemId:item.assignmentId||item.id,description:item.name,amount:quantity*unitPrice};
+    if(item.unitPrice!=null)Object.assign(line,{quantity,unitPrice});
+    return line;
+  });
+  const inv={id,number:'Starter Pack draft',category:'starter_pack',admissionsCaseId:c.id,
+    childId,childName:c.childName,status:'draft',issued:null,createdAt:at,createdDate:TODAY,due:null,
+    lines,allocations:[],evidence:{},recipientGuardianIds:linkedRecipientIds(childId),
+    policySnapshot:{type:'starter_pack',admissionsCaseId:c.id,childId,onboardingSubmittedAt:c.onboarding.submittedAt||null,
+      enrolmentStart:c.enrolment.start,starterItems:items.map(item=>JSON.parse(JSON.stringify(item)))},
+    history:[{actor:staffActor(),at,text:'Starter Pack draft prepared from saved Pre-start items'}]};
+  db.billing.invoices[id]=inv;
+  billingEnsureCustomers(false);
+  return inv;
+}
+function mpsStarterPackDueValid(date){return !!educationDate(date)}
+function mpsSetStarterPackDueDate(id){
+  const inv=db.billing?.invoices?.[id];
+  if(!allowed('billing')||inv?.category!=='starter_pack'||inv.status!=='draft')return billingError('This Starter Pack draft is not available to edit.');
+  const due=val('starter_pack_due');
+  if(!mpsStarterPackDueValid(due))return billingError('Choose a valid due date before saving.');
+  if(inv.due!==due){inv.due=due;inv.history.push({actor:staffActor(),at:new Date().toISOString(),text:`Due date set to ${fmtDate(due)} before issue`})}
+  closeOverlay();return true;
+}
+function mpsStarterPackDraftModal(inv){
+  const body=billingErrorMarkup()+kv('Status',badge('Draft','blue'))+invoiceRelatedContext(inv)+invoiceRecipientContext(inv)
+    +kv('Due date',inv.due?fmtDate(inv.due):'Not set yet')+kv('Total',money(invoiceTotal(inv)))
+    +`<div class="section-title">Items from this child’s Pre-start</div>`
+    +inv.lines.map(line=>kv(esc(line.description),money(line.amount))).join('')
+    +billingInvoiceCreditContent(inv)
+    +`<div class="section-title">History</div>`
+    +inv.history.map(h=>`<div class="notice info">${esc(h.at)} · ${esc(h.text)}</div>`).join('');
+  return modal(`Invoice ${esc(inv.number)}`,'Starter Pack draft',body,
+    btn('Close','closeOverlay()','secondary')+billingInvoiceCreditActions(inv)
+    +btn(inv.due?'Change due date':'Set due date',`openModal('starter-pack-due',{id:'${inv.id}'})`,'secondary')
+    +btn('Issue invoice',`issueInvoice('${inv.id}')`,'primary'));
+}
+function mpsStarterPackIssuedModal(inv){
+  const allocs=inv.allocations.map(a=>db.billing.payments[a.paymentId]).filter(Boolean);
+  const recipients=inv.recipientSnapshot||[];
+  const body=kv('Status',badge(invoiceStatus(inv).text,invoiceStatus(inv).tone))+invoiceRelatedContext(inv)
+    +kv('Family communications at issue',recipients.length?recipientSnapshotDisplay(recipients):'No authorised recipient recorded at issue')
+    +kv('Due date',fmtDate(inv.due))+kv('Total',money(invoiceTotal(inv)))
+    +kv('Verified paid',money(invoicePaid(inv)))+kv('Outstanding',money(invoiceOutstanding(inv)))
+    +billingInvoiceCreditContent(inv)+`<div class="section-title">Lines</div>`
+    +inv.lines.map(line=>kv(esc(line.description),money(line.amount))).join('')
+    +(allocs.length?`<div class="section-title">Verified payments / receipts</div>`+allocs.map(p=>kv(`${money(p.amount)} · ${esc(p.reference||'No reference')}`,`${esc(p.verification||'Verified')} · ${esc(p.receipt||'No receipt file recorded')}`)).join(''):'')
+    +`<div class="section-title">Evidence & history</div>`+kv('Issued PDF snapshot',esc(inv.evidence.invoicePdf||'Not recorded for this invoice'))
+    +inv.history.map(h=>`<div class="notice info">${esc(h.at)} · ${esc(h.text)}</div>`).join('')
+    +billingInvoiceCorrectionGuidance(inv);
+  const pending=billingInvoicePayments(inv).find(p=>!p.admissionsCaseId);
+  return modal(`Invoice ${esc(inv.number)}`,'Issued Starter Pack invoice',body,
+    btn('Close','closeOverlay()','secondary')+billingInvoiceCreditActions(inv)
+    +(invoiceOutstanding(inv)>0&&pending?btn('Record / verify payment',`closeOverlay();openModal('verify-payment',{id:'${pending.id}'})`,'primary'):''));
+}
+const mpsPreviousStarterPackModal=modalView;
+modalView=function(m){
+  const inv=db.billing?.invoices?.[m?.data?.id];
+  if(m?.name==='starter-pack-due'){
+    if(!allowed('billing')||inv?.category!=='starter_pack'||inv.status!=='draft')return modal('Starter Pack due date','',notice('This draft is unavailable.','warn'),btn('Close','closeOverlay()'));
+    return modal('Starter Pack due date','Choose the payment due date before issuing.',billingErrorMarkup()
+      +kv('Invoice',esc(inv.number))+kv('Total',money(invoiceTotal(inv)))
+      +field('Due date',inv.due||'','date',false,'starter_pack_due'),
+      btn('Cancel','closeOverlay()','secondary')+btn('Save due date',`mpsSetStarterPackDueDate('${inv.id}')`,'primary'));
+  }
+  if(inv?.category==='starter_pack'&&m?.name==='invoice-detail')return inv.status==='draft'?mpsStarterPackDraftModal(inv):mpsStarterPackIssuedModal(inv);
+  if(inv?.category==='starter_pack'&&m?.name==='edit-draft')return modalView({name:'starter-pack-due',data:{id:inv.id}});
+  return mpsPreviousStarterPackModal(m);
+};
+const mpsPreviousStarterPackUpdateDraft=updateDraftInvoice;
+updateDraftInvoice=function(id){
+  if(db.billing?.invoices?.[id]?.category==='starter_pack')return billingError('Set the Starter Pack due date in Billing review.');
+  return mpsPreviousStarterPackUpdateDraft(id);
+};
+const mpsPreviousStarterPackIssue=issueInvoice;
+issueInvoice=function(id){
+  const inv=db.billing?.invoices?.[id];
+  if(inv?.category!=='starter_pack')return mpsPreviousStarterPackIssue(id);
+  if(!allowed('billing')||inv.status!=='draft')return false;
+  if(!mpsStarterPackDueValid(inv.due))return billingError('Set a valid due date before issuing this Starter Pack invoice.');
+  const lateProblem=latePickupIssueProblem(inv);
+  if(lateProblem)return billingError(lateProblem);
+  if(Object.values(db.billing.pendingCharges).some(pc=>pc.childId===inv.childId&&pc.status==='proposed'&&!billingLegacyRetiredCorrectionCharge(pc)))
+    return billingError('Resolve the approved operational charge before issuing this invoice.');
+  billingEnsureCustomers(false);
+  inv.recipientGuardianIds=linkedRecipientIds(inv.childId);
+  inv.recipientSnapshot=currentFamilyCommunicationSnapshots(inv);
+  inv.status='issued';inv.issued=TODAY;
+  inv.number=mpsPrototypeInvoiceReference('SP');
+  inv.evidence.invoicePdf=inv.number+'.pdf';
+  inv.history.push({actor:staffActor(),at:new Date().toISOString(),text:`Invoice issued · due ${fmtDate(inv.due)} · prototype PDF filename recorded`});
+  closeOverlay();return true;
+};
+// BQ-143: one current catalogue, independent child snapshots and child-linked charges.
+function mpsItemRecords(){return db.itemsEquipment||(db.itemsEquipment={})}
+function mpsChildUniformSize(childId){
+ const child=db.people?.children?.[childId],c=child?.enrolmentCaseId?db.admissions?.[child.enrolmentCaseId]:null;
+ return c?.onboarding?.childSetup?.uniformSize||null;
+}
+function mpsChildItemSources(childId){
+  const child=db.people?.children?.[childId],enrolment=child&&childEnrolment(child);
+  if(!enrolment)return [];
+  const c=child.enrolmentCaseId?db.admissions?.[child.enrolmentCaseId]:null;
+  const initial=(c?.onboarding?mpsOnboardingStarterItems(c.onboarding):[]).map(item=>({
+    ...item,id:item.assignmentId||item.id,childId,enrolmentId:enrolment.id,scope:'Preschool',quantity:item.quantity||1,
+    configuredItemId:item.configuredItemId||item.id,origin:'Pre-start',
+    status:item.status||'Outstanding'
+  }));
+  return [...initial,...Object.values(db.itemsEquipment||{}).filter(item=>item.childId===childId)];
+}
+function mpsItemDone(item){return ['Collected','Received','Provided'].includes(item.status)}
+function mpsItemOutstanding(){
+  if(!db.people?.children)return [];
+  return Object.values(db.people.children).filter(child=>canViewChild(child.id)&&isOperationalChild(child)&&childDirectoryGroup(child)!=='former')
+    .flatMap(child=>mpsChildItemSources(child.id).filter(item=>!mpsItemDone(item)));
+}
+function mpsOpenChildItem(childId,itemId){
+  if(!canOpenChildProfile(childId))return;
+  openChildProfile(childId);
+  const row=Array.from(document.querySelectorAll('[data-child-item]')).find(el=>el.dataset.childItem===itemId);
+  row?.closest('details')?.setAttribute('open','');
+  row?.scrollIntoView({block:'center'});
+}
+function mpsItemInvoice(itemId){return Object.values(db.billing?.invoices||{}).find(inv=>inv.status!=='discarded'&&((inv.category==='item_charge'&&inv.policySnapshot?.childItemId===itemId)||(inv.category==='starter_pack'&&inv.lines?.some(line=>line.childItemId===itemId))))||null}
+function mpsItemChargeDraft(item){
+  const unitPrice=item.unitPrice??item.price;
+  if(item.suppliedBy!=='Preschool'||!Number.isSafeInteger(unitPrice)||unitPrice<=0||mpsItemInvoice(item.id))return null;
+  const quantity=Number.isSafeInteger(item.quantity)&&item.quantity>=1?item.quantity:1,amount=unitPrice*quantity;
+  if(!Number.isSafeInteger(amount))return null;
+  const id='iteminvoice_'+crypto.randomUUID(),at=new Date().toISOString();
+  const inv={id,number:'Items & equipment draft',category:'item_charge',childId:item.childId,
+    childName:profileChildName(item.childId),status:'draft',issued:null,createdAt:at,createdDate:TODAY,due:null,
+    lines:[{id:'line_'+crypto.randomUUID(),sourceId:item.id,configuredItemId:item.configuredItemId,
+      description:item.name,amount,...(item.unitPrice!=null?{quantity,unitPrice}:{})}],
+    allocations:[],evidence:{},recipientGuardianIds:linkedRecipientIds(item.childId),
+    policySnapshot:{type:'item_charge',childItemId:item.id,configuredItemId:item.configuredItemId,
+      childId:item.childId,enrolmentId:item.enrolmentId,careArrangementId:item.careArrangementId||null,
+      scope:item.scope,name:item.name,quantity,suppliedBy:item.suppliedBy,...(item.unitPrice!=null?{unitPrice}:{})},
+    history:[{actor:staffActor(),at,text:'Draft prepared from saved child item'}]};
+  db.billing.invoices[id]=inv;billingEnsureCustomers(false);return inv;
+}
+function mpsItemRows(childId,scope){
+  const items=mpsChildItemSources(childId).filter(item=>item.scope===scope);
+  return items.length?items.map(item=>`<div class="starter-setting-row" data-child-item="${esc(item.id)}"><div><strong>${item.quantity>1?`${item.quantity} × `:''}${esc(item.name)}</strong><small>${esc(item.suppliedBy)}${item.suppliedBy==='Preschool'&&(item.unitPrice??item.price)!=null?' · '+money(item.unitPrice??item.price)+(item.unitPrice!=null?' each':''):''} · ${esc(item.status||'Outstanding')}</small></div><div class="starter-setting-actions">${!mpsItemDone(item)&&canManageChild(childId)?item.id==='legacy-books'?btn('Mark collected',`markStarterComplete('${db.people.children[childId].enrolmentCaseId}')`,'secondary','sm'):btn(mpsItemWholeAction(item,item.suppliedBy==='Family'?'received':item.scope==='Daycare'?'provided':'collected'),`mpsCompleteChildItem('${childId}','${item.id}')`,'secondary','sm'):''}${mpsItemInvoice(item.id)&&allowed('billing')?btn(mpsItemInvoice(item.id).status==='draft'?'Open draft':'Open invoice',`openModal('invoice-detail',{id:'${mpsItemInvoice(item.id).id}'})`,'secondary','sm'):!mpsItemInvoice(item.id)&&item.origin!=='Pre-start'&&item.suppliedBy==='Preschool'&&(item.unitPrice??item.price)>0&&allowed('billing')&&Object.values(db.billing?.invoices||{}).some(inv=>inv.category==='item_charge'&&inv.policySnapshot?.childItemId===item.id&&inv.status==='discarded')?btn('Prepare draft',`mpsReprepareItemChargeDraft('${esc(childId)}','${esc(item.id)}')`,'secondary','sm'):''}</div></div>`).join(''):'<p>No items assigned.</p>';
+}
+function mpsChildItemsSection(child){
+  if(!canViewChild(child.id))return '';
+  const e=childEnrolment(child),arr=mpsCurrentCareArrangement(child.id),hasDaycare=!!(arr||e?.daycarePlanId),daycareHistory=mpsChildItemSources(child.id).some(item=>item.scope==='Daycare');
+  const uniformSize=mpsChildUniformSize(child.id);
+  const content=`<div class="child-item-content ui-peer-stack"><section><h3>Preschool</h3>${uniformSize?kv('Uniform size',esc(uniformSize)):''}${mpsItemRows(child.id,'Preschool')}</section>`
+    +(hasDaycare||daycareHistory?`<section><h3>Daycare</h3>${mpsItemRows(child.id,'Daycare')}</section>`:'')
+    +(canManageChild(child.id)&&e?.id?btn('+ Add item',`openModal('item-add',{childId:'${child.id}'})`,'secondary','sm'):'')+'</div>';
+  return profileSection('Items & equipment',content);
+}
+function mpsChildDaycareContent(child){
+  if(!canViewChild(child.id))return '';
+  const e=childEnrolment(child),arr=mpsCurrentCareArrangement(child.id),plan=arr?daycarePlan(arr.planId):e?.daycarePlanId&&daycarePlan(e.daycarePlanId);
+  const label=arr?`${plan?.name||'Daycare'} · starts ${fmtDate(arr.effectiveDate)}`:plan?`Ongoing ${plan.name}`:'Not currently in ongoing daycare';
+  return `<div class="child-care-ongoing">${kv('Ongoing care',esc(label))}${canManageChild(child.id)&&e?.id&&e.status==='active'&&!plan?btn('Add daycare',`openModal('add-ongoing-daycare',{childId:'${child.id}'})`,'secondary','sm'):''}</div>`;
+}
+const mpsItemsBaseRenderChildren=renderChildren;
+renderChildren=function(){
+  const html=mpsItemsBaseRenderChildren(),child=db.people?.children?.[ui().profileChild];
+  if(!child||!canOpenChildProfile(child.id))return html;
+  const anchor='<details class="card profile-section" open><summary>Learning</summary>';
+  return html.replace(anchor,mpsChildItemsSection(child)+anchor);
+};
+function mpsItemAddModal(childId){
+  const child=db.people?.children?.[childId],e=child&&childEnrolment(child);
+  if(!canManageChild(childId)||!e?.id||e.status!=='active')return modal('Add item','',notice('This child needs a current identified enrolment before a new item can be assigned.','info'),btn('Close','closeOverlay()'));
+  const arr=mpsCurrentCareArrangement(childId),daycare=!!(arr||e.daycarePlanId||Object.values(db.daycare?.bookings||{}).some(b=>b.childId===childId));
+  const options=mpsActiveStarterItems().concat(daycare?mpsActiveStarterItems('Daycare'):[]);
+  const body=options.length?`<div class="form-grid"><div class="field"><label for="child_item_id">Item</label><select id="child_item_id">${options.map(item=>`<option value="${esc(item.id)}">${esc(mpsItemScope(item))} · ${esc(item.name)}</option>`).join('')}</select></div>${field('Quantity','1','number',false,'child_item_quantity')}</div>`:notice('No active applicable items are configured in Preschool Settings.','info');
+  return modal('Add item',profileChildName(childId),body,btn('Cancel','closeOverlay()','secondary')+(options.length?btn('Add item',`mpsAssignChildItem('${childId}')`,'primary'):''));
+}
+function mpsAssignChildItem(childId){
+  if(ui().modal?.name!=='item-add'||ui().modal?.data?.childId!==childId||!canManageChild(childId))return false;
+  const child=db.people?.children?.[childId],e=child&&childEnrolment(child),source=mpsActiveStarterItems().concat(mpsActiveStarterItems('Daycare')).find(item=>item.id===val('child_item_id'));
+  const quantity=Number(val('child_item_quantity'));
+  if(!e?.id||e.status!=='active'||!source||!Number.isSafeInteger(quantity)||quantity<1||quantity>100)return false;
+  const scope=mpsItemScope(source),arr=mpsCurrentCareArrangement(childId);
+  if(scope==='Daycare'&&!arr&&!e.daycarePlanId&&!Object.values(db.daycare?.bookings||{}).some(b=>b.childId===childId))return false;
+  const before=JSON.stringify(db),id='childitem_'+crypto.randomUUID(),at=new Date().toISOString();
+  const item={id,configuredItemId:source.id,childId,enrolmentId:e.id,careArrangementId:scope==='Daycare'?arr?.id||null:null,
+    scope,name:source.name,quantity,suppliedBy:source.suppliedBy,price:mpsItemSnapshotPrice(source),unitPrice:mpsItemSnapshotPrice(source),
+    status:source.suppliedBy==='Family'?'Outstanding':scope==='Daycare'?'Pending provision':'Pending collection',createdAt:at,history:[{at,actor:staffActor(),text:'Item assigned'}]};
+  mpsItemRecords()[id]=item;mpsItemChargeDraft(item);
+  if(!save()){db=JSON.parse(before);return false}closeOverlay();return true;
+}
+function mpsCompleteChildItem(childId,itemId){
+  if(!canManageChild(childId))return false;
+  const source=db.itemsEquipment?.[itemId]||db.admissions?.[db.people?.children?.[childId]?.enrolmentCaseId]?.onboarding?.starterItems?.find(item=>(item.assignmentId||item.id)===itemId);
+  if(!source||source.childId&&source.childId!==childId||mpsItemDone(source))return false;
+  const before=JSON.stringify(db),at=new Date().toISOString();source.status=source.suppliedBy==='Family'?'Received':source.scope==='Daycare'?'Provided':'Collected';
+  (source.history||(source.history=[])).push({at,actor:staffActor(),text:source.status});
+  if(!save()){db=JSON.parse(before);return false}render();return true;
+}
+function mpsCurrentCareArrangement(childId){
+  const child=db.people?.children?.[childId],e=child&&childEnrolment(child);
+  return e?.careArrangements?.find(arr=>arr.status==='authorised')||null;
+}
+function mpsAssignDaycareSetupItems(childId,enrolment,arr){
+  const at=new Date().toISOString();
+  for(const source of mpsActiveStarterItems('Daycare')){
+    const id='childitem_'+crypto.randomUUID(),item={id,configuredItemId:source.id,childId,enrolmentId:enrolment.id,careArrangementId:arr.id,
+      scope:'Daycare',name:source.name,quantity:mpsItemRequiredQuantity(source),suppliedBy:source.suppliedBy,price:mpsItemSnapshotPrice(source),unitPrice:mpsItemSnapshotPrice(source),
+      status:source.suppliedBy==='Family'?'Outstanding':'Pending provision',createdAt:at,history:[{at,actor:staffActor(),text:'Daycare setup item assigned'}]};
+    mpsItemRecords()[id]=item;mpsItemChargeDraft(item);
+  }
+}
+function mpsInitialDaycareSetup(c){
+  const e=c?.enrolment,plan=e?.daycarePlanId&&daycarePlan(e.daycarePlanId);
+  if(!e?.id||!plan||e.careArrangements?.length)return;
+  const at=new Date().toISOString(),arr={id:'carearrangement_'+crypto.randomUUID(),childId:c.childId,enrolmentId:e.id,
+    planId:plan.id,planName:plan.name,effectiveDate:e.start,status:'authorised',createdAt:at,actor:staffActor(),coverage:{start:plan.start,end:plan.end}};
+  e.careArrangements=[arr];mpsAssignDaycareSetupItems(c.childId,e,arr);
+}
+function mpsOngoingDaycareModal(childId){
+  const child=db.people?.children?.[childId],e=child&&childEnrolment(child);
+  if(!canManageChild(childId)||!e?.id||e.status!=='active'||e.daycarePlanId||mpsCurrentCareArrangement(childId))return modal('Add daycare','',notice('An identified enrolment is needed, or ongoing Daycare is already recorded.','info'),btn('Close','closeOverlay()'));
+  const plans=offeredDaycarePlans();
+  return modal('Add daycare',profileChildName(childId),plans.length?`<div class="field"><label for="ongoing_daycare_plan">Daycare service</label><select id="ongoing_daycare_plan">${plans.map(plan=>`<option value="${esc(plan.id)}">${esc(plan.name)} · ${esc(plan.start)}–${esc(plan.end)}</option>`).join('')}</select></div>${field('Starts on',TODAY,'date',false,'ongoing_daycare_start')}<p class="field-help">This adds ongoing care to the current child and enrolment.</p>`:notice('No Daycare service is currently offered.','info'),btn('Cancel','closeOverlay()','secondary')+(plans.length?btn('Add daycare',`mpsAddOngoingDaycare('${childId}')`,'primary'):''));
+}
+function mpsAddOngoingDaycare(childId){
+  if(ui().modal?.name!=='add-ongoing-daycare'||ui().modal?.data?.childId!==childId||!canManageChild(childId))return false;
+  const child=db.people?.children?.[childId],e=child&&childEnrolment(child),plan=offeredDaycarePlan(val('ongoing_daycare_plan')),start=val('ongoing_daycare_start');
+  if(!e?.id||e.status!=='active'||e.daycarePlanId||mpsCurrentCareArrangement(childId)||!plan||!educationDate(start))return false;
+  const before=JSON.stringify(db),at=new Date().toISOString(),arr={id:'carearrangement_'+crypto.randomUUID(),childId,enrolmentId:e.id,planId:plan.id,planName:plan.name,effectiveDate:start,status:'authorised',createdAt:at,actor:staffActor(),coverage:{start:plan.start,end:plan.end}};
+  (e.careArrangements||(e.careArrangements=[])).push(arr);
+  mpsAssignDaycareSetupItems(childId,e,arr);
+  if(!save()){db=JSON.parse(before);return false}closeOverlay();return true;
+}
+const mpsItemsBaseModal=modalView;
+modalView=function(m){
+  if(m?.name==='item-add')return mpsItemAddModal(m.data?.childId);
+  if(m?.name==='add-ongoing-daycare')return mpsOngoingDaycareModal(m.data?.childId);
+  const inv=db.billing?.invoices?.[m?.data?.id];
+  if(m?.name==='item-charge-due'&&inv?.category==='item_charge'&&inv.status==='draft')return modal('Due date','Items & equipment draft',billingErrorMarkup()+field('Due date',inv.due||'','date',false,'item_charge_due'),btn('Cancel','closeOverlay()','secondary')+btn('Save due date',`mpsSaveItemChargeDue('${inv.id}')`,'primary'));
+  if(inv?.category==='item_charge'&&m?.name==='invoice-detail'&&inv.status==='draft')return modal(`Invoice ${esc(inv.number)}`,'Items & equipment draft',billingErrorMarkup()+kv('Child',profileChildLink(inv.childId))+kv('Status',badge(invoiceStatus(inv).text,invoiceStatus(inv).tone))+kv('Item',esc(inv.lines[0].description))+kv('Total',money(invoiceTotal(inv)))+kv('Due date',inv.due?fmtDate(inv.due):'Not set yet')+kv('Source','Saved child item')+inv.history.map(h=>`<p>${esc(h.text)} · ${esc(staffHistoryDate(h.at))}</p>`).join(''),btn('Close','closeOverlay()','secondary')+btn('Set due date',`openModal('item-charge-due',{id:'${inv.id}'})`,'secondary')+btn('Issue invoice',`issueInvoice('${inv.id}')`,'primary'));
+  return mpsItemsBaseModal(m);
+};
+function mpsSaveItemChargeDue(id){const inv=db.billing?.invoices?.[id];if(!allowed('billing')||inv?.category!=='item_charge'||inv.status!=='draft')return false;if(!educationDate(val('item_charge_due')))return billingError('Choose a valid due date.');inv.due=val('item_charge_due');inv.history.push({at:new Date().toISOString(),actor:staffActor(),text:'Due date set before issue'});closeOverlay();return true}
+const mpsItemsBaseIssueInvoice=issueInvoice;
+issueInvoice=function(id){const inv=db.billing?.invoices?.[id];if(inv?.category!=='item_charge')return mpsItemsBaseIssueInvoice(id);if(!allowed('billing')||inv.status!=='draft')return false;if(!educationDate(inv.due))return billingError('Set a valid due date before issuing this item invoice.');const number=inv.number;inv.number='Item DRAFT';const result=mpsItemsBaseIssueInvoice(id);if(inv.status==='draft')inv.number=number;return result};
+const mpsItemsBaseUpdateDraft=updateDraftInvoice;
+updateDraftInvoice=function(id){if(db.billing?.invoices?.[id]?.category==='item_charge')return false;return mpsItemsBaseUpdateDraft(id)};
+const mpsItemsBaseTodayAttention=todayAttentionSection;
+todayAttentionSection=function(actions){
+  const items=mpsItemOutstanding();
+  const base=mpsItemsBaseTodayAttention(actions);
+  if(!items.length)return base;
+  return base+`<section class="card today-items" data-today-items><h3>Items needing attention · ${items.length}</h3>${items.map(item=>`<div class="starter-setting-row"><div><strong>${esc(profileChildName(item.childId))} · ${item.quantity>1?item.quantity+' × ':''}${esc(item.name)}</strong><small>${esc(item.scope)} · ${esc(item.status)}</small></div>${btn('Open',`mpsOpenChildItem('${item.childId}','${item.id}')`,'secondary','sm')}</div>`).join('')}</section>`;
+};
+const mpsItemsBaseDaycareRoster=daycareRoster;
+daycareRoster=function(date=TODAY){
+  const roster=mpsItemsBaseDaycareRoster(date);
+  if(['Closed','Closed Day'].includes(operatingStatusForDate(date).text))return roster;
+  const covered=new Set(roster.map(row=>profileChildId(row.childId)||row.childId));
+  for(const child of Object.values(db.people?.children||{})){
+    const e=childEnrolment(child),arr=mpsCurrentCareArrangement(child.id),plan=arr&&daycarePlan(arr.planId);
+    if(!arr||!plan||date<arr.effectiveDate||e?.status!=='active'||childDirectoryGroup(child,date)!=='current'||covered.has(child.id))continue;
+    roster.push({id:`recurring_${arr.id}_${date}`,childId:child.id,childName:profileChildName(child.id),date,care:arr.planName||plan.name,daycarePlanId:plan.id,careArrangementId:arr.id,coverage:{planId:plan.id,label:arr.planName||plan.name,start:arr.coverage.start,end:arr.coverage.end},recurring:true});
+  }
+  return roster;
+};
+const mpsItemsBaseServiceLabel=childCurrentServiceLabel;
+childCurrentServiceLabel=function(child){const arr=mpsCurrentCareArrangement(child.id);if(!arr||arr.effectiveDate>TODAY)return mpsItemsBaseServiceLabel(child);const plan=daycarePlan(arr.planId);return plan?`Preschool + ${plan.name}`:mpsItemsBaseServiceLabel(child)};
+const mpsItemsBaseBillingPlan=mpsBillingChildPlan;
+mpsBillingChildPlan=function(ref){const arr=mpsCurrentCareArrangement(ref);return arr&&arr.effectiveDate<=TODAY?arr.planId:mpsItemsBaseBillingPlan(ref)};
+const mpsItemsBaseCareEnd=resolveAuthorisedCareEnd;
+resolveAuthorisedCareEnd=function(childId,date){
+  const arr=mpsCurrentCareArrangement(childId);
+  if(!arr||date<arr.effectiveDate)return mpsItemsBaseCareEnd(childId,date);
+  const dated=Object.values(db.daycare?.bookings||{}).some(b=>b.childId===childId&&b.date===date&&!['cancelled','declined'].includes(b.status));
+  if(dated)return mpsItemsBaseCareEnd(childId,date);
+  if(!educationDate(date)||!daycarePlan(arr.planId)||latePickupMinutes(arr.coverage?.end)===null)return {ok:false,reason:'The authorised Daycare coverage needs review.'};
+  return {ok:true,end:arr.coverage.end,source:'daycare',daycarePlanId:arr.planId,careArrangementId:arr.id,coverage:{...arr.coverage}};
+};
+const mpsItemsBaseDisableDaycare=daycareDisableReason;
+daycareDisableReason=function(planId){
+  if(Object.values(db.people?.children||{}).some(child=>childEnrolment(child)?.status==='active'&&mpsCurrentCareArrangement(child.id)?.planId===planId))return 'A child has an authorised ongoing Daycare arrangement on this plan.';
+  return mpsItemsBaseDisableDaycare(planId);
 };
 // Batch C: one factual Observation writer and a separate, target-specific
 // qualitative Assessment writer. The official source catalogue remains read-only.
@@ -56313,7 +57645,7 @@ const mpsAssessmentNonRatings=['Not observed','Absent','Not applicable'];
 const mpsAssessmentTargetKinds=['learning-outcome','indicator'];
 
 function mpsEvidencePlanDate(uid){
- for(const weeks of Object.values(db.curriculum.weeks||{}))for(const [monday,w] of Object.entries(weeks))for(const [index,day] of lessonWeekDays().entries())if(w.days?.[day.id]?.some(a=>a.uid===uid))return isoAddDays(monday,index);
+ for(const weeks of [...Object.values(db.curriculum.levelWeeks||{}),...Object.values(db.curriculum.weeks||{})])for(const [monday,w] of Object.entries(weeks))for(const [index,day] of lessonWeekDays().entries())if(w.days?.[day.id]?.some(a=>a.uid===uid))return isoAddDays(monday,index);
  return null;
 }
 function mpsEvidenceChildAllowed(childId,roomId){
@@ -56322,8 +57654,11 @@ function mpsEvidenceChildAllowed(childId,roomId){
 }
 function mpsEvidenceContext(data={}){
  const observation=data.observationId&&db.observations?.[data.observationId];if(data.observationId&&!observation)return null;
- const uid=observation?observation.activityUid||null:data.uid||null,planned=uid&&planActivityByUid(uid),actualId=observation?observation.actualTeachingId||null:data.actualId||null,actual=actualId&&mpsActualTeaching()[actualId]||!observation&&planned&&mpsActualForOccurrence(uid)||null;
- const roomId=observation?.classroomId||planned?.classroomId||actual?.classroomId||data.classroomId||ui().lessonClass,date=observation?.date||actual?.date||uid&&mpsEvidencePlanDate(uid)||data.date||TODAY;
+ const uid=observation?observation.activityUid||null:data.uid||null,actualId=observation?observation.actualTeachingId||null:data.actualId||null;
+ const linkedActual=actualId&&mpsActualTeaching()[actualId]||null,requestedRoom=observation?.classroomId||linkedActual?.classroomId||data.classroomId||ui().lessonClass;
+ const found=uid&&planActivityByUid(uid),planned=found?.levelId&&educationRoom(requestedRoom)?.levelId===found.levelId?{...found,classroomId:requestedRoom}:found;
+ const actual=linkedActual||!observation&&planned&&mpsActualForOccurrence(uid,requestedRoom)||null;
+ const roomId=requestedRoom,date=observation?.date||actual?.date||uid&&mpsEvidencePlanDate(uid)||data.date||TODAY;
  if(!mpsTeachingAccess(roomId)||!educationDate(date)||observation&&!mpsEvidenceChildAllowed(observation.childId,roomId)||actual&&actual.classroomId!==roomId||planned&&planned.classroomId!==roomId)return null;
  if(planned&&actual?.outcome==='NOT_DONE')return null;
  let source=observation?.activitySourceSnapshot||null,title=observation?.activityTitle||'',activityUid=observation?observation.activityUid||null:planned?.a.uid||null;
@@ -56338,20 +57673,31 @@ function mpsObservationVisibility(value){return ['Internal','Parent-eligible can
 function mpsObservationModal(data={}){
  const context=mpsEvidenceContext(data);if(!context)return modal('Observation unavailable','',notice('Choose a Classroom and child you can teach.','info'),btn('Close','closeOverlay()'));
  const children=currentChildrenInScope().filter(child=>childClassroom(child)===context.roomId),scope=context.title?`<div class="actual-current-record"><strong>${context.actualTeachingId?'Experience today':'Planned activity'}</strong><p>${esc(context.title)}</p></div>`:'';
- return modal('Add observation','Record what you noticed about one child.',`<div id="obs_error" class="form-error" role="alert" hidden></div>${scope}<div class="field"><label for="obs_child">Child</label><select id="obs_child"><option value="">Choose child</option>${children.map(child=>`<option value="${esc(child.id)}" ${data.childId===child.id?'selected':''}>${esc(child.legalName)}</option>`).join('')}</select></div><div class="field"><label for="obs_date">When observed</label><input id="obs_date" type="date" value="${esc(context.date)}"></div><div class="field"><label for="obs_text">What did you notice?</label><textarea id="obs_text" placeholder="Describe what the child did or said."></textarea></div><details class="evidence-optional"><summary>What this may show & next step — optional</summary>${textArea('What this may show','','obs_interpretation')}${textArea('Next step','','obs_next_step')}</details>${selectField('Visibility',['Internal','Parent-eligible candidate','Restricted'],'Internal','obs_visibility')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save observation','saveObservation()','primary')}`);
+ return modal('Add observation','Record what you noticed about one child.',`<div id="obs_error" class="form-error" role="alert" hidden></div>${scope}<div class="field"><label for="obs_child">Child</label><select id="obs_child"><option value="">Choose child</option>${children.map(child=>`<option value="${esc(child.id)}" ${data.childId===child.id?'selected':''}>${esc(child.legalName)}</option>`).join('')}</select></div><div class="field"><label for="obs_date">When observed</label><input id="obs_date" type="date" value="${esc(context.date)}"></div><div class="field"><label for="obs_text">What did you notice?</label><textarea id="obs_text" placeholder="Describe what the child did or said."></textarea></div><details class="evidence-optional"><summary>What this may show & next step — optional</summary>${textArea('What this may show','','obs_interpretation')}${textArea('Next step','','obs_next_step')}</details>${selectField('Visibility',['Internal','Parent-eligible candidate','Restricted'],'Internal','obs_visibility')}${mpsObservationPhotoInput(context,children)}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save observation','saveObservation()','primary')}`);
 }
 function mpsObservationWrite(data,fields){
  const context=mpsEvidenceContext(data),childId=profileChildId(fields.childId),date=fields.date,text=String(fields.text||'').trim(),visibility=mpsObservationVisibility(fields.visibility);
  if(!context||!mpsEvidenceChildAllowed(childId,context.roomId)||!educationDate(date)||date>TODAY||!text||text.length>2000||!visibility||context.activityUid&&date!==context.date||context.actualTeachingId&&date!==context.date)return false;
- const id='obs_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),source=context.source,learningAreas=source?mpsLearningAreas(source):[];
- db.observations[id]={id,childId,childName:profileChildName(childId),classroomId:context.roomId,date,recordedAt:new Date().toISOString(),actor:staffActor(),text,interpretation:String(fields.interpretation||'').trim().slice(0,1200),nextStep:String(fields.nextStep||'').trim().slice(0,1200),visibility,activityUid:context.activityUid,actualTeachingId:context.actualTeachingId,activityTitle:context.title||'',activitySourceSnapshot:source?mpsSourceCopy(source):null,curriculumSnapshot:source?mpsSourceCopy(context.curriculum):null,learningAreas,officialArea:learningAreas.length===1?learningAreas[0]:'',source:context.activityUid||context.actualTeachingId?'Teaching record':'Spontaneous observation'};
- ui().modal=null;const saved=save();render();if(saved)showFeedback('Observation saved',document.querySelector('.page-head'));return id;
+ const photo=mpsObservationPhotoFields(fields,childId,context.roomId);if(photo===false)return false;
+ const id='obs_'+Date.now()+'_'+Math.random().toString(36).slice(2,8),photoId=photo?'photo_'+crypto.randomUUID():null,source=context.source,learningAreas=source?mpsLearningAreas(source):[],at=new Date().toISOString(),actor=staffActor();
+ db.observations[id]={id,childId,childName:profileChildName(childId),classroomId:context.roomId,date,recordedAt:at,actor,text,interpretation:String(fields.interpretation||'').trim().slice(0,1200),nextStep:String(fields.nextStep||'').trim().slice(0,1200),visibility,activityUid:context.activityUid,actualTeachingId:context.actualTeachingId,activityTitle:context.title||'',activitySourceSnapshot:source?mpsSourceCopy(source):null,curriculumSnapshot:source?mpsSourceCopy(context.curriculum):null,learningAreas,officialArea:learningAreas.length===1?learningAreas[0]:'',source:context.activityUid||context.actualTeachingId?'Teaching record':'Spontaneous observation',photoId,photo:!!photo};
+ if(photo){db.media.photos[photoId]={id:photoId,observationId:id,childIds:photo.childIds,title:context.title?`Observation · ${context.title}`:`Observation · ${profileChildName(childId)}`,visibility,date,private:true,image:{data:photo.data,name:photo.name,mimeType:photo.mimeType,at,actor},marketing:{status:'not_nominated',use:null,decision:null},deletedAt:null,hold:false}}
+ const oldModal=ui().modal;ui().modal=null;
+ if(!save()){delete db.observations[id];if(photoId)delete db.media.photos[photoId];ui().modal=oldModal;return false}
+ render();showFeedback('Observation saved',document.querySelector('.page-head'));return id;
 }
-saveObservation=function(){
+saveObservation=async function(){
  const data=ui().modal?.name==='observation'?ui().modal.data||{}:null;
  if(!data)return false;
- const result=mpsObservationWrite(data,{childId:val('obs_child'),date:val('obs_date'),text:val('obs_text'),interpretation:val('obs_interpretation'),nextStep:val('obs_next_step'),visibility:val('obs_visibility')});
- if(!result){const error=byId('obs_error');if(error){error.textContent='Choose a child and enter a factual observation. Keep a linked teaching date unchanged.';error.hidden=false}}return result;
+ const error=byId('obs_error'),button=document.querySelector('#overlay .modal-footer .primary'),file=byId('obs_photo')?.files?.[0],photoChildIds=[...document.querySelectorAll('[data-observation-photo-child]:checked')].map(input=>input.value);
+ if(button)button.disabled=true;
+ try{
+  const photo=file?await mpsReadObservationPhoto(file):null;
+  const result=mpsObservationWrite(data,{childId:val('obs_child'),date:val('obs_date'),text:val('obs_text'),interpretation:val('obs_interpretation'),nextStep:val('obs_next_step'),visibility:val('obs_visibility'),photo,photoChildIds});
+  if(!result&&error){error.textContent=file&&!photoChildIds.length?'Tag each child visible in the photo.':'Choose a child and enter a factual observation. If adding a photo, tag every identifiable child. Keep a linked teaching date unchanged.';error.hidden=false}
+  return result;
+ }catch(e){if(error){error.textContent=e.message;error.hidden=false}return false}
+ finally{if(button?.isConnected)button.disabled=false}
 };
 
 function mpsAssessmentTargets(context){
@@ -56452,16 +57798,16 @@ function mpsAssessFromObservation(id){const o=db.observations[id];if(!o||!mpsEvi
 const mpsBatchCBaseModalView=modalView;
 modalView=function(m){if(m?.name==='observation')return mpsObservationModal(m.data);if(m?.name==='assessment')return mpsAssessmentModal(m.data);return mpsBatchCBaseModalView(m)};
 
-lessonEvidenceObservation=function(o){const visibility=lessonEvidenceVisibility(o.visibility),context=o.activityTitle||'Spontaneous learning';return `<article class="lesson-evidence-item" data-evidence-type="observation" data-evidence-id="${esc(o.id)}"><header><div><strong>${profileChildLink(o.childId,o.childName)}</strong><div class="lesson-evidence-tags">${badge('Observation','blue')}</div>${mpsLearningAreaContextHtml(o,true)}</div>${badge(visibility.text,visibility.tone)}</header><p class="lesson-evidence-text">${esc(o.text)}</p>${o.interpretation||o.nextStep?`<details class="evidence-interpretation"><summary>Interpretation & next step</summary>${o.interpretation?kv('What this may show',esc(o.interpretation)):''}${o.nextStep?kv('Next step',esc(o.nextStep)):''}</details>`:''}<div class="lesson-evidence-context"><span>${esc(context)}</span>${o.date?`<span>${fmtDate(o.date)}</span>`:''}</div><footer>${btn('Open progress',`openDrawer('child-progress',{childId:'${esc(o.childId)}'})`,'secondary','sm')}${mpsEvidenceChildAllowed(o.childId,o.classroomId||ui().lessonClass)?btn('Use for assessment',`mpsAssessFromObservation('${esc(o.id)}')`,'secondary','sm'):''}</footer></article>`};
-lessonEvidenceAssessment=function(a){const target=a.target?.label,result=a.target?esc(a.result||'Not recorded'):'Earlier prototype assessment';return `<article class="lesson-evidence-item" data-evidence-type="assessment" data-evidence-id="${esc(a.id)}"><header><div><strong>${profileChildLink(a.childId,a.childName)}</strong><div class="lesson-evidence-tags">${badge('Assessment','purple')}</div>${mpsLearningAreaContextHtml(a,true)}</div></header><p class="lesson-evidence-text">${target?`<strong>${esc(target)}</strong><br>${a.resultKind==='non-rating'?'No judgement recorded':'Developmental level'}: ${result}`:result}</p><div class="lesson-evidence-context"><span>${esc(a.activityTitle||'Learning evidence')}</span>${a.date?`<span>${fmtDate(a.date)}</span>`:''}${a.evidenceIds?.length?`<span>${a.evidenceIds.length} supporting ${a.evidenceIds.length===1?'observation':'observations'}</span>`:''}</div><footer>${btn('Open progress',`openDrawer('child-progress',{childId:'${esc(a.childId)}'})`,'secondary','sm')}</footer></article>`};
+lessonEvidenceObservation=function(o){const visibility=lessonEvidenceVisibility(o.visibility),context=o.activityTitle||'Spontaneous learning';return `<article class="lesson-evidence-item" data-evidence-type="observation" data-evidence-id="${esc(o.id)}"><header><div><strong>${profileChildLink(o.childId,o.childName)}</strong><div class="lesson-evidence-tags">${badge('Observation','blue')}</div>${mpsLearningAreaContextHtml(o,true)}</div>${badge(visibility.text,visibility.tone)}</header><p class="lesson-evidence-text">${esc(o.text)}</p>${mpsObservationPhotoHtml(o)}${o.interpretation||o.nextStep?`<details class="evidence-interpretation"><summary>Interpretation & next step</summary>${o.interpretation?kv('What this may show',esc(o.interpretation)):''}${o.nextStep?kv('Next step',esc(o.nextStep)):''}</details>`:''}<div class="lesson-evidence-context"><span>${esc(context)}</span>${o.date?`<span>${fmtDate(o.date)}</span>`:''}</div><footer>${btn('Open progress',`openDrawer('child-progress',{childId:'${esc(o.childId)}'})`,'secondary','sm')}${mpsEvidenceChildAllowed(o.childId,o.classroomId||ui().lessonClass)?btn('Use for assessment',`mpsAssessFromObservation('${esc(o.id)}')`,'secondary','sm'):''}</footer></article>`};
+lessonEvidenceAssessment=function(a){const target=a.target?.label,result=a.target?esc(a.result||'Not recorded'):'Earlier assessment · learning target not recorded';return `<article class="lesson-evidence-item" data-evidence-type="assessment" data-evidence-id="${esc(a.id)}"><header><div><strong>${profileChildLink(a.childId,a.childName)}</strong><div class="lesson-evidence-tags">${badge('Assessment','purple')}</div>${mpsLearningAreaContextHtml(a,true)}</div></header><p class="lesson-evidence-text">${target?`<strong>${esc(target)}</strong><br>${a.resultKind==='non-rating'?'No judgement recorded':'Developmental level'}: ${result}`:result}</p><div class="lesson-evidence-context"><span>${esc(a.activityTitle||'Learning evidence')}</span>${a.date?`<span>${fmtDate(a.date)}</span>`:''}${a.evidenceIds?.length?`<span>${a.evidenceIds.length} supporting ${a.evidenceIds.length===1?'observation':'observations'}</span>`:''}</div><footer>${btn('Open progress',`openDrawer('child-progress',{childId:'${esc(a.childId)}'})`,'secondary','sm')}</footer></article>`};
 const mpsBatchCBaseDrawerView=drawerView;
 function mpsBatchCChildProgress(data){
  const cid=profileChildId(data?.childId),canRead=cid&&currentChildrenInScope().some(c=>c.id===cid);
  if(!canRead)return drawer('Learning unavailable','',notice('This child is outside your learning scope.','info'));
  const observations=Object.values(db.observations).filter(o=>profileChildKey(o.childId)===cid);
  const assessments=Object.values(db.assessments).filter(a=>profileChildKey(a.childId)===cid);
- const observationCards=observations.map(o=>`<article class="card flat child-evidence-card" data-child-progress-evidence-id="${esc(o.id)}">${mpsLearningAreaContextHtml(o,true)}<p>${esc(o.text)}</p>${o.interpretation||o.nextStep?`<details><summary>Interpretation & next step</summary>${o.interpretation?kv('What this may show',esc(o.interpretation)):''}${o.nextStep?kv('Next step',esc(o.nextStep)):''}</details>`:''}<small>${esc(o.activityTitle||'Spontaneous learning')} · ${o.date?fmtDate(o.date):'Date not recorded'}</small></article>`).join('');
- const assessmentCards=assessments.map(a=>`<article class="notice info child-evidence-card" data-child-progress-evidence-id="${esc(a.id)}"><strong>Assessment</strong>${a.target?`<p>${esc(a.target.label)}</p><small>${a.resultKind==='non-rating'?'No judgement recorded':'Developmental level'}: ${esc(a.result)}</small>`:'<p>Earlier prototype assessment</p>'}${mpsLearningAreaContextHtml(a,true)}</article>`).join('');
+ const observationCards=observations.map(o=>`<article class="card flat child-evidence-card" data-child-progress-evidence-id="${esc(o.id)}">${mpsLearningAreaContextHtml(o,true)}<p>${esc(o.text)}</p>${mpsObservationPhotoHtml(o)}${o.interpretation||o.nextStep?`<details><summary>Interpretation & next step</summary>${o.interpretation?kv('What this may show',esc(o.interpretation)):''}${o.nextStep?kv('Next step',esc(o.nextStep)):''}</details>`:''}<small>${esc(o.activityTitle||'Spontaneous learning')} · ${o.date?fmtDate(o.date):'Date not recorded'}</small></article>`).join('');
+ const assessmentCards=assessments.map(a=>`<article class="notice info child-evidence-card" data-child-progress-evidence-id="${esc(a.id)}"><strong>Assessment</strong>${a.target?`<p>${esc(a.target.label)}</p><small>${a.resultKind==='non-rating'?'No judgement recorded':'Developmental level'}: ${esc(a.result)}</small>`:'<p>Earlier assessment · learning target not recorded</p>'}${mpsLearningAreaContextHtml(a,true)}</article>`).join('');
  return drawer(`${profileChildName(cid)} · progress`,'The same learning records are shown here; no separate progress copy is made.',observationCards+assessmentCards+(!observations.length&&!assessments.length?'<div class="empty">No evidence yet.</div>':''));
 }
 drawerView=function(d){return d?.name==='child-progress'?mpsBatchCChildProgress(d.data):mpsBatchCBaseDrawerView(d)};
@@ -56522,7 +57868,7 @@ function mpsProgressItem(item,cid,portfolio=false){
  const r=item.record,isObservation=item.type==='observation',vis=isObservation?lessonEvidenceVisibility(r.visibility):null;
  const support=!isObservation?(r.evidenceIds||[]).map(id=>mpsProgressEvidence(cid).find(e=>e.type==='observation'&&e.record.id===id)).filter(Boolean):[];
  const selected=mpsPortfolioSelected(cid,item.type,r.id),context=r.activityTitle||(isObservation?'Spontaneous learning':'Learning evidence');
- return `<article class="child-evidence-card card flat" data-child-progress-evidence-id="${esc(r.id)}" data-progress-type="${item.type}" data-evidence-date="${esc(r.date||'')}"><header><strong>${isObservation?'Observation':'Assessment'}</strong>${vis?badge(vis.text,vis.tone):''}<span>${r.date?esc(fmtDate(r.date)):'Date not recorded'}</span></header>${isObservation?`<p>${esc(r.text)}</p>${r.interpretation||r.nextStep?`<details><summary>Interpretation & next step</summary>${r.interpretation?kv('What this may show',esc(r.interpretation)):''}${r.nextStep?kv('Next step',esc(r.nextStep)):''}</details>`:''}`:r.target?`<p><strong>${esc(r.target.label)}</strong></p><p>${r.resultKind==='non-rating'?'No judgement recorded':'Developmental level'}: ${esc(r.result||'Not recorded')}</p>`:'<p>Earlier prototype assessment</p>'}<small>${esc(context)}</small>${mpsLearningAreaContextHtml(r,true)}${support.length?`<details class="progress-support"><summary>Supporting observations (${support.length})</summary>${support.map(e=>`<div data-supporting-evidence-id="${esc(e.record.id)}"><small>${e.record.date?esc(fmtDate(e.record.date)):''} · ${esc(lessonEvidenceVisibility(e.record.visibility).text)}</small><p>${esc(e.record.text)}</p></div>`).join('')}</details>`:''}<details class="progress-record-context"><summary>Record details</summary>${r.actor?.name?kv('Recorded by',esc(r.actor.name)):''}${r.recordedAt?kv('Recorded at',esc(r.recordedAt)):''}${!isObservation&&r.target?kv('Curriculum',esc([r.target.packName,r.target.versionLabel].filter(Boolean).join(' · ')))+kv('Source edition',esc(r.target.editionId||'Not recorded')):''}</details><footer>${btn(selected?'Remove from portfolio':'Add to portfolio',`mpsTogglePortfolio('${esc(cid)}','${item.type}','${esc(r.id)}')`,'secondary','sm')}${isObservation&&!portfolio&&mpsEvidenceChildAllowed(cid,r.classroomId||childClassroom(db.people.children[cid]))?btn('Use for assessment',`mpsAssessFromObservation('${esc(r.id)}')`,'secondary','sm'):''}</footer></article>`;
+ return `<article class="child-evidence-card card flat" data-child-progress-evidence-id="${esc(r.id)}" data-progress-type="${item.type}" data-evidence-date="${esc(r.date||'')}"><header><strong>${isObservation?'Observation':'Assessment'}</strong>${vis?badge(vis.text,vis.tone):''}<span>${r.date?esc(fmtDate(r.date)):'Date not recorded'}</span></header>${isObservation?`<p>${esc(r.text)}</p>${mpsObservationPhotoHtml(r)}${r.interpretation||r.nextStep?`<details><summary>Interpretation & next step</summary>${r.interpretation?kv('What this may show',esc(r.interpretation)):''}${r.nextStep?kv('Next step',esc(r.nextStep)):''}</details>`:''}`:r.target?`<p><strong>${esc(r.target.label)}</strong></p><p>${r.resultKind==='non-rating'?'No judgement recorded':'Developmental level'}: ${esc(r.result||'Not recorded')}</p>`:'<p>Earlier assessment · learning target not recorded</p>'}<small>${esc(context)}</small>${mpsLearningAreaContextHtml(r,true)}${support.length?`<details class="progress-support"><summary>Supporting observations (${support.length})</summary>${support.map(e=>`<div data-supporting-evidence-id="${esc(e.record.id)}"><small>${e.record.date?esc(fmtDate(e.record.date)):''} · ${esc(lessonEvidenceVisibility(e.record.visibility).text)}</small><p>${esc(e.record.text)}</p>${mpsObservationPhotoHtml(e.record)}</div>`).join('')}</details>`:''}<details class="progress-record-context"><summary>Record details</summary>${r.actor?.name?kv('Recorded by',esc(r.actor.name)):''}${r.recordedAt?kv('Recorded at',esc(r.recordedAt)):''}${!isObservation&&r.target?kv('Curriculum',esc([r.target.packName,r.target.versionLabel].filter(Boolean).join(' · ')))+kv('Source edition',esc(r.target.editionId||'Not recorded')):''}</details><footer>${btn(selected?'Remove from portfolio':'Add to portfolio',`mpsTogglePortfolio('${esc(cid)}','${item.type}','${esc(r.id)}')`,'secondary','sm')}${isObservation&&!portfolio&&mpsEvidenceChildAllowed(cid,r.classroomId||childClassroom(db.people.children[cid]))?btn('Use for assessment',`mpsAssessFromObservation('${esc(r.id)}')`,'secondary','sm'):''}</footer></article>`;
 }
 function mpsChildProgressView(data={}){
  const cid=profileChildId(data.childId);if(!mpsChildLearningAllowed(cid))return drawer('Learning unavailable','',notice('This child is outside your learning scope.','info'));
@@ -56545,7 +57891,7 @@ const mpsBatchDBaseDrawerView=drawerView;
 drawerView=function(d){return d?.name==='child-progress'?mpsChildProgressView(d.data):mpsBatchDBaseDrawerView(d)};
 renderLessonEvidence=function(){
  const children=learningChildren(),rows=children.map(child=>{const evidence=mpsProgressEvidence(child.id),latest=evidence[0]?.record;return `<div class="class-progress-child" data-progress-child="${esc(child.id)}"><div><strong>${esc(child.legalName)}</strong><small>${latest?`Recent learning evidence · ${latest.date?esc(fmtDate(latest.date)):'Date not recorded'}`:'No learning evidence recorded yet'}</small></div>${btn('Open progress',`mpsOpenChildProgress('${esc(child.id)}')`,'secondary','sm')}</div>`}).join('');
- return `<section class="class-progress"><h3>Class Progress</h3><p>Open a child's learning history.</p>${rows||'<div class="empty">No children in this Classroom.</div>'}<details class="class-evidence"><summary>Class evidence — recorded observations & assessments</summary>${`<section class="lesson-evidence"><h3>Learning evidence</h3><div class="lesson-evidence-list">${children.flatMap(child=>mpsProgressEvidence(child.id)).sort((a,b)=>String(b.record.date).localeCompare(String(a.record.date))).map(item=>item.type==='observation'?lessonEvidenceObservation(item.record):lessonEvidenceAssessment(item.record)).join('')||'<div class="empty">No learning evidence yet.</div>'}</div></section>`}</details></section>`;
+ return `<section class="class-progress"><h3>Level progress</h3><p>Open a child's learning history.</p>${rows||'<div class="empty">No children in this Level.</div>'}<details class="class-evidence"><summary>Level evidence — recorded observations & assessments</summary>${`<section class="lesson-evidence"><h3>Learning evidence</h3><div class="lesson-evidence-list">${children.flatMap(child=>mpsProgressEvidence(child.id)).sort((a,b)=>String(b.record.date).localeCompare(String(a.record.date))).map(item=>item.type==='observation'?lessonEvidenceObservation(item.record):lessonEvidenceAssessment(item.record)).join('')||'<div class="empty">No learning evidence yet.</div>'}</div></section>`}</details></section>`;
 };
 // Isolated, synthetic review data. Existing Batch C/Owner stores are not reseeded.
 function mpsBatchDSeed(){
@@ -56576,7 +57922,7 @@ function mpsReportSelection(){
  const current=mpsSchoolTermState(TODAY),termId=ui().reportTerm||(current.kind==='term'?current.term.id:mpsReportTerms()[0]?.id)||'';
  return {kind,childId,monthKey:ui().reportMonth||TODAY.slice(0,7),termId};
 }
-currentReport=function(){const s=mpsReportSelection();return Object.values(db.reports||{}).find(r=>profileChildId(r.childId)===s.childId&&mpsReportKind(r)===s.kind&&(s.kind==='term'?r.termId===s.termId:mpsReportMonthKey(r)===s.monthKey))||null};
+currentReport=function(){const s=mpsReportSelection(),matches=r=>r&&profileChildId(r.childId)===s.childId&&mpsReportKind(r)===s.kind&&(s.kind==='term'?r.termId===s.termId:mpsReportMonthKey(r)===s.monthKey);return (matches(db.reports?.[ui().reportId])?db.reports[ui().reportId]:null)||Object.values(db.reports||{}).find(matches)||null};
 reportChildEligible=function(r){return !!r&&mpsReportScope(r.childId)};
 function mpsReportPeriod(r){
  if(mpsReportKind(r)==='term'){const term=mpsReportTerms().find(t=>t.id===r.termId);return term?{start:term.start,end:term.end,termId:term.id,slot:term.slot,yearId:term.yearId,label:mpsReportTermLabel(term)}:null}
@@ -56587,7 +57933,12 @@ function mpsReportMeaningful(r){return mpsReportEvidence(r).some(e=>e.type==='ob
 reportCandidates=function(){const r=currentReport(),items=mpsReportEvidence(r);return {obs:items.filter(e=>e.type==='observation'&&e.record.visibility==='Parent-eligible candidate'&&String(e.record.text||'').trim()).map(e=>e.record),ass:items.filter(e=>e.type==='assessment'&&e.record.target&&mpsNieAssessmentLevels.includes(e.record.result)&&!(e.record.evidenceIds||[]).some(id=>['Restricted','Restricted/confidential'].includes(db.observations[id]?.visibility))).map(e=>e.record)}};
 reportSelectedObservations=function(r){if(!reportChildEligible(r))return [];const ids=new Set(r.selectedEvidence||[]);return mpsReportEvidence(r).filter(e=>e.type==='observation'&&ids.has(e.record.id)&&e.record.visibility==='Parent-eligible candidate'&&String(e.record.text||'').trim()).map(e=>e.record)};
 function mpsReportSnapshotValid(snapshot,r){return !!snapshot&&(mpsReportKind(r)==='term'?snapshot.kind==='term'&&snapshot.term?.id===r.termId&&snapshot.sections&&['strengths','developing','nextFocus'].every(k=>typeof snapshot.sections[k]==='string'):Array.isArray(snapshot.observations))}
-function mpsReportFrozen(r){return mpsReportSnapshotValid(r?.sentSnapshot,r)?r.sentSnapshot:r?.status==='approved'&&mpsReportSnapshotValid(r.approvedSnapshot,r)?r.approvedSnapshot:null}
+function mpsReportVersions(r){return Array.isArray(r?.versions)?r.versions:[]}
+function mpsReportCurrentVersion(r){return mpsReportVersions(r).find(v=>v.id===r.currentVersionId)||null}
+function mpsOpenReportById(id){const r=db.reports?.[id];if(!r||!mpsReportScope(r.childId))return;ui().reportId=r.id;ui().reportChild=profileChildId(r.childId);ui().reportView=mpsReportKind(r);if(r.kind==='term')ui().reportTerm=r.termId;else ui().reportMonth=mpsReportMonthKey(r);setRoute('reports')}
+function mpsReportVersionHistory(r){const versions=mpsReportVersions(r);return versions.length?`<details class="report-versions"><summary>Version history · ${versions.length}</summary>${[...versions].reverse().map((v,index)=>`<div class="report-version-row" data-report-version-id="${esc(v.id)}"><span>Version ${versions.length-index}${v.correctedFromVersionId?' · corrected':''}${v.id===r.currentVersionId?' · current':''}</span>${mpsUtilityAction('View version',`mpsOpenReportVersion('${r.id}','${v.id}')`,'file-text')}</div>`).join('')}</details>`:''}
+function mpsOpenReportVersion(reportId,versionId){const r=db.reports?.[reportId];if(!r||!mpsReportScope(r.childId)||!mpsReportVersions(r).some(v=>v.id===versionId))return;mpsOpenReportById(reportId);openModal('report-version',{reportId,versionId})}
+function mpsReportFrozen(r){const version=mpsReportCurrentVersion(r);if(r?.status==='approved'&&version&&mpsReportSnapshotValid(version.content,r))return version.content;return mpsReportSnapshotValid(r?.sentSnapshot,r)?r.sentSnapshot:r?.status==='approved'&&mpsReportSnapshotValid(r.approvedSnapshot,r)?r.approvedSnapshot:null}
 function mpsReportEditable(r){return reportChildEligible(r)&&!r.sentAt&&!mpsReportFrozen(r)&&r.status!=='teacher_ready'}
 function mpsEditReportDraft(){
  const r=currentReport();if(!has('Head Teacher')||!reportChildEligible(r)||r.status!=='teacher_ready'||r.sentAt||mpsReportFrozen(r))return;
@@ -56596,16 +57947,16 @@ function mpsEditReportDraft(){
 function mpsReportDraftContent(r){
  if(!reportChildEligible(r))return null;const period=mpsReportPeriod(r);if(!period)return null;
  const base={kind:mpsReportKind(r),childId:profileChildId(r.childId),childName:profileChildName(r.childId)};
- return mpsReportKind(r)==='term'?{...base,term:{id:r.termId,yearId:period.yearId,slot:period.slot,start:period.start,end:period.end,label:period.label},sections:{strengths:r.sections?.strengths||'',developing:r.sections?.developing||'',nextFocus:r.sections?.nextFocus||''}}:{...base,month:period.label,monthKey:period.monthKey,selectedEvidence:[...(r.selectedEvidence||[])],teacherNote:r.teacherNote||'',observations:reportSelectedObservations(r).map(o=>({id:o.id,childId:profileChildId(o.childId),date:o.date,text:o.text,activityTitle:o.activityTitle||'',actor:mpsSourceCopy(o.actor||null),recordedAt:o.recordedAt||null,activitySourceSnapshot:mpsSourceCopy(o.activitySourceSnapshot||null),curriculumSnapshot:mpsSourceCopy(o.curriculumSnapshot||null)}))};
+ return mpsReportKind(r)==='term'?{...base,term:{id:r.termId,yearId:period.yearId,slot:period.slot,start:period.start,end:period.end,label:period.label},sections:{strengths:r.sections?.strengths||'',developing:r.sections?.developing||'',nextFocus:r.sections?.nextFocus||''}}:{...base,month:period.label,monthKey:period.monthKey,selectedEvidence:[...(r.selectedEvidence||[])],teacherNote:r.teacherNote||'',observations:reportSelectedObservations(r).map(o=>({id:o.id,childId:profileChildId(o.childId),visibility:o.visibility,photoId:mpsReportPhotoRecord(o,r.childId)?.id||null,date:o.date,text:o.text,activityTitle:o.activityTitle||'',actor:mpsSourceCopy(o.actor||null),recordedAt:o.recordedAt||null,activitySourceSnapshot:mpsSourceCopy(o.activitySourceSnapshot||null),curriculumSnapshot:mpsSourceCopy(o.curriculumSnapshot||null)}))};
 }
 reportPreviewContent=function(r){return reportChildEligible(r)?mpsReportFrozen(r)||(r?.status==='approved'||r?.sentAt?null:mpsReportDraftContent(r)):null};
 function mpsReportWrite(r,change){const before=mpsSourceCopy(r);change();if(!save()){db.reports[r.id]=before;alert('The report was not saved. Please try again.');return false}render();return true}
-function mpsReportChange(key,value){if(!['reportView','reportChild','reportMonth','reportTerm'].includes(key))return;ui()[key]=value;save();render()}
+function mpsReportChange(key,value){if(!['reportView','reportChild','reportMonth','reportTerm'].includes(key))return;ui()[key]=value;ui().reportId=null;save();render()}
 function mpsPrepareReport(){
  const s=mpsReportSelection();if(!mpsReportScope(s.childId)||currentReport())return;
- const record={id:`${s.kind}_${s.childId}_${s.kind==='term'?s.termId:s.monthKey}`,kind:s.kind,childId:s.childId,childName:profileChildName(s.childId),status:'teacher_review',selectedEvidence:[],teacherNote:'',approvedSnapshot:null,sentAt:null,...(s.kind==='term'?{termId:s.termId,sections:{strengths:'',developing:'',nextFocus:''}}:{monthKey:s.monthKey,month:mpsReportMonthLabel(s.monthKey)})};
+ const record={id:'report_'+crypto.randomUUID(),kind:s.kind,childId:s.childId,childName:profileChildName(s.childId),status:'teacher_review',selectedEvidence:[],teacherNote:'',approvedSnapshot:null,sentAt:null,versions:[],deliveries:[],currentVersionId:null,...(s.kind==='term'?{termId:s.termId,sections:{strengths:'',developing:'',nextFocus:''}}:{monthKey:s.monthKey,month:mpsReportMonthLabel(s.monthKey)})};
  if(!mpsReportPeriod(record)||!mpsReportMeaningful(record))return;
- db.reports[record.id]=record;if(!save()){delete db.reports[record.id];alert('The report was not saved. Please try again.');return}render();
+ db.reports[record.id]=record;ui().reportId=record.id;if(!save()){delete db.reports[record.id];ui().reportId=null;alert('The report was not saved. Please try again.');return}render();
 }
 function mpsReportForm(r){return mpsReportKind(r)==='term'?{sections:{strengths:val('report_strengths').trim(),developing:val('report_developing').trim(),nextFocus:val('report_next_focus').trim()}}:{teacherNote:val('report_note')};}
 function mpsSaveReportDraft(ready=false){
@@ -56620,14 +57971,34 @@ approveReport=function(){
  const r=currentReport();if(!reportChildEligible(r)||r.sentAt||mpsReportFrozen(r))return;if(r.status!=='teacher_ready'){alert('Complete the teacher review before approval.');return}
  const content=mpsReportDraftContent(r);if(!content||!mpsReportMeaningful(r)){alert('Review the evidence for this period before approval.');return}
  if(mpsReportKind(r)==='monthly'&&(content.observations.length!==(r.selectedEvidence||[]).length)){alert('Review the selected evidence: only eligible observations for this child and month may be included.');return}
- mpsReportWrite(r,()=>{r.status='approved';r.approvedSnapshot=mpsSourceCopy({...content,approvedAt:new Date().toISOString(),approvedBy:currentPersona().name,approvedById:currentPersona().id,approvalActor:staffActor(),teacherReviewActor:mpsSourceCopy(r.teacherReviewActor||null)});});
+ mpsReportWrite(r,()=>{
+  const approved=mpsSourceCopy({...content,approvedAt:new Date().toISOString(),approvedBy:currentPersona().name,approvedById:currentPersona().id,approvalActor:staffActor(),teacherReviewActor:mpsSourceCopy(r.teacherReviewActor||null)});
+  r.status='approved';r.approvedSnapshot=approved;
+  // Legacy reports retain their recorded shape. New reports keep each approved output as an immutable version.
+  if(Array.isArray(r.versions)){
+   const version={id:'report_version_'+crypto.randomUUID(),reportId:r.id,childId:profileChildId(r.childId),content:mpsSourceCopy(approved),createdAt:approved.approvedAt,correctedFromVersionId:r.correctionFromVersionId||null,correctionReason:r.pendingCorrectionReason||null};
+   r.versions.push(version);r.currentVersionId=version.id;delete r.correctionFromVersionId;delete r.pendingCorrectionReason;
+  }
+ });
 };
 sendReport=function(){
  const r=currentReport();if(!reportChildEligible(r))return;
- if(r.status!=='approved'||!mpsReportSnapshotValid(r.approvedSnapshot,r)){alert('Approve the exact report before recording a send.');return}if(r.sentAt)return;
+ const approved=mpsReportFrozen(r);if(r.status!=='approved'||!mpsReportSnapshotValid(approved,r)){alert('Approve the exact report before recording a send.');return}if(r.sentAt)return;
  const ids=linkedRecipientIds(r.childId);if(!ids.length){alert('No authorised linked recipient is available for this child.');return}
- mpsReportWrite(r,()=>{r.sentSnapshot=mpsSourceCopy(r.approvedSnapshot);r.sentRecipientGuardianIds=[...ids];r.sentRecipients=mpsSourceCopy(recipientSnapshots(ids));r.sentActor=staffActor();r.sentAt=new Date().toISOString()});
+ mpsReportWrite(r,()=>{r.sentSnapshot=mpsSourceCopy(approved);r.sentRecipientGuardianIds=[...ids];r.sentRecipients=mpsSourceCopy(recipientSnapshots(ids));r.sentActor=staffActor();r.sentAt=new Date().toISOString();if(Array.isArray(r.versions)&&mpsReportCurrentVersion(r))r.deliveries.push({id:'report_delivery_'+crypto.randomUUID(),reportId:r.id,versionId:r.currentVersionId,sentAt:r.sentAt,sentActor:mpsSourceCopy(r.sentActor),recipientGuardianIds:[...ids],recipients:mpsSourceCopy(r.sentRecipients),content:mpsSourceCopy(r.sentSnapshot)})});
 };
+function mpsBeginReportCorrection(reportId){
+ const r=db.reports?.[reportId],version=mpsReportCurrentVersion(r),reason=val('report_correction_reason').trim();
+ if(!has('Head Teacher')||!r||!mpsReportScope(r.childId)||!version||!mpsReportFrozen(r)||!reason){alert('Enter why this report is being corrected.');return}
+ if(!mpsReportWrite(r,()=>{
+  r.correctionFromVersionId=version.id;r.pendingCorrectionReason=reason;r.status='teacher_review';
+  if(mpsReportKind(r)==='term')r.sections=mpsSourceCopy(version.content.sections);
+  else{r.selectedEvidence=[...(version.content.selectedEvidence||[])];r.teacherNote=version.content.teacherNote||''}
+  r.approvedSnapshot=null;r.sentSnapshot=null;r.sentAt=null;r.sentActor=null;r.sentRecipients=null;r.sentRecipientGuardianIds=null;
+  r.draftActor=staffActor();r.draftSavedAt=new Date().toISOString();
+ }))return;
+ closeOverlay();
+}
 function mpsPreviewReport(){
  const r=currentReport();if(!reportChildEligible(r))return;
  if(mpsReportEditable(r)){const form=mpsReportForm(r),stored=mpsReportKind(r)==='term'?{sections:r.sections}:{teacherNote:r.teacherNote||''};if(JSON.stringify(form)!==JSON.stringify(stored)&&!mpsReportWrite(r,()=>{Object.assign(r,form);r.status='teacher_review';r.draftActor=staffActor();r.draftSavedAt=new Date().toISOString()}))return}
@@ -56635,12 +58006,24 @@ function mpsPreviewReport(){
 }
 function mpsReportParentHtml(content){
  if(!content)return notice('Review and approve this report again before sending.','warn');
- const term=content.kind==='term';return `<article class="report-parent-output card flat" data-parent-report="${term?'term':'monthly'}"><div class="eyebrow">${term?'Term Progress Summary':'Monthly Family Update'}</div><h3>${esc(content.childName)}</h3><p>${esc(term?content.term.label:content.month)}</p>${term?['strengths','developing','nextFocus'].map((key,index)=>`<section><h4>${['Strengths','Developing skills','Next focus'][index]}</h4><p>${esc(content.sections[key])||'—'}</p></section>`).join(''):`<section><h4>What we noticed</h4>${content.observations.length?content.observations.map(o=>`<p>${esc(o.text)}</p>`).join(''):'<p>No observation selected yet.</p>'}</section>${content.teacherNote?`<section><h4>Teacher note</h4><p>${esc(content.teacherNote)}</p></section>`:''}`}</article>`;
+ const term=content.kind==='term';return `<article class="report-parent-output card flat" data-parent-report="${term?'term':'monthly'}"><div class="eyebrow">${term?'Term Progress Summary':'Monthly Family Update'}</div><h3>${esc(content.childName)}</h3><p>${esc(term?content.term.label:content.month)}</p>${term?['strengths','developing','nextFocus'].map((key,index)=>`<section><h4>${['Strengths','Developing skills','Next focus'][index]}</h4><p>${esc(content.sections[key])||'—'}</p></section>`).join(''):`<section><h4>What we noticed</h4>${content.observations.length?content.observations.map(o=>`<p>${esc(o.text)}</p>${mpsReportPhotoHtml(o,content.childId)}`).join(''):'<p>No observation selected yet.</p>'}</section>${content.teacherNote?`<section><h4>Teacher note</h4><p>${esc(content.teacherNote)}</p></section>`:''}`}</article>`;
 }
 const mpsBatchEBaseModalView=modalView;
-modalView=function(m){if(m?.name==='report-preview'){const r=currentReport(),content=reportPreviewContent(r);return modal('Parent report preview',mpsReportFrozen(r)?'Exact approved parent-facing content.':'Draft parent-facing content.',mpsReportParentHtml(content),btn('Close','closeOverlay()','secondary'))}return mpsBatchEBaseModalView(m)};
+modalView=function(m){
+ if(m?.name==='report-preview'){const r=currentReport(),content=reportPreviewContent(r);return modal('Parent report preview',mpsReportFrozen(r)?'This is the approved version.':'This is what the family will see.',mpsReportParentHtml(content),btn('Close','closeOverlay()','secondary'))}
+ if(m?.name==='report-correction'){
+  const r=db.reports?.[m.data?.reportId];if(!r||!mpsReportScope(r.childId)||!has('Head Teacher')||!mpsReportCurrentVersion(r)||!mpsReportFrozen(r))return modal('Report unavailable','',notice('This report cannot be corrected here.','warn'),btn('Close','closeOverlay()','secondary'));
+  return modal('Correct report','The earlier approved version remains in history.',`${kv('Child',profileChildLink(r.childId))}${textArea('Reason for correction','','report_correction_reason')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Continue correction',`mpsBeginReportCorrection('${r.id}')`,'primary')}`);
+ }
+ if(m?.name==='report-version'){
+  const r=db.reports?.[m.data?.reportId],v=r&&mpsReportVersions(r).find(item=>item.id===m.data?.versionId),delivery=r?.deliveries?.find(item=>item.versionId===v?.id);
+  if(!v||!mpsReportScope(r.childId))return modal('Report version unavailable','',notice('This report version is not available.','warn'),btn('Close','closeOverlay()','secondary'));
+  return modal('Report version','Previously approved content remains unchanged.',`${kv('Child',profileChildLink(r.childId))}${v.correctedFromVersionId?kv('Correction reason',esc(v.correctionReason||'Not recorded')):''}${mpsReportParentHtml(v.content)}${kv('Approved',esc(staffHistoryDate(v.createdAt)))}${delivery?kv('Sent',esc(staffHistoryDate(delivery.sentAt))):''}`,btn('Close','closeOverlay()','secondary'));
+ }
+ return mpsBatchEBaseModalView(m)
+};
 function mpsReportTextArea(label,value,id){return textArea(label,value,id).replace('<textarea',`<textarea aria-label="${esc(label)}"`)}
-function mpsReportInternalCard(e){const r=e.record,obs=e.type==='observation';return `<article class="card flat" data-report-internal-id="${esc(r.id)}" ${!obs?`data-report-assessment-id="${esc(r.id)}"`:""}><header><strong>${obs?'Observation':'Assessment'}</strong> · ${esc(fmtDate(r.date))}${obs?' · '+esc(lessonEvidenceVisibility(r.visibility).text):''}${mpsPortfolioSelected(r.childId,e.type,r.id)?' · In Portfolio':''}</header>${!obs?'<small>Assessment judgement stays with staff</small>':''}${obs?`<p>${esc(r.text)}</p>${r.interpretation||r.nextStep?`<details><summary>Interpretation & next step</summary>${r.interpretation?kv('What this may show',esc(r.interpretation)):''}${r.nextStep?kv('Next step',esc(r.nextStep)):''}</details>`:''}`:`<p>${esc(r.target?.label||'Earlier prototype assessment')}</p><p>${esc(r.target?(r.resultKind==='non-rating'?'No judgement recorded: ':'Developmental level: ')+r.result:'No current target-specific judgement recorded')}</p>`}<small>${esc(r.activityTitle||'Spontaneous learning')}</small>${mpsLearningAreaContextHtml(r,true)}</article>`}
+function mpsReportInternalCard(e){const r=e.record,obs=e.type==='observation';return `<article class="card flat" data-report-internal-id="${esc(r.id)}" ${!obs?`data-report-assessment-id="${esc(r.id)}"`:""}><header><strong>${obs?'Observation':'Assessment'}</strong> · ${esc(fmtDate(r.date))}${obs?' · '+esc(lessonEvidenceVisibility(r.visibility).text):''}${mpsPortfolioSelected(r.childId,e.type,r.id)?' · In Portfolio':''}</header>${!obs?'<small>Assessment judgement stays with staff</small>':''}${obs?`<p>${esc(r.text)}</p>${mpsObservationPhotoHtml(r)}${r.interpretation||r.nextStep?`<details><summary>Interpretation & next step</summary>${r.interpretation?kv('What this may show',esc(r.interpretation)):''}${r.nextStep?kv('Next step',esc(r.nextStep)):''}</details>`:''}`:`<p>${esc(r.target?.label||'Earlier assessment · learning target not recorded')}</p><p>${esc(r.target?(r.resultKind==='non-rating'?'No judgement recorded: ':'Developmental level: ')+r.result:'No current target-specific judgement recorded')}</p>`}<small>${esc(r.activityTitle||'Spontaneous learning')}</small>${mpsLearningAreaContextHtml(r,true)}</article>`}
 function mpsReportControls(){
  const s=mpsReportSelection(),children=currentChildrenInScope(),terms=mpsReportTerms();
  const historical=Object.values(db.reports||{}).filter(r=>r.kind==='term'&&profileChildId(r.childId)===s.childId&&mpsReportFrozen(r)).map(r=>mpsReportFrozen(r).term).filter(t=>!terms.some(x=>x.id===t.id));
@@ -56653,21 +58036,22 @@ renderReports=function(){
  let body='';
  if(!reportChildEligible(r)){
   const temporary={...s,kind:s.kind,monthKey:s.monthKey,termId:s.termId},meaningful=mpsReportScope(s.childId)&&mpsReportMeaningful(temporary),period=mpsReportPeriod(temporary);
-  body=`<div class="card report-empty"><h3>${!children.length?(Object.values(db.people.children).some(c=>currentOperationalChild(c.id))?'No children are available in your reporting scope.':'No reports yet.'):'No report is available for this child yet.'}</h3><p>${!children.length?'Reports become available after a child has eligible teaching evidence.':term&&!period?'Set up governed Academic year & terms before preparing a Term summary.':meaningful?'Start from the learning evidence already recorded for this period.':term?'No meaningful learning evidence in this Term yet.':'Add eligible observations in Lessons before preparing a report.'}</p>${meaningful?btn(term?'Prepare Term summary':'Prepare family update','mpsPrepareReport()','primary'):children.length&&allowed('lessons')?btn('Open Lessons',"setRoute('lessons')",'secondary','sm'):''}</div>${term&&mpsReportEvidence(temporary).length?`<details class="report-internal card"><summary>Review Term evidence — internal staff view</summary><p>These records do not establish a developmental judgement.</p>${mpsReportEvidence(temporary).map(mpsReportInternalCard).join('')}</details>`:''}`;
+  body=`<div class="card report-empty"><h3>${!children.length?(Object.values(db.people.children).some(c=>currentOperationalChild(c.id))?'No children are available in your reporting scope.':'No reports yet.'):'No report is available for this child yet.'}</h3><p>${!children.length?'Reports become available after a child has eligible teaching evidence.':term&&!period?'Set up governed Academic year & terms before preparing a Term summary.':meaningful?'Start from the learning evidence already recorded for this period.':term?'No meaningful learning evidence in this Term yet.':'Add eligible observations in Lessons before preparing a report.'}</p>${meaningful?btn(term?'Prepare Term summary':'Prepare family update','mpsPrepareReport()','primary'):children.length&&allowed('lessons')?btn('Open Lessons',"setRoute('lessons')",'secondary','sm'):''}</div>${term&&mpsReportEvidence(temporary).length?`<details class="report-internal card"><summary>Review Term evidence</summary><p>These records do not establish a developmental judgement.</p>${mpsReportEvidence(temporary).map(mpsReportInternalCard).join('')}</details>`:''}`;
  }else{
   const frozen=mpsReportFrozen(r),editable=mpsReportEditable(r),review=r.status==='teacher_ready'&&!frozen,content=reportPreviewContent(r),c=reportCandidates();
   const internal=term?mpsReportEvidence(r):c.ass.map(record=>({type:'assessment',record}));
-  const internalHtml=`<details class="report-internal"><summary>${term?'Review Term evidence — internal staff view':'Assessment context — internal staff view'}</summary><p>${term?'Review the existing evidence before writing your professional summary.':'Assessment judgement stays with staff.'} This evidence is not added to the parent output automatically.</p>${internal.map(mpsReportInternalCard).join('')||'<p>No internal evidence for this period.</p>'}</details>`;
-  const candidateHtml=term?'':`<section><h3>Observation highlights</h3><p>Choose meaningful parent-eligible observations.</p>${c.obs.map(o=>`<div class="child-row report-candidate" data-report-evidence-id="${esc(o.id)}"><div class="report-candidate-context"><strong>${esc(o.activityTitle||'Spontaneous learning')}</strong>${mpsLearningAreaContextHtml(o,true)}</div><span class="report-candidate-status">${badge((r.selectedEvidence||[]).includes(o.id)?'Selected':'Available','blue')}</span><span class="hide-mobile">${esc(o.text.slice(0,90))}</span><span class="report-candidate-action">${btn((r.selectedEvidence||[]).includes(o.id)?'Remove':'+ Add',`toggleReportEvidence('${esc(o.id)}')`,'secondary','sm')}</span>${reportCandidateMobileEvidence(o)}</div>`).join('')||'<p>No parent-eligible observation candidates for this month.</p>'}</section>`;
+  const internalHtml=`<details class="report-internal"><summary>${term?'Review Term evidence':'Assessment context'}</summary><p>${term?'Review the existing evidence before writing your professional summary.':'Assessment judgement stays with staff.'} This evidence is not added to the parent output automatically.</p>${internal.map(mpsReportInternalCard).join('')||'<p>No internal evidence for this period.</p>'}</details>`;
+  const candidateHtml=term?'':`<section><h3>Observation highlights</h3><p>Choose meaningful parent-eligible observations.</p>${c.obs.map(o=>`<div class="child-row report-candidate" data-report-evidence-id="${esc(o.id)}"><div class="report-candidate-context"><strong>${esc(o.activityTitle||'Spontaneous learning')}</strong>${mpsLearningAreaContextHtml(o,true)}</div><span class="report-candidate-status">${badge((r.selectedEvidence||[]).includes(o.id)?'Selected':'Available','blue')}</span><span class="hide-mobile">${esc(o.text.slice(0,90))}</span><span class="report-candidate-action">${btn((r.selectedEvidence||[]).includes(o.id)?'Remove':'+ Add',`toggleReportEvidence('${esc(o.id)}')`,'secondary','sm')}</span>${reportCandidateMobileEvidence(o)}${mpsReportPhotoHtml(o,r.childId)}</div>`).join('')||'<p>No parent-eligible observation candidates for this month.</p>'}</section>`;
   const fields=term?`<div class="report-professional"><p>Short phrases or bullets are enough. These are your professional judgements.</p>${mpsReportTextArea('Strengths',r.sections?.strengths||'','report_strengths')}${mpsReportTextArea('Developing skills',r.sections?.developing||'','report_developing')}${mpsReportTextArea('Next focus',r.sections?.nextFocus||'','report_next_focus')}</div>`:mpsReportTextArea('Optional teacher note',r.teacherNote||'','report_note');
   const status=r.sentAt?'Sent':frozen?'Approved':r.status==='teacher_ready'?'Head Teacher review':'Teacher review';
   const sendAvailable=frozen&&!r.sentAt&&linkedRecipientIds(r.childId).length>0;
-  const actions=editable?btn('Save draft','mpsSaveReportDraft(false)','secondary')+btn(term?'Complete teacher review':'Save note & complete review','markReportTeacherReady()','primary'):review?(has('Head Teacher')?btn('Approve exact report','approveReport()','primary')+btn('Edit draft','mpsEditReportDraft()','secondary'):badge('Awaiting Head Teacher review','amber')):sendAvailable?btn('Mark as sent','sendReport()','primary'):'';
-  const parentContent=frozen?`<h3>Approved parent-facing ${term?'summary':'update'}</h3>${mpsReportParentHtml(content)}${notice('This is the exact approved content. Later evidence changes do not alter it.','info')}`:review?`<h3>Parent-facing draft for approval</h3>${mpsReportParentHtml(content)}`:candidateHtml+fields;
+  const correctionAvailable=has('Head Teacher')&&!!frozen&&!!mpsReportCurrentVersion(r);
+  const actions=(editable?btn('Save draft','mpsSaveReportDraft(false)','secondary')+btn(term?'Complete teacher review':'Save note & complete review','markReportTeacherReady()','primary'):review?(has('Head Teacher')?btn('Approve exact report','approveReport()','primary')+btn('Edit draft','mpsEditReportDraft()','secondary'):badge('Awaiting Head Teacher review','amber')):sendAvailable?btn('Mark as sent','sendReport()','primary'):'')+(correctionAvailable?btn('Correct report',`openModal('report-correction',{reportId:'${r.id}'})`,'secondary'):'');
+  const parentContent=frozen?`<h3>Approved parent-facing ${term?'summary':'update'}</h3>${mpsReportParentHtml(content)}${notice('This is the exact approved content. Later evidence changes do not alter it.','info')}`:review?`<h3>Parent-facing draft for approval</h3>${mpsReportParentHtml(content)}`:`${r.pendingCorrectionReason?notice('Correcting an earlier approved version. The earlier version remains in history.','info'):''}${candidateHtml}${fields}`;
   const recipientGate=frozen&&!r.sentAt&&!sendAvailable?notice('Add or confirm an authorised report recipient before sending.','info'):'';
-  body=`<div class="grid"><div class="span-8 card report-workspace" data-report-kind="${term?'term':'monthly'}"><header class="card-header"><div class="grow"><h3>${esc(content?.childName||profileChildName(r.childId))}</h3><p>${esc(term?(frozen?.term.label||mpsReportPeriod(r)?.label||'Term unavailable'):(frozen?.month||mpsReportMonthLabel(s.monthKey)))}</p></div>${badge(status,r.sentAt||frozen?'green':'amber')}</header>${parentContent}${internalHtml}<div class="report-actions">${actions}</div>${recipientGate}</div><aside class="span-4 card report-delivery"><h3>Delivery</h3>${kv('Recipients',r.sentAt&&r.sentRecipients?esc(r.sentRecipients.map(x=>x.name).join(', ')):recipientDisplay(linkedRecipientIds(r.childId)))}${kv('Channel','WhatsApp Web · manual')}${kv('Status',r.sentAt?'Sent':frozen?(sendAvailable?'Approved / ready to send':'Approved / not sent'):'Not yet approved')}${r.sentAt?kv('Recorded by',esc(r.sentActor?.name||'Not recorded'))+kv('Sent at',esc(r.sentAt)):''}<p>Manual delivery records Sent only.</p>${frozen?`<details><summary>Approval details</summary>${kv('Approved by',esc(frozen.approvedBy||frozen.approvalActor?.name||'Not recorded'))}${kv('Approved at',esc(frozen.approvedAt||'Not recorded'))}</details>`:''}</aside></div>`;
+  body=`<div class="grid"><div class="span-8 card report-workspace" data-report-kind="${term?'term':'monthly'}"><header class="card-header"><div class="grow"><h3>${esc(content?.childName||profileChildName(r.childId))}</h3><p>${esc(term?(frozen?.term.label||mpsReportPeriod(r)?.label||'Term unavailable'):(frozen?.month||mpsReportMonthLabel(s.monthKey)))}</p></div>${badge(status,r.sentAt||frozen?'green':'amber')}</header>${parentContent}${internalHtml}<div class="report-actions">${actions}</div>${recipientGate}${mpsReportVersionHistory(r)}</div><aside class="span-4 card report-delivery"><h3>Delivery</h3>${kv('Recipients',r.sentAt&&r.sentRecipients?esc(r.sentRecipients.map(x=>x.name).join(', ')):recipientDisplay(linkedRecipientIds(r.childId)))}${kv('Channel','WhatsApp Web · manual')}${kv('Status',r.sentAt?'Sent':frozen?(sendAvailable?'Approved / ready to send':'Approved / not sent'):'Not yet approved')}${r.sentAt?kv('Recorded by',esc(r.sentActor?.name||'Not recorded'))+kv('Sent at',esc(r.sentAt)):''}<p>Manual delivery records Sent only.</p>${frozen?`<details><summary>Approval details</summary>${kv('Approved by',esc(frozen.approvedBy||frozen.approvalActor?.name||'Not recorded'))}${kv('Approved at',esc(frozen.approvedAt||'Not recorded'))}</details>`:''}</aside></div>`;
  }
- return shell(pageHead('Parent reporting','Reports',term?'Review Term evidence and write Strengths, Developing skills and Next focus.':'Review the evidence, add the teacher note, and approve the report before sending.',r?btn('Parent preview','mpsPreviewReport()','secondary'):'')+tabs+mpsReportControls()+body);
+ return shell(pageHead('Parent reporting','Reports',term?'Review Term evidence and write Strengths, Developing skills and Next focus.':'Review the evidence, add the teacher note, and approve the report before sending.',r?mpsUtilityAction('Parent preview','mpsPreviewReport()','file-text'):'')+tabs+mpsReportControls()+body);
 };
 // Only a new isolated fixture gets these synthetic draft examples.
 function mpsBatchESeed(){
@@ -56765,7 +58149,7 @@ renderToday=function(){
  let html=_mpsCompactSummaryToday();
  if(html.includes('<span>Children present</span>')){
   html=html.replace(/<div class="metric"><strong>[^<]*<\/strong><span>Needs action<\/span><small>[^<]*<\/small><\/div>/,'')
-   .replace('<span>Daycare today</span>','<span>Daycare bookings</span>')
+   .replace('<span>Daycare today</span>','<span>Daycare expected</span>')
    .replace('<div class="section-title">Summary</div><div class="metric-row">','<section class="today-glance" aria-label="At a glance"><h3>At a glance</h3><div class="metric-row">')
    .replace('</div><div class="section-title">Teaching today</div>','</div></section><div class="section-title">Teaching today</div>');
  }
@@ -56774,8 +58158,36 @@ renderToday=function(){
 render();
 
 // Shared fresh governed Owner/Head Teacher sample factory; older stores and QA fixtures stay isolated.
+function mpsSeedHeadTeacherMonthlyBillingSample(actor){
+ // The fresh controlled sample retains these monthly invoices. Older saved stores keep their original records.
+ const billingActor={...actor,roles:[...actor.roles,'Accounts']};
+ for(const id of ['inv1','inv2','inv3'])delete db.billing.invoices[id];
+ for(const id of ['p1','p2'])delete db.billing.payments[id];
+ for(const id of ['inv1','inv2','inv3'])delete db.billing.finance?.invoiceAccounts?.[id];
+ for(const id of ['p1','p2'])delete db.billing.finance?.paymentAccounts?.[id];
+ const fees=mpsTenantFees();
+ const records=[
+  {month:'2026-07',childId:'minoli',planId:'extended',number:'JUL-2026-001',paid:10000},
+  {month:'2026-08',childId:'ruvin',planId:null,number:'AUG-2026-001',paid:'full'},
+  {month:'2026-08',childId:'dilan',planId:'standard',number:'AUG-2026-002',paid:'full'},
+  {month:'2026-09',childId:'ruvin',planId:null,number:'SEP-2026-001',paid:'full'},
+  {month:'2026-09',childId:'dilan',planId:'standard',number:'SEP-2026-002',paid:6000,pending:true},
+  {month:'2026-09',childId:'minoli',planId:'extended',number:'SEP-2026-003',paid:0},
+  {month:'2026-10',childId:'ruvin',planId:null,number:'OCT-2026-DRAFT',status:'draft',paid:0}
+ ];
+ for(const entry of records){
+  const child=db.people.children[entry.childId],plan=childEnrolment(child)?.daycarePlanId,quote=monthlyQuote(entry.planId),due=mpsMonthlyDueDate(entry.month,fees.monthlyDueDay);
+  const paid=entry.paid==='full'?quote?.amount:entry.paid;
+  if(!child||plan!==entry.planId||!quote||!due||!Number.isFinite(paid)||paid<0||paid>quote.amount)throw new Error('Controlled monthly Billing sample must match saved care and fee settings');
+  const id=`ht_monthly_${entry.month.replace('-','')}_${entry.childId}`,draft=entry.status==='draft',createdAt=draft?'2026-09-25T06:00:00.000Z':`${entry.month}-01T04:00:00.000Z`,issued=draft?null:`${entry.month}-02`,recipients=linkedRecipientIds(entry.childId),paymentId=`ht_monthly_payment_${entry.month.replace('-','')}_${entry.childId}`;
+  const invoice={id,number:entry.number,childId:entry.childId,childName:profileChildName(entry.childId),recipientGuardianIds:recipients,recipientSnapshot:draft?null:recipientSnapshots(recipients),actor:billingActor,status:draft?'draft':'issued',issued,createdAt,due,lines:quote.components.map((part,index)=>({id:`${id}_${index}`,description:part.description,amount:part.amount})),policySnapshot:{type:'monthly',...quote,invoiceMonth:entry.month,dueDay:fees.monthlyDueDay,due},allocations:paid?[{paymentId,amount:paid}]:[],history:[{actor:billingActor,at:createdAt,text:'Monthly draft created from component fee settings'},...(draft?[]:[{actor:billingActor,at:`${entry.month}-02T04:00:00.000Z`,text:'Invoice issued · immutable PDF snapshot created'}]),...(paid?[{actor:billingActor,at:`${entry.month}-07T05:00:00.000Z`,text:`Payment verified and allocated · ${money(paid)}`}]:[])],evidence:draft?{}:{invoicePdf:`${entry.number}.pdf`}};
+  db.billing.invoices[id]=invoice;
+  if(paid)db.billing.payments[paymentId]={id:paymentId,invoiceId:id,childId:entry.childId,childName:invoice.childName,amount:paid,method:'Bank transfer',reference:`REVIEW-${entry.number}`,status:'verified',verification:'Bank account checked',verifiedBy:billingActor.name,verifiedById:billingActor.staffId,verifiedAt:`${entry.month}-07T05:00:00.000Z`,receipt:`REC-${entry.number}.pdf`};
+  if(entry.pending){const pendingId=`ht_monthly_pending_${entry.month.replace('-','')}_${entry.childId}`;db.billing.payments[pendingId]={id:pendingId,invoiceId:id,childId:entry.childId,childName:invoice.childName,amount:quote.amount-paid,method:'Bank transfer',reference:`REVIEW-PENDING-${entry.number}`,paymentDate:`${entry.month}-28`,status:'pending',verification:null,evidence:null}}
+ }
+}
 function mpsSeedGovernedNieReviewSample(){
- if(!governedNieReview||educationSaveBlocked||db.headTeacherNieSampleVersion)return false;
+ if(!governedNieReview||cleanHeadTeacherReview||educationSaveBlocked||db.headTeacherNieSampleVersion)return false;
  const legacy=new Set(['colour_sort','picture_story','nature_walk','music_move']);
  // This runs once in the separate fresh sample store, never against a previous Owner store.
  const removedUids=new Set();
@@ -56808,11 +58220,1651 @@ function mpsSeedGovernedNieReviewSample(){
  // and their genuine saved Health history remain untouched.
  db.health.profiles.imani={...db.health.profiles.imani,instructions:"Parent-reported storage: Imani's labelled inhaler is in her classroom bag. This note does not authorise administration."};
  db.health.updates.hu1={...db.health.updates.hu1,summary:"Parent reports a change: Imani's labelled inhaler is now kept at Reception rather than in her classroom bag. This note does not authorise administration."};
- db.headTeacherNieSampleVersion=2;ui().lessonClass=room;ui().lessonWeek=monday;
+ mpsSeedHeadTeacherMonthlyBillingSample(actor);
+ // V8 is a fresh controlled sample. These fictional care events are never
+ // copied into prior V7/V6 stores or into a separate weekly-summary record.
+ db.daycare.mealRecords.push({id:'ht_daycare_prev_meal',date:'2026-09-28',occurrence:'Lunch',time:'12:10',outcomes:[{childId:'dilan',outcome:'Ate all'},{childId:'minoli',outcome:'Ate some'}],actor,at:'2026-09-28T06:40:00.000Z'});
+ db.daycare.restSessions.push({id:'ht_daycare_prev_rest',date:'2026-09-28',outcomes:[{childId:'dilan',outcome:'Slept'},{childId:'minoli',outcome:'Partially slept'}],actor,at:'2026-09-28T07:25:00.000Z'});
+ db.daycare.activities.push({id:'ht_daycare_prev_activity',date:'2026-09-28',activityId:'story_time',title:'Story time',otherDescription:null,time:'14:05',outcomes:[{childId:'dilan',outcome:'Participated',note:''},{childId:'minoli',outcome:'Partially participated',note:''}],groupIds:['standard','extended'],actor,at:'2026-09-28T08:35:00.000Z'});
+ db.daycare.mealRecords.push({id:'ht_daycare_meal',date:'2026-09-29',occurrence:'Lunch',time:'12:05',outcomes:[{childId:'dilan',outcome:'Ate most'},{childId:'minoli',outcome:'Ate some'}],actor,at:'2026-09-29T06:35:00.000Z'});
+ db.daycare.restSessions.push({id:'ht_daycare_rest',date:'2026-09-29',outcomes:[{childId:'dilan',outcome:'Slept'},{childId:'minoli',outcome:'Quiet rest'}],actor,at:'2026-09-29T07:30:00.000Z'});
+ db.daycare.activities.push({id:'ht_daycare_activity',date:'2026-09-29',activityId:'outdoor_play',title:'Outdoor play',otherDescription:null,time:'14:20',outcomes:[{childId:'dilan',outcome:'Partially participated',note:'Joined after rest'},{childId:'minoli',outcome:'Participated',note:''}],groupIds:['standard','extended'],actor,at:'2026-09-29T08:50:00.000Z'});
+ db.daycare.careNotes.push({id:'ht_daycare_note',date:'2026-09-29',childId:'dilan',context:'After rest',text:'Needed extra comfort before joining outdoor play.',actor,at:'2026-09-29T08:15:00.000Z'});
+ db.headTeacherNieSampleVersion=5;ui().lessonClass=room;ui().lessonWeek=monday;
  // Other classroom's genuine Shiny Hands evidence/assessment/Term report examples remain.
  return true;
 }
 const mpsHeadTeacherNieFinishBoot=finishEducationBoot;
-finishEducationBoot=function(){mpsHeadTeacherNieFinishBoot();if(mpsSeedGovernedNieReviewSample()){save();render()}};
+finishEducationBoot=function(){
+ const cleanWeek=cleanHeadTeacherReview&&!ui().lessonWeek;
+ if(cleanWeek)ui().lessonWeek=mpsMondayForDate(TODAY);
+ mpsHeadTeacherNieFinishBoot();
+ if(cleanWeek&&!educationSaveBlocked)save();
+ if(mpsSeedGovernedNieReviewSample()){save();render()}
+};
+
+// A clean review tenant should point to the first real setup job.
+const mpsCleanStartBaseTodayActions=todayActions;
+todayActions=function(){
+ const actions=mpsCleanStartBaseTodayActions();
+ if(!cleanHeadTeacherReview||!has('Head Teacher'))return actions;
+ if(!Object.keys(mpsAcademicYears()).length)return [{sev:'blue',icon:'⚙',title:'Set up your preschool',sub:'Start with the academic year and terms in Preschool settings.',go:'mpsOpenPreschoolSettings()'},...actions];
+ if(!Object.keys(db.people?.children||{}).length&&!Object.keys(db.admissions||{}).length)return [{sev:'blue',icon:'◎',title:'Add your first child',sub:'Start with a family enquiry in Admissions.',go:"setRoute('admissions')"},...actions];
+ return actions;
+};
+render();
+// One presentation for saved invoices. The underlying invoice, payment and
+// correction writers remain owned by their existing Billing/Admissions modules.
+function billingDetailKind(inv){
+  if(inv.category==='admission_fee')return 'Admission fee';
+  if(inv.category==='starter_pack')return 'Starter Pack';
+  if(inv.category==='item_charge')return 'Items & equipment';
+  if(inv.category==='monthly')return 'Monthly fee';
+  return 'Invoice';
+}
+function billingDetailSection(title,content){return `<section class="invoice-detail-section${title==='Balance'?' invoice-balance-section':''}"><h3>${title}</h3>${content}</section>`}
+function billingDetailRow(label,value,extra=''){return `<div class="invoice-detail-row ${extra}"><span>${label}</span><strong>${value}</strong></div>`}
+function billingDetailWhen(at){
+  if(!at)return '';
+  if(/^\d{4}-\d{2}-\d{2}T/.test(at))return staffHistoryDate(at).replace(' at ', ', ');
+  if(educationDate(at))return fmtDate(at);
+  return String(at); // Earlier fixtures can contain an already rendered date.
+}
+function billingDetailEvents(inv){
+  const events=[];
+  (inv.allocations||[]).forEach(a=>{
+    const p=db.billing.payments[a.paymentId];if(!p)return;
+    events.push({at:p.verifiedAt||p.at||'',title:'Payment',amount:a.amount,detail:[p.method,p.reference,p.verification,p.receipt].filter(Boolean).join(' · '),actor:p.verifiedBy||staffHistoryActor(p)});
+  });
+  Object.values(billingFinance().corrections).filter(c=>c.invoiceId===inv.id).forEach(c=>events.push({at:c.at,title:c.kind==='additional'?'Supplementary draft':c.kind==='paid'?'Customer credit created':'Credit adjustment',amount:c.amount,detail:c.reason||'',actor:staffHistoryActor(c)}));
+  billingInvoiceApplications(inv).forEach(a=>events.push({at:a.at,title:a.type==='release'?'Credit released':'Credit applied',amount:a.amount,detail:'Customer credit',actor:staffHistoryActor(a)}));
+  return events.sort((a,b)=>String(b.at).localeCompare(String(a.at))).map(e=>`<div class="invoice-detail-event"><div><strong>${esc(e.title)}</strong><span>${billingMoney(e.amount,inv)}</span></div>${e.detail?`<p>${esc(e.detail)}</p>`:''}<small>${e.actor?'Recorded by '+esc(e.actor)+(e.at?' · ':''):''}${esc(billingDetailWhen(e.at))}</small></div>`).join('');
+}
+function billingDetailContext(inv){
+  const date=billingInvoiceDate(inv);
+  const itemId=inv.category==='item_charge'?inv.policySnapshot?.childItemId:null;
+  const itemLink=itemId&&canOpenChildProfile(profileChildId(inv.childId))&&mpsChildItemSources(inv.childId).some(item=>item.id===itemId)
+    ?' · '+btn('Open child item',`mpsOpenChildItem('${esc(profileChildId(inv.childId))}','${esc(itemId)}')`,'secondary','sm'):'';
+  const contact=inv.status==='discarded'?''
+    :inv.category==='starter_pack'&&inv.status!=='draft'&&inv.recipientSnapshot?.length
+    ?kv('Family communications at issue',recipientSnapshotDisplay(inv.recipientSnapshot))
+    :invoiceRecipientContext(inv);
+  return invoiceRelatedContext(inv)+contact
+    +(date?kv(['draft','discarded'].includes(inv.status)?'Created':'Issued',esc(fmtDate(date))):'')
+    +kv('Due date',inv.due?esc(fmtDate(inv.due)):'Not set yet')
+    +(inv.status==='cancelled'&&inv.cancelled?kv('Cancellation reason',esc(inv.cancelled.reason)):'')
+    +(inv.status==='discarded'&&inv.discarded?kv('Discarded',esc(billingDetailWhen(inv.discarded.at)))+kv('Discarded by',esc(staffHistoryActor(inv.discarded)||'Not recorded'))+kv('Reason',esc(inv.discarded.reason)):'')
+    +(inv.category==='admission_fee'&&inv.service?kv('Agreed service',esc(inv.service)):'')
+    +(inv.category==='item_charge'?kv('Source','Saved child item'+itemLink):'');
+}
+function billingDetailBalance(inv){
+  const paid=invoicePaid(inv),adjusted=billingReductions(inv,'outstanding')+billingApplied(inv);
+  return billingDetailRow('Invoice total',billingMoney(invoiceTotal(inv),inv))
+    +billingDetailRow('Payments',paid?'−'+billingMoney(paid,inv):billingMoney(0,inv))
+    +(adjusted?billingDetailRow('Credits / adjustments','−'+billingMoney(adjusted,inv)):'')
+    +billingDetailRow(['cancelled','discarded'].includes(inv.status)?'Collection':'Amount due',inv.status==='cancelled'?'Cancelled':inv.status==='discarded'?'Draft discarded':billingMoney(invoiceOutstanding(inv),inv),'invoice-detail-due');
+}
+function billingDetailHistory(inv){
+  const entries=inv.history||[];
+  return `<details class="invoice-detail-history" ontoggle="billingDetailRevealHistory(this)"><summary>History & audit</summary><div>${entries.length?entries.map(h=>`<p><strong>${esc(billingDetailWhen(h.at))}</strong> · ${esc((h.text||'Invoice updated').replace(/ · prototype PDF filename recorded/i,''))}${staffHistoryActor(h)?' · '+esc(staffHistoryActor(h)):''}</p>`).join(''):'<p>No recorded history yet.</p>'}</div></details>`;
+}
+function billingDetailRevealHistory(details){
+  if(!details.open)return;
+  requestAnimationFrame(()=>{
+    const body=details.closest('.modal-body'),first=details.querySelector('p');
+    if(!body||!first)return;
+    const overflow=first.getBoundingClientRect().bottom-body.getBoundingClientRect().bottom+12;
+    if(overflow>0)body.scrollTop+=overflow;
+  });
+}
+function billingDetailActions(inv){
+  const id=esc(inv.id),base=btn('Close','closeOverlay()','secondary');
+  if(inv.status==='draft'){
+    const edit=inv.category==='admission_fee'?''
+      :inv.category==='starter_pack'?btn(inv.due?'Change due date':'Set due date',`openModal('starter-pack-due',{id:'${id}'})`,'secondary')
+      :inv.category==='item_charge'?btn('Set due date',`openModal('item-charge-due',{id:'${id}'})`,'secondary')
+      :inv.manualDraft?btn('Edit draft',`openModal('new-manual-invoice',{id:'${id}'})`,'secondary')
+      :btn('Edit draft',`openModal('edit-draft',{id:'${id}'})`,'secondary');
+    const issue=inv.category==='admission_fee'?btn('Issue invoice',`issueAdmissionFee('${esc(inv.admissionsCaseId)}')`,'primary'):btn('Issue invoice',`issueInvoice('${id}')`,'primary');
+    const discard=`<div class="invoice-detail-discard">${btn('Discard draft',`openModal('discard-draft',{id:'${id}'})`,'secondary','sm')}</div>`;
+    return discard+`<div class="invoice-detail-main-actions">${base}${edit}${issue}</div>`;
+  }
+  if(inv.status==='discarded')return base;
+  const pending=billingInvoicePayments(inv).find(p=>!p.admissionsCaseId);
+  if(inv.status==='cancelled')return base+(billingHasReplacement(inv.id)?'':btn('Create replacement invoice',`openModal('new-manual-invoice',{sourceId:'${id}',relationType:'replacement'})`,'primary'));
+  return base+(inv.status==='issued'?btn('Create related invoice',`openModal('new-manual-invoice',{sourceId:'${id}',relationType:'additional'})`,'secondary'):'')
+    +(billingCanCancelInvoice(inv)?btn('Cancel invoice',`openModal('cancel-issued-invoice',{id:'${id}'})`,'secondary'):'')
+    +(invoiceOutstanding(inv)>0&&pending?btn('Record / verify payment',`closeOverlay();openModal('verify-payment',{id:'${esc(pending.id)}'})`,'primary'):'');
+}
+function billingDetailView(inv,issueRoute=false){
+  const state=invoiceStatus(inv),events=billingDetailEvents(inv),pdf=inv.evidence?.invoicePdf;
+  const customer=billingCustomerForInvoice(inv);
+  const available=customer?billingAvailable(customer.id,billingCurrency(inv).currency,inv.childId):0;
+  const items=(inv.lines||[]).map(line=>{
+    const quantity=Number.isSafeInteger(line.quantity)&&line.quantity>1&&Number.isFinite(line.unitPrice)?line.quantity:null;
+    const label=quantity?`${quantity} × ${esc(line.description)} · ${billingMoney(line.unitPrice,inv)} each`:esc(line.description);
+    return billingDetailRow(label,billingMoney(line.amount,inv));
+  }).join('');
+  const body=billingErrorMarkup()+latePickupBillingAlerts(inv)
+    +billingDetailSection('Invoice context',billingDetailContext(inv))
+    +billingDetailSection('Invoice items',items)
+    +billingDetailSection('Balance',billingDetailBalance(inv))
+    +(events?billingDetailSection('Payments & adjustments',events):'')
+    +billingDetailSection('Invoice document',pdf?`<p class="invoice-detail-document">${esc(pdf)}<small>Document reference · file not available to open here</small></p>`:`<p class="invoice-detail-muted">${inv.status==='draft'?'Available after issue':inv.status==='discarded'?'No invoice document was issued.':'No document recorded for this invoice.'}</p>`)
+    +billingDetailHistory(inv)
+    +billingDetailRelatedInvoices(inv)
+    +(available?`<p class="invoice-detail-available">Available customer credit · ${billingMoney(available,inv)}</p>`:'')
+    +billingInvoiceApplyActions(inv)
+    +(inv.status==='issued'&&billingVerifiedAllocated(inv)>0?notice('This invoice has verified payment history and stays unchanged. If more is owed, create a related invoice. If a payment is wrong, use the restricted payment correction process.','info'):'');
+  const title=issueRoute||inv.category==='admission_fee'&&inv.status==='draft'?'Review admission-fee invoice':inv.status==='draft'&&/draft/i.test(inv.number)?esc(inv.number):`Invoice ${esc(inv.number)}`;
+  const sub=`<span>${esc(billingDetailKind(inv))} · ${esc(inv.childName||profileChildName(inv.childId)||'')}</span> ${badge(state.text,state.tone)}`;
+  return modal(title,sub,body,billingDetailActions(inv)).replace('<div class="modal">','<div class="modal invoice-detail">')
+    .replace('<div class="modal-foot">',`<div class="modal-foot${inv.status==='draft'?' invoice-detail-draft-actions':''}">`);
+}
+const billingDetailPreviousModal=modalView;
+modalView=function(m){
+  if(m?.name==='invoice-detail'){
+    const inv=db.billing?.invoices?.[m.data?.id];
+    if(inv&&allowed('billing')){billingEnsureCustomers();return billingDetailView(inv)}
+  }
+  if(m?.name==='issue-admission-fee'){
+    const c=db.admissions?.[m.data?.caseId],inv=c&&mpsAdmissionFeeDraft(c);
+    if(inv&&has('Accounts')&&!c.closed){billingEnsureCustomers();return billingDetailView(inv,true)}
+  }
+  return billingDetailPreviousModal(m);
+};
+// BQ-144: ordinary follow-up invoices are independent documents linked by Invoice UID.
+function billingLinkedInvoices(invoiceId){
+  return Object.values(db.billing.invoices).filter(inv=>inv.invoiceRelation?.sourceInvoiceId===invoiceId);
+}
+function billingHasReplacement(invoiceId){return billingLinkedInvoices(invoiceId).some(inv=>inv.invoiceRelation.type==='replacement'&&inv.status!=='discarded')}
+function billingInvoiceRelationSource(inv){return inv.invoiceRelation&&db.billing.invoices[inv.invoiceRelation.sourceInvoiceId]||null}
+function billingCanCancelInvoice(inv){
+  return !!inv&&allowed('billing')&&inv.status==='issued'&&invoicePaid(inv)===0&&billingVerifiedAllocated(inv)===0
+    &&billingApplied(inv)===0&&billingReductions(inv)===0&&!billingInvoicePayments(inv).length;
+}
+const billingLifecyclePreviousStatus=invoiceStatus;
+invoiceStatus=function(inv){return inv.status==='cancelled'?{text:'Cancelled',tone:'grey'}:billingLifecyclePreviousStatus(inv)};
+function billingDetailRelatedInvoices(inv){
+  const source=billingInvoiceRelationSource(inv),children=billingLinkedInvoices(inv.id);
+  if(!source&&!children.length)return '';
+  const row=(label,other)=>`<div class="invoice-detail-related-row"><span>${esc(other.status==='discarded'?'Discarded '+label.toLowerCase():label)} · ${esc(other.number)}</span>${btn('Open',`openBillingInvoice('${esc(other.id)}')`,'secondary','sm')}</div>`;
+  return billingDetailSection('Related invoices',(source?row(inv.invoiceRelation.type==='replacement'?'Replaces':'Related to invoice',source):'')
+    +children.map(other=>row(other.invoiceRelation.type==='replacement'?'Replaced by':'Additional invoice',other)).join(''));
+}
+function billingManualSourceChoices(childId,type){
+  return Object.values(db.billing.invoices).filter(inv=>profileChildKey(inv.childId)===profileChildKey(childId)&&inv.status===(type==='replacement'?'cancelled':'issued')
+    &&(type!=='replacement'||!billingHasReplacement(inv.id)));
+}
+// Manual child invoices can be drafted before the child's enrolled start date.
+// Admission-fee invoices still originate from the Admissions case.
+function billingManualChildren(){
+  return allowed('billing')?Object.values(db.people.children).filter(child=>childEnrolment(child)?.status==='active'):[];
+}
+function billingManualLine(index,line={}){
+  return `<div class="billing-manual-line" data-billing-manual-line><div class="field"><label>Invoice item / description</label><input data-manual-description value="${esc(line.description||'')}"></div><div class="field"><label>Amount (Rs)</label><input data-manual-amount type="number" min="0.01" step="0.01" value="${line.amount||''}"></div>${index?btn('Remove',`this.closest('[data-billing-manual-line]').remove()`,'secondary','sm'):''}</div>`;
+}
+function billingManualAddLine(){
+  const box=byId('billing_manual_lines');if(box)box.insertAdjacentHTML('beforeend',billingManualLine(box.querySelectorAll('[data-billing-manual-line]').length,{}));
+}
+function billingManualRefreshSources(){
+  const child=byId('billing_manual_child')?.value,type=byId('billing_manual_relation_type')?.value||'',wrap=byId('billing_manual_relation_wrap'),source=byId('billing_manual_source');
+  if(!wrap||!source)return;
+  wrap.hidden=!type;
+  source.innerHTML='<option value="">Choose invoice</option>'+billingManualSourceChoices(child,type).map(inv=>`<option value="${esc(inv.id)}">${esc(inv.number)}</option>`).join('');
+}
+function billingManualModal(data={}){
+  const existing=data.id&&db.billing.invoices[data.id],fixed=data.sourceId&&db.billing.invoices[data.sourceId];
+  if(!allowed('billing')||existing&&(!existing.manualDraft||existing.status!=='draft')||fixed&&!['issued','cancelled'].includes(fixed.status))
+    return modal('New invoice','',notice('This draft is not available.','warn'),btn('Close','closeOverlay()'));
+  const type=existing?.invoiceRelation?.type||data.relationType||'',childId=existing?.childId||(fixed?profileChildKey(fixed.childId):null)||billingManualChildren()[0]?.id;
+  if(!childId)return modal('New invoice','',notice('No enrolled child is available for a manual invoice yet. Admission-fee invoices are prepared from Admissions.','info'),btn('Close','closeOverlay()'));
+  const fixedChild=!!fixed||!!existing,fixedRelation=!!fixed||!!existing?.invoiceRelation,selected=existing?.invoiceRelation?.sourceInvoiceId||fixed?.id||'';
+  const choices=type?billingManualSourceChoices(childId,type):[];
+  if(selected&&!choices.some(inv=>inv.id===selected)&&db.billing.invoices[selected])choices.unshift(db.billing.invoices[selected]);
+  const childControl=fixedChild?kv('Child',esc(profileChildName(childId)))
+    :`<div class="field"><label>Child</label><select id="billing_manual_child" onchange="billingManualRefreshSources()">${billingManualChildren().map(c=>`<option value="${esc(c.id)}" ${c.id===childId?'selected':''}>${esc(profileChildName(c.id))}</option>`).join('')}</select></div>`;
+  const relationControl=fixedRelation?`<input id="billing_manual_relation_type" type="hidden" value="${esc(type)}"><input id="billing_manual_source" type="hidden" value="${esc(selected)}">${kv(type==='replacement'?'Replaces':'Related to invoice',esc(db.billing.invoices[selected]?.number||''))}`
+    :`<div class="field"><label>Related invoice</label><select id="billing_manual_relation_type" onchange="billingManualRefreshSources()"><option value="" ${!type?'selected':''}>None — new invoice</option><option value="additional" ${type==='additional'?'selected':''}>Additional amount for an issued invoice</option><option value="replacement" ${type==='replacement'?'selected':''}>Replacement for a cancelled invoice</option></select></div><div class="field" id="billing_manual_relation_wrap" ${type?'':'hidden'}><label>Earlier invoice</label><select id="billing_manual_source"><option value="">Choose invoice</option>${choices.map(inv=>`<option value="${esc(inv.id)}" ${inv.id===selected?'selected':''}>${esc(inv.number)}</option>`).join('')}</select></div>`;
+  const lines=existing?.lines?.length?existing.lines:[{}];
+  return modal(existing?'Edit draft invoice':'New invoice','',billingErrorMarkup()+childControl+relationControl
+    +`<div id="billing_manual_lines">${lines.map((line,index)=>billingManualLine(index,line)).join('')}</div>`
+    +btn('+ Add another item','billingManualAddLine()','secondary','sm')
+    +field('Due date',existing?.due||'','date',false,'billing_manual_due'),
+    btn('Cancel','closeOverlay()','secondary')+btn('Save draft',`billingManualSubmit('${esc(existing?.id||'')}','${esc(childId)}')`,'primary'));
+}
+function billingManualData(existingId='',fixedChildId=''){
+  const childId=byId('billing_manual_child')?.value||fixedChildId;
+  const type=byId('billing_manual_relation_type')?.value||'',sourceInvoiceId=byId('billing_manual_source')?.value||'';
+  const lines=[...document.querySelectorAll('[data-billing-manual-line]')].map(row=>({description:row.querySelector('[data-manual-description]')?.value.trim()||'',amount:row.querySelector('[data-manual-amount]')?.value||''}));
+  return {existingId,childId,type,sourceInvoiceId,lines,due:val('billing_manual_due')};
+}
+function billingSaveManualInvoice(data){
+  if(!allowed('billing'))return billingError('Billing authority is required.');
+  const existing=data.existingId&&db.billing.invoices[data.existingId],child=db.people.children[data.childId],source=data.sourceInvoiceId&&db.billing.invoices[data.sourceInvoiceId];
+  const admissionRelation=!!source?.admissionsCaseId&&db.admissions?.[source.admissionsCaseId]?.id===data.childId;
+  if(!(child&&billingManualChildren().some(c=>c.id===data.childId))&&!admissionRelation||existing&&(!existing.manualDraft||existing.status!=='draft'||existing.childId!==data.childId))return billingError('Choose an enrolled child or an eligible Admissions invoice and an editable draft.');
+  if(!['','additional','replacement'].includes(data.type)||!!data.type!==!!source)return billingError('Choose the earlier invoice for a related invoice.');
+  if(source&&(profileChildKey(source.childId)!==profileChildKey(data.childId)||source.status!==(data.type==='replacement'?'cancelled':'issued')
+    ||data.type==='replacement'&&billingHasReplacement(source.id)&&existing?.invoiceRelation?.sourceInvoiceId!==source.id))return billingError('Choose an eligible earlier invoice for this child.');
+  if(existing&&((existing.invoiceRelation?.sourceInvoiceId||'')!==data.sourceInvoiceId||(existing.invoiceRelation?.type||'')!==data.type))return billingError('The saved invoice relationship cannot be changed.');
+  if(data.due&&!educationDate(data.due))return billingError('Enter a valid due date or leave it blank while drafting.');
+  const lines=data.lines.map(line=>({description:line.description?.trim()||'',cents:billingCents(line.amount)}));
+  if(!lines.length||lines.some(line=>!line.description||line.cents===null||line.cents<=0))return billingError('Enter a description and a positive amount for each invoice item.');
+  if(existing?.lines?.some(line=>line.sourceId))return billingError('Source-owned invoice items must be managed from their source.');
+  if(existing&&lines.reduce((sum,line)=>sum+line.cents,0)<Math.round(billingApplied(existing)*100))return billingError('Release applied Customer credit before reducing this draft below its reserved balance.');
+  const id=existing?.id||'inv_'+crypto.randomUUID(),at=new Date().toISOString();
+  const ok=billingTransaction(()=>{
+    billingEnsureCustomers(false);
+    const finance=billingFinanceWrite();
+    let accountId=finance.childAccounts[data.childId]||(admissionRelation?finance.invoiceAccounts[source.id]:null);
+    if(!accountId){accountId=billingId();finance.accounts[accountId]={id:accountId,name:profileChildName(data.childId)+' Billing',...billingActor()};finance.childAccounts[data.childId]=accountId;finance.accountLinks.push({childId:data.childId,accountId,source:'Manual child invoice',...billingActor()})}
+    const invoiceLines=lines.map((line,index)=>({id:existing?.lines?.[index]?.id||'line_'+crypto.randomUUID(),description:line.description,amount:line.cents/100}));
+    if(existing){existing.lines=invoiceLines;existing.due=data.due;existing.history.push({actor:staffActor(),at,text:'Draft invoice edited'});return}
+    db.billing.invoices[id]={id,number:'MANUAL-DRAFT',childId:data.childId,childName:profileChildName(data.childId),manualDraft:true,
+      admissionsCaseId:admissionRelation?source.admissionsCaseId:null,
+      invoiceRelation:source?{type:data.type,sourceInvoiceId:source.id}:null,recipientGuardianIds:linkedRecipientIds(data.childId),
+      status:'draft',issued:null,createdDate:mpsAdmissionToday(),createdAt:at,due:data.due,lines:invoiceLines,allocations:[],
+      history:[{actor:staffActor(),at,text:source?`Draft ${data.type} invoice created`:'Manual draft invoice created'}],evidence:{}};
+    billingFinanceWrite().invoiceAccounts[id]=accountId;
+  });
+  return ok?id:false;
+}
+function billingManualSubmit(existingId,childId){
+  const id=billingSaveManualInvoice(billingManualData(existingId,childId));
+  if(id){ui().modal={name:'invoice-detail',data:{id}};save();render()}
+  return !!id;
+}
+function billingCancelModal(invoiceId){
+  const inv=db.billing.invoices[invoiceId];
+  return billingCanCancelInvoice(inv)?modal('Cancel invoice',`Invoice ${esc(inv.number)} stays in history.`,
+    billingErrorMarkup()+textArea('Reason for cancellation','','billing_cancel_reason'),
+    btn('Keep invoice','closeOverlay()','secondary')+btn('Cancel invoice',`billingCancelIssuedInvoice('${esc(invoiceId)}',val('billing_cancel_reason'))`,'primary'))
+    :modal('Cancel invoice','',notice('This invoice cannot be cancelled in ordinary Billing.','warn'),btn('Close','closeOverlay()'));
+}
+function billingCancelIssuedInvoice(invoiceId,reason){
+  const inv=db.billing.invoices[invoiceId];
+  if(!billingCanCancelInvoice(inv))return billingError('This invoice cannot be cancelled in ordinary Billing.');
+  if(!reason?.trim())return billingError('Enter a reason for cancelling this invoice.');
+  const ok=billingTransaction(()=>{inv.status='cancelled';inv.cancelled={reason:reason.trim(),...billingActor()};inv.history.push({actor:staffActor(),at:inv.cancelled.at,text:'Invoice cancelled · '+reason.trim()})});
+  if(ok){ui().modal={name:'invoice-detail',data:{id:invoiceId}};save();render()}
+  return ok;
+}
+const billingLifecyclePreviousIssue=issueInvoice;
+issueInvoice=function(id){
+  const inv=db.billing.invoices[id];
+  if(inv?.manualDraft){
+    if(!allowed('billing')||inv.status!=='draft'||!educationDate(inv.due)||!inv.lines?.length||inv.lines.some(line=>!line.description||billingCents(line.amount)<=0))return billingError('Complete the draft items and due date before issuing.');
+    const relation=inv.invoiceRelation,source=relation&&db.billing.invoices[relation.sourceInvoiceId];
+    if(relation&&(!source||profileChildKey(source.childId)!==profileChildKey(inv.childId)||source.status!==(relation.type==='replacement'?'cancelled':'issued')))return billingError('The related invoice is no longer eligible.');
+  }
+  return billingLifecyclePreviousIssue(id);
+};
+// Retire the former ordinary writer. Historical void/replacement records remain readable.
+voidAndReplace=function(){return billingError('Use Cancel invoice with a reason, then create a linked replacement draft.')};
+const billingLifecyclePreviousModal=modalView;
+modalView=function(m){
+  if(m?.name==='new-manual-invoice')return billingManualModal(m.data||{});
+  if(m?.name==='cancel-issued-invoice')return billingCancelModal(m.data?.id);
+  return billingLifecyclePreviousModal(m);
+};
+// BQ-145: discarding a draft retains its identity and releases only draft-owned
+// reservations. The originating Admissions, item or operational charge remains.
+function billingCanDiscardDraft(inv){
+  return !!inv&&allowed('billing')&&inv.status==='draft'&&!inv.issued&&!inv.evidence?.invoicePdf
+    &&!(inv.allocations||[]).length
+    &&!Object.values(db.billing.payments||{}).some(payment=>payment.invoiceId===inv.id&&['pending','verified'].includes(payment.status));
+}
+function billingLegacyCorrectionSource(charge){
+  return !!charge?.id?.startsWith('correction_')
+    &&charge.source==='Billing correction '+charge.id.slice('correction_'.length);
+}
+function billingLegacyRetiredCorrectionCharge(charge){
+  return billingLegacyCorrectionSource(charge)
+    &&Object.values(db.billing?.invoices||{}).some(inv=>inv.status==='discarded'
+      &&(inv.lines||[]).some(line=>line.sourceId===charge.id));
+}
+function billingDraftHasSource(inv){
+  return ['admission_fee','starter_pack','item_charge','monthly'].includes(inv.category)
+    ||inv.policySnapshot?.type==='monthly'||(inv.lines||[]).some(line=>{
+      const charge=db.billing.pendingCharges?.[line.sourceId];
+      return charge&&!billingLegacyCorrectionSource(charge);
+    });
+}
+function billingDiscardDraftModal(invoiceId){
+  const inv=db.billing?.invoices?.[invoiceId];
+  if(!billingCanDiscardDraft(inv))return modal('Discard draft','',notice('This draft is not available to discard.','warn'),btn('Close','closeOverlay()','secondary'));
+  const sourceNote=billingDraftHasSource(inv)?notice('Discarding this draft does not remove the underlying charge.','info'):'';
+  return modal('Discard draft',esc(inv.childName||profileChildName(inv.childId)||''),billingErrorMarkup()
+    +kv('Draft',esc(inv.number))+sourceNote+textArea('Reason for discarding','','billing_discard_reason'),
+    btn('Keep draft','closeOverlay()','secondary')+btn('Discard draft',`billingDiscardDraft('${esc(invoiceId)}',val('billing_discard_reason'))`,'danger'));
+}
+function billingDiscardDraft(invoiceId,reason){
+  const inv=db.billing?.invoices?.[invoiceId],why=reason?.trim();
+  if(!billingCanDiscardDraft(inv))return billingError('Only an available draft may be discarded.');
+  if(!why)return billingError('Enter a reason for discarding this draft.');
+  const ok=billingTransaction(()=>{
+    const at=new Date().toISOString(),actor=staffActor(),applied=billingApplied(inv);
+    if(applied>0){
+      const applications=billingInvoiceApplications(inv),net=new Map();
+      for(const application of applications)for(const source of application.sources||[])
+        net.set(source.creditId,(net.get(source.creditId)||0)+(application.type==='release'?-1:1)*billingCents(source.amount));
+      const sources=[...net].filter(([,cents])=>cents>0).map(([creditId,cents])=>({creditId,amount:cents/100}));
+      const releaseId=billingId();
+      billingFinanceWrite().applications[releaseId]={id:releaseId,type:'release',invoiceId:inv.id,accountId:applications[0].accountId,
+        amount:applied,sources,...billingCurrency(inv),actor,at};
+      inv.history.push({actor,at,text:'Applied Customer credit released before draft discard'});
+    }
+    for(const line of inv.lines||[]){
+      const charge=db.billing.pendingCharges?.[line.sourceId];
+      if(charge?.status==='placed'&&!billingLegacyCorrectionSource(charge)&&(!charge.invoiceId||charge.invoiceId===inv.id)){
+        charge.status='proposed';
+        if(charge.invoiceId===inv.id)delete charge.invoiceId;
+      }
+    }
+    inv.status='discarded';
+    inv.discarded={reason:why,actor,actorId:currentPersona().id,at};
+    inv.history.push({actor,at,text:'Draft discarded · '+why});
+  });
+  if(ok){closeOverlay();billingShowView('current')}
+  return ok;
+}
+function billingDiscardedHistory(invoices){
+  const discarded=invoices.filter(inv=>inv.status==='discarded').sort((a,b)=>String(b.discarded?.at||'').localeCompare(String(a.discarded?.at||'')));
+  if(!discarded.length)return '';
+  return `<section data-discarded-history><div class="section-title">Discarded drafts</div><div class="table-wrap"><table class="table"><thead><tr><th>Draft</th><th>Child</th><th>Discarded on</th><th>Reason</th><th>Action</th></tr></thead><tbody>${discarded.map(inv=>`<tr data-invoice-id="${esc(inv.id)}"><td data-label="Draft"><div class="name">${esc(inv.number)}</div>${esc(billingDetailKind(inv))}</td><td data-label="Child">${esc(inv.childName||profileChildName(inv.childId)||'')}</td><td data-label="Discarded on">${esc(billingDetailWhen(inv.discarded?.at))}</td><td data-label="Reason">${esc(inv.discarded?.reason||'Not recorded')}</td><td data-label="Action">${btn('Open',`openModal('invoice-detail',{id:'${esc(inv.id)}'})`,'secondary','sm')}</td></tr>`).join('')}</tbody></table></div></section>`;
+}
+const billingDiscardPreviousStatus=invoiceStatus;
+invoiceStatus=function(inv){return inv?.status==='discarded'?{text:'Draft discarded',tone:'grey'}:billingDiscardPreviousStatus(inv)};
+const billingDiscardPreviousOutstanding=invoiceOutstanding;
+invoiceOutstanding=function(inv){return inv?.status==='discarded'?0:billingDiscardPreviousOutstanding(inv)};
+const billingDiscardPreviousModal=modalView;
+modalView=function(m){if(m?.name==='discard-draft')return billingDiscardDraftModal(m.data?.id);return billingDiscardPreviousModal(m)};
+
+function mpsReprepareAdmissionFeeDraft(caseId){
+  const c=db.admissions?.[caseId];
+  if(!allowed('billing')||c?.application?.status!=='accepted'||c.closed||c.enrolment||c.fee||mpsAdmissionFeeDraft(c))return false;
+  const ok=billingTransaction(()=>{if(!mpsPrepareAdmissionFeeDraft(c))throw Error('The admission-fee draft could not be prepared.')});
+  if(ok)openAdmissionFeeBilling(caseId);
+  return ok;
+}
+function mpsReprepareStarterPackDraft(caseId){
+  const c=db.admissions?.[caseId];
+  if(!allowed('billing')||!c?.enrolment||mpsStarterPackInvoice(c))return false;
+  let draft;
+  const ok=billingTransaction(()=>{draft=mpsPrepareStarterPackDraft(c);if(!draft)throw Error('No saved chargeable Starter Pack items need a draft.')});
+  if(ok)openBillingInvoice(draft.id);
+  return ok;
+}
+function mpsReprepareItemChargeDraft(childId,itemId){
+  if(!allowed('billing')||mpsItemInvoice(itemId))return false;
+  const item=db.itemsEquipment?.[itemId];
+  if(item?.childId!==childId||item.suppliedBy!=='Preschool'||!(item.price>0))return false;
+  let draft;
+  const ok=billingTransaction(()=>{draft=mpsItemChargeDraft(item);if(!draft)throw Error('This child item is no longer available for Billing.')});
+  if(ok)openBillingInvoice(draft.id);
+  return ok;
+}
+// Today is a compact view of existing operational sources. It owns no work or counts.
+const mpsTodayHomePrevious=renderToday;
+function mpsTodayHomeDate(){
+ return new Intl.DateTimeFormat('en-GB',{timeZone:'UTC',weekday:'long',day:'numeric',month:'long',year:'numeric'}).format(new Date(`${TODAY}T12:00:00Z`));
+}
+function mpsTodayHomeOpening(){
+ const op=operatingStatusForDate(TODAY),closed=op.text==='Closed'||op.text==='Closed Day',daycareOnly=op.text==='Daycare-Only Day'||op.text==='Daycare Only';
+ return `<section class="today-opening today-operating-status" aria-label="${closed?'Closed today':'Open today'}"><h3>${closed?'Closed today':'Open today'}</h3>${closed?'':`<div class="today-services">${daycareOnly?'':`<span>Preschool</span>`}<span>Daycare</span></div>`}${op.source==='Operating exception'?`<small>${esc(op.source)}</small>`:''}</section>`;
+}
+function mpsTodayHomeCalendarContext(){
+ const events=calendarEventsOn(TODAY),holidays=holidayReferencesOn(TODAY),birthdays=birthdaysOn(TODAY);
+ if(!events.length&&!holidays.length&&!birthdays.length)return '';
+ return `<section class="today-context"><h3>Also today</h3>${events.map(e=>`<p>${esc(e.title)} · ${esc(e.scope)}</p>`).join('')}${holidays.map(h=>`<p>${esc(h.name)} · Sri Lankan public holiday</p>`).join('')}${birthdays.map(c=>`<p>${esc(c.name)} · Birthday</p>`).join('')}</section>`;
+}
+renderToday=function(){
+ const p=currentPersona();
+ const header=`<div class="page-head today-home-head"><div class="left"><h2>Today</h2><p>${esc(mpsTodayHomeDate())}</p></div>${allowed('calendar')?`<div class="page-actions">${btn('Calendar',"setRoute('calendar')",'secondary','sm')}</div>`:''}</div>`;
+ if(!['Head Teacher','Class Teacher','Assistant Teacher','Daycare','Admissions'].some(has)){
+  // Keep narrower personas' source-specific content and permission boundaries.
+  return mpsTodayHomePrevious().replace(/<div class="page-head"><div class="left">.*?<\/div>(?:<div class="page-actions">.*?<\/div>)?<\/div>/s,header);
+ }
+ const actions=todayActions(),present=attendanceRoster().filter(row=>row.status==='present').length,daycare=daycareRoster().length;
+ const canTeach=allowed('lesson-today'),lessons=canTeach?(mpsTodayState(ensureTeachingSelection())?.items.length||0):0;
+ const glance=`<section class="today-glance" aria-label="At a glance"><h3>At a glance</h3><div class="today-home-metrics" role="group" aria-label="Today summary"><div><strong>${present}</strong><span>Children here</span></div><div><strong>${daycare}</strong><span>Daycare today</span></div><div><strong>${lessons}</strong><span>Lessons today</span></div></div></section>`;
+ return shell(`${header}${mpsTodayHomeOpening()}${glance}${todayAttentionSection(actions)}${canTeach?`<div class="section-title">Teaching today</div>${todayTeachingCard()}`:''}${mpsTodayHomeCalendarContext()}`);
+};
+// BQ-148: new plans belong to Level + week. Earlier Classroom weeks remain intact.
+function mpsPlanningLevel(){
+ const levels=educationConfig().levels.filter(level=>!level.retired&&educationConfig().classrooms.some(room=>room.levelId===level.id&&activeEducationRoom(room.id)));
+ const roomLevel=educationRoom(ui().lessonClass)?.levelId;
+ const selected=levels.find(level=>level.id===roomLevel)||levels.find(level=>level.id===ui().lessonLevel)||levels[0]||null;
+ if(selected&&ui().lessonLevel!==selected.id)ui().lessonLevel=selected.id;
+ if(selected&&!educationConfig().classrooms.some(room=>room.id===ui().lessonClass&&room.levelId===selected.id&&activeEducationRoom(room.id)))ui().lessonClass=educationConfig().classrooms.find(room=>room.levelId===selected.id&&activeEducationRoom(room.id))?.id||null;
+ return selected;
+}
+function mpsPlanningRooms(levelId){return educationConfig().classrooms.filter(room=>room.levelId===levelId&&activeEducationRoom(room.id))}
+function changeLessonLevel(id){
+ if(!has('Head Teacher')||!mpsPlanningRooms(id).length)return false;
+ ui().lessonLevel=id;ui().lessonClass=mpsPlanningRooms(id)[0].id;save();render();return true;
+}
+function mpsLevelAppliesHtml(){const level=mpsPlanningLevel(),rooms=level&&mpsPlanningRooms(level.id),w=currentWeek();if(!rooms?.length)return '';if(w.ownership!=='level-week'){const owner=rooms.find(room=>db.curriculum.weeks?.[room.id]?.[mpsLessonWeekStart()]===w);return `<div class="lesson-level-applicability"><strong>Earlier Classroom plan:</strong> ${esc(owner?.name||'Classroom')}</div>`}return `<div class="lesson-level-applicability" data-plan-level="${esc(level.id)}"><strong>Applies to:</strong> ${esc(rooms.map(room=>room.name).join(' · '))}</div>`}
+lessonClassControl=function(){
+ const level=mpsPlanningLevel(),levels=educationConfig().levels.filter(item=>!item.retired&&mpsPlanningRooms(item.id).length);
+ return `<div class="lesson-class-control"><div class="field"><label for="lessonLevelSelect">Level</label><select id="lessonLevelSelect" onchange="changeLessonLevel(this.value)">${levels.map(item=>`<option value="${esc(item.id)}" ${item.id===level?.id?'selected':''}>${esc(item.name)} · ${esc(educationLevelRangeLabel(item))}</option>`).join('')}</select></div></div>`;
+};
+const mpsBaseOpenActivityPicker=openActivityPicker;
+openActivityPicker=function(day){return canPlanCurrentWeek()?mpsBaseOpenActivityPicker(day):false};
+function mpsLevelWeek(levelId,monday){return db.curriculum.levelWeeks?.[levelId]?.[monday]||null}
+function mpsHistoricalClassWeek(roomId,monday){const candidate=db.curriculum.weeks?.[roomId]?.[monday];return candidate&&(candidate.published||candidate.amendments?.length||Object.values(candidate.days||{}).some(items=>items.length))?candidate:null}
+currentWeek=function(){
+ const level=mpsPlanningLevel(),monday=mpsLessonWeekStart();if(!level||!monday)return emptyClassWeek();
+ const shared=mpsLevelWeek(level.id,monday);if(shared)return shared;
+ const older=educationRoom(ui().lessonClass)?.levelId===level.id?mpsHistoricalClassWeek(ui().lessonClass,monday):null;if(older)return older;
+ if(!has('Head Teacher'))return emptyClassWeek();
+ db.curriculum.levelWeeks=db.curriculum.levelWeeks||{};
+ const weeks=db.curriculum.levelWeeks[level.id]||(db.curriculum.levelWeeks[level.id]={});
+ return weeks[monday]||(weeks[monday]={...emptyClassWeek(),ownership:'level-week',levelId:level.id,weekStart:monday});
+};
+planActivityByUid=function(uid){
+ for(const [levelId,weeks] of Object.entries(db.curriculum.levelWeeks||{}))for(const [monday,wk] of Object.entries(weeks))for(const [day,items] of Object.entries(wk.days||{})){
+  const a=items.find(item=>item.uid===uid);if(a){const selected=educationRoom(ui().lessonClass),classroomId=selected?.levelId===levelId?selected.id:mpsPlanningRooms(levelId)[0]?.id||null;return {a,wk,day,classroomId,levelId,monday}}
+ }
+ for(const [classroomId,weeks] of Object.entries(db.curriculum.weeks||{}))for(const [monday,wk] of Object.entries(weeks))for(const [day,items] of Object.entries(wk.days||{})){
+  const a=items.find(item=>item.uid===uid);if(a)return {a,wk,day,classroomId,monday};
+ }
+ return null;
+};
+function mpsWeekForClassroom(classroomId,monday){const room=educationRoom(classroomId),earlier=mpsHistoricalClassWeek(classroomId,monday);return earlier||room&&mpsLevelWeek(room.levelId,monday)||db.curriculum.weeks?.[classroomId]?.[monday]||null}
+mpsTeachingAccess=function(classroomId){return mpsCurrentAccount()?.status==='active'&&allowed('lesson-today')&&!!classroomId&&teachingRooms().some(room=>room.id===classroomId)};
+mpsTeachingDay=function(classroomId,date=TODAY){
+ if(!mpsTeachingAccess(classroomId)||!educationDate(date))return null;
+ const monday=mpsMondayForDate(date),day=lessonWeekDays()[(new Date(date+'T12:00:00Z').getUTCDay()+6)%7]?.id,week=mpsWeekForClassroom(classroomId,monday);
+ return {classroomId,date,monday,day,week,planned:day&&week?.published?week.days?.[day]||[]:[],draft:!!(day&&week&&!week.published)};
+};
+mpsActualForOccurrence=function(uid,classroomId=null){return Object.values(mpsActualTeaching()).find(item=>item.plannedUid===uid&&(!classroomId||item.classroomId===classroomId))||null};
+mpsActualStatus=function(p){return p?(mpsActualForOccurrence(p.a.uid,p.classroomId)||mpsLegacyActual(p)):null};
+mpsActualHasLinkedEvidence=function(uid,classroomId=null){return !!uid&&(Object.values(db.observations||{}).some(item=>item.activityUid===uid&&(!classroomId||!item.classroomId||item.classroomId===classroomId))||Object.values(db.assessments||{}).some(item=>item.activityUid===uid&&(!classroomId||!item.classroomId||item.classroomId===classroomId)))};
+recordDelivery=function(uid,outcome){const roomId=ui().lessonClass,planned=mpsPlannedForDate(uid,roomId,TODAY);return planned?mpsRecordActual({classroomId:roomId,date:TODAY,plannedUid:uid,outcome:{Done:'DONE',Changed:'CHANGED','Not done':'NOT_DONE'}[outcome]}):false};
+canPlanCurrentWeek=function(w=currentWeek()){const level=mpsPlanningLevel(),monday=mpsLessonWeekStart(),shared=w?.ownership==='level-week'&&w.levelId===level?.id&&mpsLevelWeek(level.id,monday)===w,earlier=w?.ownership!=='level-week'&&mpsPlanningRooms(level?.id).some(room=>mpsHistoricalClassWeek(room.id,monday)===w);return !!w&&mpsCurrentAccount()?.status==='active'&&has('Head Teacher')&&allowed('lessons')&&(shared||earlier)};
+plannedActivityCanChange=function(p){return !!p&&canPlanCurrentWeek(p.wk)&&p.wk===currentWeek()&&(!p.wk.published&&true||has('Head Teacher')&&lessonDayDate(p.day)>=TODAY)&&!plannedActivityHasEvidence(p)};
+publishWeek=function(){const w=currentWeek();if(!canPlanCurrentWeek(w)||w.published)return false;w.published=true;w.approvedBy=currentPersona().name;w.approvedById=currentPersona().id;w.publishedAt=new Date().toISOString();save();render();return true};
+// Contextual teaching photos belong to one Observation. The private photo record
+// owns the image bytes; Observation, Progress and Reports reuse its stable ID.
+routes.media.bundles=['Head Teacher','Social Media'];
+
+function mpsObservationPhotoInput(context,children){
+ return `<div class="observation-photo-field"><div class="field"><label for="obs_photo">Photo — optional</label><input id="obs_photo" type="file" accept="image/jpeg,image/png,image/webp" capture="environment" onchange="mpsObservationPhotoToggle()"><small>Choose a photo or take one with this device.</small></div><fieldset class="observation-photo-tags" hidden><legend>Children visible in the photo</legend><p>Tag every identifiable child, including the child in this Observation.</p><div class="check-stack">${children.map(child=>`<label class="check-row"><input type="checkbox" data-observation-photo-child value="${esc(child.id)}"> ${esc(child.legalName)}</label>`).join('')}</div></fieldset></div>`;
+}
+function mpsObservationPhotoToggle(){
+ const tags=document.querySelector('.observation-photo-tags'),file=byId('obs_photo')?.files?.[0];if(!tags)return;
+ tags.hidden=!file;if(file){const selected=byId('obs_child')?.value;const box=[...tags.querySelectorAll('[data-observation-photo-child]')].find(input=>input.value===selected);if(box)box.checked=true}
+}
+async function mpsReadObservationPhoto(file){
+ if(!file)return null;
+ if(!['image/jpeg','image/png','image/webp'].includes(file.type)||file.size>20*1024*1024)throw new Error('Choose a JPG, PNG or WebP photo under 20 MB.');
+ const raw=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(new Error('This photo could not be opened.'));reader.readAsDataURL(file)});
+ const image=new Image();image.src=raw;try{await image.decode()}catch(e){throw new Error('This photo could not be opened. Choose another photo.')}
+ const canvas=document.createElement('canvas'),scale=Math.min(1,1024/Math.max(image.width,image.height));
+ canvas.width=Math.max(1,Math.round(image.width*scale));canvas.height=Math.max(1,Math.round(image.height*scale));
+ canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+ return {data:canvas.toDataURL('image/jpeg',0.78),name:file.name,mimeType:'image/jpeg'};
+}
+function mpsObservationPhotoFields(fields,childId,roomId){
+ if(!fields.photo)return fields.photo===undefined||fields.photo===null?null:false;
+ const photo=fields.photo,ids=Array.isArray(fields.photoChildIds)?[...new Set(fields.photoChildIds.map(profileChildId))]:[];
+ if(!photo.data?.startsWith('data:image/jpeg;base64,')||photo.data.length>2*1024*1024||!ids.length||!ids.includes(childId)||ids.some(id=>!mpsEvidenceChildAllowed(id,roomId)))return false;
+ return {data:photo.data,name:String(photo.name||'Photo').slice(0,160),mimeType:'image/jpeg',childIds:ids};
+}
+function mpsObservationPhotoRecord(observation){
+ const photo=observation?.photoId&&db.media?.photos?.[observation.photoId];
+ return photo&&photo.observationId===observation.id&&!photo.deletedAt&&photo.childIds?.includes(profileChildId(observation.childId))&&canViewPrivatePhoto(photo)&&photo.image?.data?.startsWith('data:image/jpeg;base64,')?photo:null;
+}
+function mpsObservationPhotoHtml(observation){
+ const photo=mpsObservationPhotoRecord(observation);if(!photo)return '';
+ return `<figure class="observation-photo" data-observation-photo-id="${esc(photo.id)}"><img src="${esc(photo.image.data)}" alt="Photo attached to this Observation"><figcaption>Photo attached · ${esc(photo.childIds.map(profileChildName).join(', '))}</figcaption></figure>`;
+}
+function mpsReportPhotoRecord(observation,childId){
+ const photo=mpsObservationPhotoRecord(observation),id=profileChildId(childId);
+ return observation?.visibility==='Parent-eligible candidate'&&photo?.visibility==='Parent-eligible candidate'&&photo.childIds.length===1&&photo.childIds[0]===id?photo:null;
+}
+function mpsReportPhotoHtml(observation,childId){
+ const photo=mpsReportPhotoRecord(observation,childId);if(!photo)return '';
+ return `<figure class="observation-photo report-photo" data-report-photo-id="${esc(photo.id)}"><img src="${esc(photo.image.data)}" alt="Photo supporting this learning Observation"><figcaption>Photo from this Observation</figcaption></figure>`;
+}
+function mpsObservationPhotoFacebookChoice(childId){
+ const child=db.people?.children?.[profileChildId(childId)],caseId=child?.enrolmentCaseId||child?.caseIds?.at(-1),caseRecord=caseId&&db.admissions?.[caseId];
+ return caseRecord?.application?.snapshot?.data?.family?.facebook||caseRecord?.onboarding?.draft?.facebook||null;
+}
+function mpsObservationPhotoPublicReady(photo){return !!photo?.observationId&&!photo.deletedAt&&photo.childIds?.length>0&&photo.childIds.every(id=>mpsObservationPhotoFacebookChoice(id)==="Yes, that's okay")}
+function mpsFacebookPhotoEligibility(photo){
+ const ids=[...new Set(photo?.childIds||[])];
+ if(!photo||photo.deletedAt||!ids.length)return {ok:false,blocked:ids};
+ const blocked=ids.filter(id=>mpsObservationPhotoFacebookChoice(id)!=="Yes, that's okay");
+ return {ok:!blocked.length,blocked};
+}
+
+// Ordinary Class Teachers cannot browse or administer the organisation's media
+// workspace. Their authorised child-specific photo remains visible in evidence.
+const mpsPhotoBaseRenderMedia=renderMedia;
+renderMedia=function(){return allowed('media')?mpsPhotoBaseRenderMedia():renderToday()};
+const mpsPhotoBasePrivateMedia=privateMedia;
+privateMedia=function(){return has('Head Teacher')?mpsPhotoBasePrivateMedia():''};
+const mpsPhotoBaseMarketingReview=marketingReview;
+marketingReview=function(){return has('Head Teacher')?mpsPhotoBaseMarketingReview():''};
+for(const name of ['nominatePhoto','approveMarketing','rejectMarketing','deletePhoto','restorePhoto','permanentDeletePhoto']){
+ const original=globalThis[name];globalThis[name]=function(...args){
+  if(!has('Head Teacher')||!allowed('media'))return false;
+  const photo=db.media?.photos?.[args[0]];
+  if(['nominatePhoto','approveMarketing'].includes(name)&&photo?.marketing?.use==='Facebook'&&!mpsFacebookPhotoEligibility(photo).ok)return false;
+  if(['nominatePhoto','approveMarketing'].includes(name)&&photo?.observationId&&!mpsObservationPhotoPublicReady(photo))return false;
+  if(name==='approveMarketing'&&photo?.marketing?.status!=='pending')return false;
+  return original(...args)
+ };
+}
+const mpsPhotoBaseModalView=modalView;
+modalView=function(m){
+ if(['marketing-review','delete-photo'].includes(m?.name)&&!has('Head Teacher'))return modal('Photo unavailable','',notice('This photo action is restricted.','info'),btn('Close','closeOverlay()','secondary'));
+ if(m?.name==='marketing-review'){
+  const photo=db.media?.photos?.[m.data?.id],eligibility=mpsFacebookPhotoEligibility(photo);
+  if(!photo)return modal('Photo unavailable','',notice('This photo is no longer available.','info'),btn('Close','closeOverlay()','secondary'));
+  const blockedNames=eligibility.blocked.map(id=>profileChildName(id));
+  const blockedText=blockedNames.length>1?`${blockedNames.slice(0,-1).join(', ')} and ${blockedNames.at(-1)} do not have current Facebook permission`:blockedNames.length===1?`${blockedNames[0]} does not have current Facebook permission`:'No identifiable child is recorded';
+  const consent=eligibility.ok?'Eligible — current Facebook Yes':`Blocked — ${esc(blockedText)}`;
+  return modal('Review final intended Facebook asset','Check every identifiable child before approving this asset.',`${kv('Photo',esc(photo.title))}${kv('Identifiable children',photo.childIds.map(id=>profileChildLink(id)).join(', '))}${kv('Consent check',consent)}${kv('Intended use',esc(photo.marketing.use||'Not recorded'))}${notice('Rejecting this public use keeps the private photo intact.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Reject for marketing',`rejectMarketing('${photo.id}')`,'danger')}${eligibility.ok?btn('Approve asset',`approveMarketing('${photo.id}')`,'primary'):''}`);
+ }
+ return mpsPhotoBaseModalView(m);
+};
+const mpsPhotoBaseDrawerView=drawerView;
+drawerView=function(d){return d?.name==='recycle-bin'&&!has('Head Teacher')?drawer('Photos unavailable','',notice('This photo action is restricted.','info')):mpsPhotoBaseDrawerView(d)};
+// BQ-152: one append-only family review informs authority-sensitive consumers.
+// The parent's Application snapshot, Family communications, Emergency and Pickup
+// retain their separate owners and are never rewritten by a legal review.
+function mpsFamilyLegalDeclaration(c){
+  if(!c)return null;
+  const source=c.application?.snapshot?.source==='Parent Application'?c.application.snapshot.data?.family?.legalRestrictions:null;
+  const legacy=c.onboarding?.draft?.legalRestrictions||c.onboarding?.snapshot?.data?.legalRestrictions;
+  const declaration=source||legacy;
+  return declaration?.answer?.startsWith('Yes')?declaration:null;
+}
+function mpsFamilyLegalLatest(c){return c?.familyLegalReviews?.at(-1)||null}
+function mpsFamilyLegalCandidates(c){
+  if(!c)return [];
+  const saved=c.application?.snapshot?.source==='Parent Application'?c.application.snapshot.data?.family?.guardians||[]:[];
+  const candidateIds=new Set(saved.map(g=>g.guardianId).filter(Boolean));
+  if(c.childId)for(const link of childLinks(c.childId))if(link.caseId===c.id&&link.familyMember!==false&&!link.deactivated&&!link.legalRestrictions)candidateIds.add(link.guardianId);
+  return [...candidateIds].filter(id=>{
+    const linked=c.childId?childLinks(c.childId).find(l=>l.caseId===c.id&&l.guardianId===id):null;
+    return !linked||!linked.deactivated&&!linked.legalRestrictions;
+  }).map(id=>({id,name:db.people?.guardians?.[id]?.name||saved.find(g=>g.guardianId===id)?.name||''})).filter(g=>g.name);
+}
+function mpsFamilyLegalState(c){
+  if(!mpsFamilyLegalDeclaration(c))return {needed:false,ready:true,label:'Confirmed',review:null};
+  const review=mpsFamilyLegalLatest(c);
+  if(!review)return {needed:true,ready:false,label:'Review required',review:null};
+  const candidates=new Set(mpsFamilyLegalCandidates(c).map(g=>g.id));
+  const permitted=review.outcome==='Restrictions apply'&&review.guardianIds.length>0&&review.guardianIds.every(id=>candidates.has(id));
+  const checks=review.checks&&['communications','emergency','pickup'].every(key=>review.checks[key]===true);
+  const ready=review.outcome==='No operational restriction after review'||!!(permitted&&checks);
+  return {needed:true,ready,label:ready?'Confirmed':'Review required',review};
+}
+function mpsCanReviewFamilyLegal(c){
+  return !!mpsFamilyLegalDeclaration(c)&&!ui().signedOut&&mpsCurrentAccount()?.status==='active'&&(has('Head Teacher')||has('Family legal review'));
+}
+function mpsCanViewFamilyLegal(c){return !!mpsFamilyLegalDeclaration(c)&&mpsCanReviewFamilyLegal(c)}
+function mpsFamilyLegalAuthorityBasis(childId){
+  const child=db.people?.children?.[childId],c=child&&profileCase(child),state=mpsFamilyLegalState(c);
+  return state.needed&&state.ready?{reviewId:state.review.id,version:state.review.version,outcome:state.review.outcome}:null;
+}
+const mpsBq152PreviousAuthority=mpsEffectiveGuardianAuthority;
+mpsEffectiveGuardianAuthority=function(link){
+  if(!link||link.deactivated||link.familyMember===false||link.legalRestrictions||!db.people?.guardians?.[link.guardianId])return false;
+  const child=db.people.children?.[link.childId],c=child&&profileCase(child),state=mpsFamilyLegalState(c);
+  if(!state.needed)return mpsBq152PreviousAuthority(link);
+  if(!state.ready)return false;
+  if(state.review.outcome==='Restrictions apply')return state.review.guardianIds.includes(link.guardianId);
+  if(link.declaredLegalAuthority==='No'||link.legalAuthority==='No')return false;
+  if(['Mother','Father'].includes(link.relationship))return true;
+  return (link.declaredLegalAuthority||link.legalAuthority)==='Yes';
+};
+applicationGuardianLegalReadiness=function(c){
+  const setup=applicationGuardianIdentitySetup(c);
+  if(!setup)return null;
+  const legal=mpsFamilyLegalState(c);
+  if(legal.needed&&!legal.ready)return 'Review required';
+  if(!setup.complete)return 'Outstanding';
+  if(setup.links.some(mpsEffectiveGuardianAuthority))return 'Confirmed';
+  return legal.needed?'Review required':'Outstanding';
+};
+const mpsBq152PreviousCommunicationEligibility=familyCommunicationEligibleLink;
+familyCommunicationEligibleLink=function(link){
+  const c=link?.childId&&db.people?.children?.[link.childId]?profileCase(db.people.children[link.childId]):null;
+  return (!mpsFamilyLegalDeclaration(c)||mpsFamilyLegalState(c).ready)&&mpsBq152PreviousCommunicationEligibility(link);
+};
+function mpsCaseFamilyCommunicationsIds(c){return [...new Set(c?.familyCommunications?.guardianIds||[])]}
+const mpsBq152PreviousAdmissionsContacts=admissionsFamilyContactSnapshot;
+admissionsFamilyContactSnapshot=function(caseId){
+  const c=db.admissions?.[caseId];if(!mpsFamilyLegalDeclaration(c))return mpsBq152PreviousAdmissionsContacts(caseId);
+  if(!mpsFamilyLegalState(c).ready)return [];
+  const selected=new Set(mpsCaseFamilyCommunicationsIds(c));
+  const family=c.application?.snapshot?.data?.family,guardians=family?.guardians||[];
+  return guardians.filter(g=>g.guardianId&&selected.has(g.guardianId)&&g.name&&g.phone&&
+    (!c.childId||childLinks(c.childId).some(l=>l.caseId===c.id&&l.guardianId===g.guardianId&&familyCommunicationEligibleLink(l))))
+    .map(g=>({admissionsCaseId:c.id,applicationContactId:g.guardianId,name:g.name,phone:g.phone,source:'Family communications'}));
+};
+const mpsBq152PreviousCarry=carryApplicationFamilyCommunications;
+carryApplicationFamilyCommunications=function(c){
+  if(!mpsFamilyLegalDeclaration(c))return mpsBq152PreviousCarry(c);
+  if(!c?.childId)return;
+  // Create an explicitly empty current set under the legal hold. This prevents
+  // the older onboarding fallback from promoting the parent's request.
+  const record=editableFamily(c.childId);
+  const ids=mpsFamilyLegalState(c).ready?mpsCaseFamilyCommunicationsIds(c):[];
+  record.recipientGuardianIds=ids.filter(id=>familyCommunicationOptions(c.childId).includes(id));
+};
+const mpsBq152PreviousRecipientContext=invoiceRecipientContext;
+invoiceRecipientContext=function(inv){
+  const c=inv.category==='admission_fee'&&inv.admissionsCaseId?db.admissions?.[inv.admissionsCaseId]:null;
+  if(c&&!c.enrolment&&inv.status==='draft'&&mpsFamilyLegalDeclaration(c)){
+    const state=mpsFamilyLegalState(c),contacts=admissionsFamilyContactSnapshot(c.id);
+    return kv('Family communications',contacts.length?recipientSnapshotDisplay(contacts):state.ready?'Not chosen yet':'Legal arrangements · Review required');
+  }
+  return mpsBq152PreviousRecipientContext(inv);
+};
+function mpsFamilyLegalReviewDetails(c){
+  const declaration=mpsFamilyLegalDeclaration(c),state=mpsFamilyLegalState(c),review=state.review;
+  if(!declaration)return '';
+  const names=review?.guardianIds?.map((id,index)=>db.people?.guardians?.[id]?.name||review.guardianNames?.[index]||'Guardian record unavailable').join(', ')||'No current Guardian authorised';
+  const authorityLabel=state.ready?'Authority-sensitive decisions':'Recorded Guardian selection · review required';
+  const latest=review?kv('Reviewed outcome',esc(review.outcome))+(review.outcome==='Restrictions apply'?kv(authorityLabel,esc(names)):'')+
+    kv('Reviewed by',esc(db.staff?.accounts?.[review.reviewerStaffId]?.name||review.reviewerName||'Staff'))+
+    kv('Reviewed',esc(attendanceRecordedTime(review.reviewedAt)))+kv('Review note',esc(review.note))+(review.supportingReference?kv('Supporting reference',esc(review.supportingReference)):''):'';
+  const history=(c.familyLegalReviews||[]).length>1?`<details class="family-legal-history"><summary>Earlier legal reviews</summary>${c.familyLegalReviews.slice(0,-1).map(r=>`<div class="family-legal-history-item"><strong>Version ${r.version} · ${esc(r.outcome)}</strong><p>${esc(r.guardianNames?.join(', ')||'No Guardian selected')} · ${esc(r.reviewerName)} · ${esc(attendanceRecordedTime(r.reviewedAt))}</p><p>${esc(r.note)}</p></div>`).join('')}</details>`:'';
+  return kv('Parent declaration',esc(`${declaration.answer} · ${declaration.details||''}`))+kv('Review status',badge(state.ready?'Reviewed':'Review required',state.ready?'green':'amber'))+latest+history;
+}
+function mpsFamilyLegalSection(c){
+  if(!mpsCanViewFamilyLegal(c))return '';
+  return `<section class="family-legal"><h4>Legal arrangements</h4>${mpsFamilyLegalReviewDetails(c)}<div class="family-legal-actions">${btn(mpsFamilyLegalLatest(c)?'Record new review':'Review legal arrangements',`openModal('family-legal-review',{caseId:'${esc(c.id)}'})`,'secondary','sm')}</div></section>`;
+}
+function mpsCaseLegalSection(c){
+  if(!mpsFamilyLegalDeclaration(c))return '';
+  const state=mpsFamilyLegalState(c),canReview=mpsCanReviewFamilyLegal(c);
+  const review=canReview?mpsFamilyLegalReviewDetails(c):kv('Review status',badge(state.ready?'Reviewed':'Review required',state.ready?'green':'amber'));
+  const action=canReview?btn(state.review?'Record new review':'Review legal arrangements',`openModal('family-legal-review',{caseId:'${esc(c.id)}'})`,'secondary','sm'):'';
+  const contacts=state.ready?`<div class="section-title">Family communications</div>${kv('Current recipients',esc(admissionsFamilyContactSnapshot(c.id).map(x=>x.name).join(', ')||'Not chosen yet'))}${!c.enrolment&&(has('Head Teacher')||has('Admissions'))?btn('Confirm recipients',`openModal('case-family-communications',{caseId:'${esc(c.id)}'})`,'secondary','sm'):''}`:'';
+  return `<section class="card family-legal-case"><h3>Legal arrangements</h3>${review}${action}${contacts}</section>`;
+}
+const mpsBq152PreviousAdmissionApplication=admissionApplication;
+admissionApplication=function(c){return mpsBq152PreviousAdmissionApplication(c)+mpsCaseLegalSection(c)};
+const mpsBq152PreviousTodayActions=todayActions;
+todayActions=function(){
+  const actions=mpsBq152PreviousTodayActions();
+  if(!has('Head Teacher')&&!has('Family legal review'))return actions;
+  for(const c of Object.values(db.admissions||{}))if(mpsFamilyLegalDeclaration(c)&&!mpsFamilyLegalState(c).ready&&mpsCanReviewFamilyLegal(c))
+    actions.push({sev:'amber',icon:'shield',title:`${c.childName} · legal arrangements to review`,sub:'Parent declaration · authority-sensitive decisions on hold',go:`openModal('family-legal-review',{caseId:'${esc(c.id)}'})`});
+  return actions;
+};
+function mpsLegalReviewOutcomeChanged(){const section=document.getElementById('family_legal_restricted');if(section)section.hidden=val('family_legal_outcome')!=='Restrictions apply'}
+function mpsFamilyLegalReviewModal(c){
+  if(!mpsCanReviewFamilyLegal(c))return modal('Review unavailable','',notice('Family legal-review authority is required.','warn'),btn('Close','closeOverlay()','secondary'));
+  const candidates=mpsFamilyLegalCandidates(c),previous=mpsFamilyLegalLatest(c);
+  const list=candidates.length?candidates.map(g=>`<label class="check-row"><input data-family-legal-guardian type="checkbox" value="${esc(g.id)}"> ${esc(g.name)}</label>`).join(''):'<p>No captured Guardian is available. The restriction remains unresolved until the family record has an appropriate Guardian.</p>';
+  const restricted=`<div id="family_legal_restricted" hidden><div class="field"><label>Who may currently make authority-sensitive decisions?</label><div class="check-stack">${list}</div></div><p>Confirm the owning records were checked. Change them separately where needed.</p>${[['communications','Family communications'],['emergency','Emergency contact'],['pickup','Authorised pickup']].map(([key,label])=>`<label class="check-row"><input data-family-legal-check="${key}" type="checkbox"> ${label} checked</label>`).join('')}</div>`;
+  const body=kv('Parent declaration',esc(`${mpsFamilyLegalDeclaration(c).answer} · ${mpsFamilyLegalDeclaration(c).details||''}`))+kv('Current status',esc(mpsFamilyLegalState(c).label))+
+    selectField('Review outcome',['Select…','No operational restriction after review','Restrictions apply'],'Select…','family_legal_outcome').replace('id="family_legal_outcome"','id="family_legal_outcome" onchange="mpsLegalReviewOutcomeChanged()"')+restricted+
+    textArea(previous?'Factual note / what changed':'Short factual review note','','family_legal_note')+field('Supporting document / reference (optional)','','text',false,'family_legal_reference')+
+    notice('The parent declaration remains unchanged. This review records the current operational authority decision.','info');
+  return modal('Review legal arrangements','',body,btn('Cancel','closeOverlay()','secondary')+btn('Save review',`mpsSaveFamilyLegalReview('${esc(c.id)}')`,'primary'));
+}
+function mpsSaveFamilyLegalReview(caseId){
+  const c=db.admissions?.[caseId];if(!mpsCanReviewFamilyLegal(c))return false;
+  const outcome=val('family_legal_outcome'),note=val('family_legal_note').trim(),reference=val('family_legal_reference').trim();
+  if(!['No operational restriction after review','Restrictions apply'].includes(outcome)||!note){alert('Choose an outcome and record a short factual note.');return false}
+  const candidates=new Map(mpsFamilyLegalCandidates(c).map(g=>[g.id,g.name]));
+  const ids=outcome==='Restrictions apply'?[...new Set(Array.from(document.querySelectorAll('[data-family-legal-guardian]:checked')).map(el=>el.value))]:[];
+  if(ids.some(id=>!candidates.has(id))){alert('Choose only current captured Guardians.');return false}
+  const checks=Object.fromEntries(['communications','emergency','pickup'].map(key=>[key,!!document.querySelector(`[data-family-legal-check="${key}"]:checked`)]));
+  if(outcome==='Restrictions apply'&&!Object.values(checks).every(Boolean)){alert('Confirm that Family communications, Emergency contact and Authorised pickup were checked.');return false}
+  const previous=c.familyLegalReviews||[],last=previous.at(-1),actor=staffActor();
+  if(!actor?.staffId)return false;
+  const review={id:'family_legal_'+crypto.randomUUID(),caseId,childId:c.childId||null,source:{type:c.application?.snapshot?.source==='Parent Application'?'Parent Application':'Earlier family record',caseId,submittedAt:c.application?.snapshot?.submittedAt||null},version:previous.length+1,supersedesId:last?.id||null,outcome,guardianIds:ids,guardianNames:ids.map(id=>candidates.get(id)),checks:outcome==='Restrictions apply'?checks:null,note,supportingReference:reference||null,reviewerStaffId:actor.staffId,reviewerName:actor.name,reviewedAt:mpsPreschoolBusinessNow().toISOString()};
+  c.familyLegalReviews=[...previous,review];
+  if(!save()){c.familyLegalReviews=previous;return false}
+  closeOverlay();return true;
+}
+function mpsCaseFamilyCommunicationsModal(c){
+  if(!c||c.enrolment||!mpsFamilyLegalDeclaration(c)||!mpsFamilyLegalState(c).ready||!(has('Head Teacher')||has('Admissions'))||mpsCurrentAccount()?.status!=='active')
+    return modal('Family communications','',notice('Resolve the legal review before confirming recipients.','warn'),btn('Close','closeOverlay()','secondary'));
+  const family=c.application.snapshot.data.family,requested=new Set(mpsCaseFamilyCommunicationsIds(c).length?mpsCaseFamilyCommunicationsIds(c):family.requestedRecipientGuardianIds||[]);
+  const choices=(family.guardians||[]).filter(g=>g.guardianId&&g.name&&g.phone);
+  const options=choices.map(g=>`<label class="check-row"><input type="checkbox" data-case-family-recipient value="${esc(g.guardianId)}" ${checked(requested.has(g.guardianId))}> ${esc(g.name)}</label>`).join('');
+  return modal('Family communications','Confirm the Guardians who receive routine notices, reports, invoices and receipts. This is separate from legal decision authority.',options||notice('No captured Guardian with contact details is available.','warn'),btn('Cancel','closeOverlay()','secondary')+(choices.length?btn('Save recipients',`mpsSaveCaseFamilyCommunications('${esc(c.id)}')`,'primary'):''));
+}
+function mpsSaveCaseFamilyCommunications(caseId){
+  const c=db.admissions?.[caseId];
+  if(!c||c.enrolment||!mpsFamilyLegalDeclaration(c)||!mpsFamilyLegalState(c).ready||!(has('Head Teacher')||has('Admissions'))||mpsCurrentAccount()?.status!=='active')return false;
+  const eligible=new Set((c.application.snapshot.data.family.guardians||[]).filter(g=>g.guardianId&&g.name&&g.phone).map(g=>g.guardianId));
+  const ids=[...new Set(Array.from(document.querySelectorAll('[data-case-family-recipient]:checked')).map(el=>el.value))];
+  if(!ids.length||ids.some(id=>!eligible.has(id))){alert('Choose at least one captured Guardian for Family communications.');return false}
+  const previous=c.familyCommunications,history=[...(previous?.history||[])];
+  history.push({id:'family_comm_'+crypto.randomUUID(),guardianIds:ids,actor:staffActor(),at:mpsPreschoolBusinessNow().toISOString(),sourceApplicationCaseId:c.id});
+  c.familyCommunications={guardianIds:ids,history};
+  if(!save()){c.familyCommunications=previous;return false}
+  closeOverlay();return true;
+}
+const mpsBq152PreviousModalView=modalView;
+modalView=function(m){
+  if(m?.name==='family-legal-review')return mpsFamilyLegalReviewModal(db.admissions?.[m.data?.caseId]);
+  if(m?.name==='case-family-communications')return mpsCaseFamilyCommunicationsModal(db.admissions?.[m.data?.caseId]);
+  return mpsBq152PreviousModalView(m);
+};
+const mpsBq152PreviousMedicationValid=mpsMedicationValid;
+mpsMedicationValid=function(authorisation,date=TODAY){
+  if(!mpsBq152PreviousMedicationValid(authorisation,date))return false;
+  const childId=authorisation?.childId,child=db.people?.children?.[childId],c=child&&profileCase(child);
+  if(!mpsFamilyLegalDeclaration(c))return true;
+  return !!authorisation.guardianId&&mpsMedicationGuardians(childId).some(link=>link.guardianId===authorisation.guardianId);
+};
+// BQ-153: one frozen parent Application version, a generated PDF, and a paper receipt.
+function mpsSignedApplicationVersion(c,versionId=null){
+  const snapshot=versionId?(c?.application?.snapshot?.versionId===versionId?c.application.snapshot:(c?.applicationVersions||[]).find(v=>v.versionId===versionId)):c?.application?.snapshot;
+  return snapshot?.source==='Parent Application'&&snapshot.versionId?{
+    id:snapshot.versionId,submittedAt:snapshot.submittedAt,data:snapshot.data
+  }:null;
+}
+function mpsSignedApplicationReceipts(c){return c?.signedApplicationReceipts||[]}
+function mpsSignedApplicationReceipt(c){
+  const version=mpsSignedApplicationVersion(c);
+  return version?mpsSignedApplicationReceipts(c).findLast(r=>r.applicationVersionId===version.id)||null:null;
+}
+function mpsSignedApplicationSignerCandidates(c){
+  const version=mpsSignedApplicationVersion(c);
+  return (version?.data?.family?.guardians||[]).filter(g=>g.guardianId&&g.name).map(g=>({id:g.guardianId,name:g.name,relationship:g.relationship}));
+}
+function mpsSignedApplicationSignerEligible(c,guardianId){
+  const candidate=mpsSignedApplicationSignerCandidates(c).find(g=>g.id===guardianId);
+  if(!candidate||!c.childId)return false;
+  const link=childLinks(c.childId).find(l=>l.caseId===c.id&&l.guardianId===guardianId&&!l.deactivated);
+  return !!link&&mpsEffectiveGuardianAuthority(link);
+}
+function mpsSignedApplicationValid(c){
+  const version=mpsSignedApplicationVersion(c),receipt=mpsSignedApplicationReceipt(c);
+  return !!(version&&receipt?.receivedByStaffId&&receipt?.receivedAt&&mpsSignedApplicationSignerEligible(c,receipt.signerGuardianId));
+}
+function mpsCanReceiveSignedApplication(c){
+  return !!c?.enrolment&&!!mpsSignedApplicationVersion(c)&&!ui().signedOut&&mpsCurrentAccount()?.status==='active'&&allowed('admissions');
+}
+function mpsSignedApplicationReceiptModal(c){
+  if(!mpsCanReceiveSignedApplication(c))return modal('Signed Parent Application','',notice('This receipt cannot be recorded here.','warn'),btn('Close','closeOverlay()','secondary'));
+  const version=mpsSignedApplicationVersion(c),legalReady=mpsFamilyLegalState(c).ready;
+  const choices=mpsSignedApplicationSignerCandidates(c).filter(g=>!legalReady||mpsSignedApplicationSignerEligible(c,g.id));
+  const select=`<div class="field"><label for="signed_application_signer">Guardian who signed</label><select id="signed_application_signer"><option value="">Select Guardian…</option>${choices.map(g=>`<option value="${esc(g.id)}">${esc(g.name)} · ${esc(g.relationship||'Guardian')}</option>`).join('')}</select></div>`;
+  const checks=`<label class="check-row"><input id="signed_application_paper" type="checkbox"> The signed original is in the child's physical file</label><label class="check-row"><input id="signed_application_version" type="checkbox"> It matches this Application version</label><label class="check-row"><input id="signed_application_signature" type="checkbox"> I checked the Guardian signature</label>`;
+  return modal('Mark signed Application received',`Application version ${esc(version.id)}`,select+checks+notice('If legal arrangements are awaiting review, receipt can be saved now. Ready to Start remains blocked until the signer’s authority is confirmed.','info'),btn('Cancel','closeOverlay()','secondary')+btn('Mark received',`mpsMarkSignedApplicationReceived('${esc(c.id)}')`,'primary'));
+}
+function mpsMarkSignedApplicationReceived(caseId){
+  const c=db.admissions?.[caseId];if(!mpsCanReceiveSignedApplication(c))return false;
+  const signerGuardianId=val('signed_application_signer'),actor=staffActor(),version=mpsSignedApplicationVersion(c);
+  if(!actor?.staffId||!mpsSignedApplicationSignerCandidates(c).some(g=>g.id===signerGuardianId)||
+    !['signed_application_paper','signed_application_version','signed_application_signature'].every(id=>byId(id)?.checked)){
+    alert('Select the signing Guardian and confirm the signed paper and Application version.');return false;
+  }
+  if(mpsFamilyLegalState(c).ready&&!mpsSignedApplicationSignerEligible(c,signerGuardianId)){
+    alert('Choose a currently authorised Guardian who signed this Application.');return false;
+  }
+  const previous=mpsSignedApplicationReceipts(c);
+  c.signedApplicationReceipts=[...previous,{id:'signed_application_'+crypto.randomUUID(),applicationVersionId:version.id,signerGuardianId,signerName:mpsSignedApplicationSignerCandidates(c).find(g=>g.id===signerGuardianId).name,receivedByStaffId:actor.staffId,receivedByName:actor.name,receivedAt:mpsPreschoolBusinessNow().toISOString(),evidence:'Original signed paper filed'}];
+  if(!save()){c.signedApplicationReceipts=previous;return false}
+  closeOverlay();return true;
+}
+function mpsSignedApplicationPrestart(c){
+  const version=mpsSignedApplicationVersion(c);if(!version)return '';
+  const receipt=mpsSignedApplicationReceipt(c),valid=mpsSignedApplicationValid(c);
+  const pdf=prestartReadinessRow('parent-application-pdf','Parent Application PDF','Submitted','green',mpsUtilityAction('Download PDF',`mpsDownloadSignedApplicationPdf('${esc(c.id)}')`,'download'));
+  const action=!valid&&mpsCanReceiveSignedApplication(c)?btn('Mark received',`openModal('signed-application-receipt',{caseId:'${esc(c.id)}'})`,'primary','sm'):'';
+  const state=receipt?'Received':'Outstanding';
+  const detail=receipt?`<p><strong>Signed by</strong><br>${mpsSignedApplicationSignerHtml(c,receipt)}<br>Original signed paper filed<br>Received by ${esc(db.staff?.accounts?.[receipt.receivedByStaffId]?.name||receipt.receivedByName||'Staff')} · ${esc(attendanceRecordedTime(receipt.receivedAt))}${valid?'':'<br>Signer authority review required before activation'}</p>`:'';
+  return pdf+`<div class="signed-application-row">${prestartReadinessRow('signed-parent-application','Signed Parent Application',state,valid?'green':'amber',action)}${detail}</div>`;
+}
+function mpsSignedApplicationProfile(child){
+  const c=profileCase(child),version=mpsSignedApplicationVersion(c);if(!version)return '';
+  if(!allowed('admissions')&&!has('Head Teacher'))return '';
+  const receipt=mpsSignedApplicationReceipt(c);
+  const earlier=(c.applicationVersions||[]).filter(v=>v.versionId).map(v=>{
+    const saved=mpsSignedApplicationReceipts(c).findLast(r=>r.applicationVersionId===v.versionId);
+    return `<p>Earlier Application · submitted ${esc(attendanceRecordedTime(v.submittedAt))}${saved?` · signed paper received ${esc(attendanceRecordedTime(saved.receivedAt))}`:''}</p>${mpsUtilityAction('Download earlier PDF',`mpsDownloadSignedApplicationPdf('${esc(c.id)}','${esc(v.versionId)}')`,'download')}`;
+  }).join('');
+  return `<div class="signed-application-history ui-peer-stack"><section><h4>Parent Application</h4><p>Submitted ${esc(attendanceRecordedTime(version.submittedAt))}</p>${mpsUtilityAction('Download PDF',`mpsDownloadSignedApplicationPdf('${esc(c.id)}')`,'download')}</section><section><h4>Signed Parent Application</h4><p>${receipt?`Received<br><strong>Signed by</strong><br>${mpsSignedApplicationSignerHtml(c,receipt)}<br>Original signed paper filed<br>Received by ${esc(db.staff?.accounts?.[receipt.receivedByStaffId]?.name||receipt.receivedByName||'Staff')} · ${esc(attendanceRecordedTime(receipt.receivedAt))}`:'Outstanding'}</p></section>${earlier?`<details><summary>Earlier Application versions</summary>${earlier}</details>`:''}</div>`;
+}
+function mpsSignedApplicationSignerHtml(c,receipt){
+  const current=c?.childId?db.people?.links&&Object.values(db.people.links).find(link=>link.caseId===c.id&&link.childId===c.childId&&link.guardianId===receipt.signerGuardianId&&!link.deactivated):null;
+  const person=current?db.people?.guardians?.[receipt.signerGuardianId]:null;
+  const submitted=mpsSignedApplicationVersion(c,receipt.applicationVersionId)?.data?.family?.guardians?.find(g=>g.guardianId===receipt.signerGuardianId);
+  return `${esc(person?.name||receipt.signerName||submitted?.name||'Guardian')} · ${esc(current?.relationship||submitted?.relationship||'Guardian')}`;
+}
+const mpsSignedApplicationPreviousReadiness=admissionRequiredReadinessComplete;
+admissionRequiredReadinessComplete=function(c){
+  return mpsSignedApplicationPreviousReadiness(c)&&(!mpsSignedApplicationVersion(c)||mpsSignedApplicationValid(c));
+};
+const mpsSignedApplicationPreviousOperational=isOperationalChild;
+isOperationalChild=function(child){return childEnrolment(child)?.status==='pending_start'||mpsSignedApplicationPreviousOperational(child)};
+const mpsSignedApplicationPreviousGroup=childDirectoryGroup;
+childDirectoryGroup=function(child,day=TODAY){
+  return childEnrolment(child)?.status==='pending_start'?'prestart':mpsSignedApplicationPreviousGroup(child,day);
+};
+function mpsActivatePendingEnrolment(caseId){
+  const c=db.admissions?.[caseId];
+  if(!c?.enrolment||c.enrolment.status!=='pending_start'||!allowed('admissions')||
+    mpsCurrentAccount()?.status!=='active'||!admissionRequiredReadinessComplete(c))return false;
+  c.enrolment.status='active';
+  c.enrolment.activatedAt=mpsPreschoolBusinessNow().toISOString();
+  c.enrolment.activatedBy=staffActor();
+  if(!save()){c.enrolment.status='pending_start';delete c.enrolment.activatedAt;delete c.enrolment.activatedBy;return false}
+  render();return true;
+}
+function mpsSignedApplicationActivationAction(c){
+  if(c?.enrolment?.status!=='pending_start'||!allowed('admissions')||mpsCurrentAccount()?.status!=='active'||!admissionRequiredReadinessComplete(c))return '';
+  return `<div class="signed-application-activation">${btn('Activate enrolment',`mpsActivatePendingEnrolment('${esc(c.id)}')`,'primary','sm')}</div>`;
+}
+const mpsSignedApplicationPreviousApplication=admissionApplication;
+admissionApplication=function(c){
+  const html=mpsSignedApplicationPreviousApplication(c),version=mpsSignedApplicationVersion(c);
+  return version&&allowed('admissions')?html+`<div class="card signed-application-download"><h3>Parent Application PDF</h3><p>Submitted ${esc(attendanceRecordedTime(version.submittedAt))}</p>${mpsUtilityAction('Download PDF',`mpsDownloadSignedApplicationPdf('${esc(c.id)}')`,'download')}</div>`:html;
+};
+const mpsSignedApplicationBaseModal=modalView;
+modalView=function(m){return m?.name==='signed-application-receipt'?mpsSignedApplicationReceiptModal(db.admissions?.[m.data?.caseId]):mpsSignedApplicationBaseModal(m)};
+
+// A fresh visual PDF from the immutable parent snapshot; no operational values or PDF copy are stored.
+function mpsSignedApplicationDocument(c,version){
+  const data=version.data||{},family=data.family||{},child=family.child||{},guardians=family.guardians||[];
+  const blocks=[],section=title=>blocks.push({type:'section',title}),field=(label,value)=>{
+    if(value!==null&&value!==undefined&&value!==''&&!(Array.isArray(value)&&!value.length))blocks.push({type:'field',label,value:Array.isArray(value)?value.join(', '):typeof value==='boolean'?(value?'Yes':'No'):String(value)});
+  };
+  const date=value=>value?fmtDate(value):'';
+  const submitted=new Date(version.submittedAt);
+  const submittedText=Number.isNaN(submitted.getTime())?String(version.submittedAt||'Not recorded'):new Intl.DateTimeFormat('en-GB',{timeZone:mpsPreschoolClockTimezone(),day:'numeric',month:'long',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(submitted);
+  const reference='APP-'+String(version.id).replace(/[^a-z0-9]/gi,'').slice(-10).toUpperCase();
+  section('Child');
+  field('Legal name',child.legalName||data.childName);
+  field('Called name',child.preferred);
+  field('Date of birth',date(child.dob||data.dob));
+  field('Gender',child.gender);
+  field('Address',child.address);
+  field('Home languages',child.languages);
+  field('Siblings',child.hasSiblings);
+  if(child.hasSiblings==='Yes')(child.siblings||[]).forEach((s,i)=>field(`Sibling ${i+1}`,`${s.relationship||'Sibling'}${s.dob?' · '+date(s.dob):''}`));
+  section('Placement / service');
+  field('Service',data.service);
+  field('Desired start',date(data.start));
+  section('Guardians');
+  guardians.forEach((g,i)=>{
+    blocks.push({type:'subheading',title:`Guardian ${i+1}`});
+    field('Name',g.name);field('Relationship',g.relationship);field('Date of birth',date(g.dob));field('Phone',g.phone);
+    field('Currently working',g.working);
+    if(g.working==='Yes'){field('Job title',g.jobTitle);field('Workplace / company',g.company)}
+    field('Family communications',g.communicationRequested===true?'Receives communications':g.communicationRequested===false?'Does not receive communications':'Not recorded');
+    if(!['Mother','Father'].includes(g.relationship))field('Legal guardian',g.legalAuthority);
+  });
+  section('Legal arrangements');
+  field('Restrictions or special arrangements',family.legalRestrictions?.answer);
+  if(String(family.legalRestrictions?.answer||'').startsWith('Yes'))field('Parent-submitted details',family.legalRestrictions.details);
+  section('Emergency contact');
+  field('Contact',family.emergency?.name);
+  field('Relationship',family.emergency?.relationship);
+  field('Phone',family.emergency?.phone);
+  section('Health & care');
+  const health=family.health||{};
+  for(const [label,key,detail] of [['Allergies','allergies','allergyDetails'],['Medical conditions','conditions','conditionDetails'],['Regular medication','medication','medicationDetails'],['Dietary restrictions','dietary','dietaryDetails'],['Other health / care information','other','otherDetails']]){
+    field(label,health[key]);if(health[key]==='Yes')field(`${label} details`,health[detail]);
+  }
+  if(health.medication==='Yes')field('Preschool to give medication',health.preschoolAdministration||'Not answered');
+  field('Emergency instructions',health.emergencyInstructions);
+  section('Permissions & setup');
+  field('Facebook / public-social permission',family.facebook);
+  const selected=guardians.filter(g=>g.communicationRequested===true).map(g=>g.name);
+  field('Family communications recipients',selected.length?selected:family.requestedRecipients);
+  field('Birth certificate copy',family.documents?.birthCertificate?'Submitted':'Not submitted');
+  if(family.documents?.birthCertificate)field('Submitted file',family.documents.birthCertificateFile);
+  field('Uniform size',family.starter?.uniform);
+  if(String(data.note||'').trim()){section('Parent note');field('Note',data.note.trim())}
+  blocks.push({type:'declaration'});
+  return {reference,submittedText,childName:child.legalName||data.childName||'Child name not recorded',blocks};
+}
+function mpsSignedApplicationLines(c,version){
+  const document=mpsSignedApplicationDocument(c,version);
+  return [`Parent Application · ${document.childName}`,`Application reference: ${document.reference}`,`Submitted: ${document.submittedText}`,...document.blocks.map(block=>block.type==='field'?`${block.label}: ${block.value}`:block.title||block.type)];
+}
+function mpsSignedApplicationPdfBlob(c,version=mpsSignedApplicationVersion(c)){
+  const pdfDocument=mpsSignedApplicationDocument(c,version),width=1240,height=1754,left=100,right=width-100,bottom=height-125;
+  const pages=[];let canvas,ctx,y,pageNumber=0;
+  const reset=()=>{
+    canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;ctx=canvas.getContext('2d');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);pageNumber++;
+    ctx.fillStyle='#154c4a';ctx.fillRect(left,85,78,8);
+    ctx.font='bold 27px Arial, sans-serif';ctx.fillText(mpsOrganisationName(),left,132);
+    ctx.font='18px Arial, sans-serif';ctx.fillStyle='#5a6d6b';ctx.fillText('Parent Application · '+pdfDocument.reference,left,163);
+    ctx.strokeStyle='#d7e5e0';ctx.beginPath();ctx.moveTo(left,184);ctx.lineTo(right,184);ctx.stroke();
+    ctx.font='17px Arial, sans-serif';ctx.fillStyle='#667773';ctx.fillText(`Page ${pageNumber}`,right-62,height-74);
+    y=pageNumber===1?220:215;
+  };
+  const push=()=>pages.push(atob(canvas.toDataURL('image/jpeg',0.94).split(',')[1]));
+  const ensure=needed=>{if(y+needed>bottom){push();reset()}};
+  const wrap=(value,font,maxWidth)=>{
+    ctx.font=font;const out=[];
+    for(const paragraph of String(value).split('\n')){
+      let line='';for(const word of paragraph.split(/\s+/)){
+        const next=line?line+' '+word:word;
+        if(ctx.measureText(next).width>maxWidth&&line){out.push(line);line=word}else line=next;
+      }
+      out.push(line);
+    }
+    return out;
+  };
+  reset();
+  ctx.fillStyle='#143f3e';ctx.font='bold 45px Arial, sans-serif';ctx.fillText('PARENT APPLICATION',left,y+38);y+=73;
+  const intro=[['Child',pdfDocument.childName],['Application reference',pdfDocument.reference],['Submitted',pdfDocument.submittedText]];
+  for(const [label,value] of intro){ctx.font='18px Arial, sans-serif';ctx.fillStyle='#61736f';ctx.fillText(label,left,y);ctx.font='bold 23px Arial, sans-serif';ctx.fillStyle='#183d3b';ctx.fillText(value,left+240,y);y+=40}
+  y+=20;
+  for(let index=0;index<pdfDocument.blocks.length;index++){
+    const block=pdfDocument.blocks[index];
+    if(block.type==='section'){
+      ensure(block.title==='Guardians'?350:104);y+=12;ctx.fillStyle='#e7f2ee';ctx.fillRect(left,y-4,right-left,40);
+      ctx.fillStyle='#174b48';ctx.font='bold 24px Arial, sans-serif';ctx.fillText(block.title.toUpperCase(),left+15,y+25);y+=59;
+    }else if(block.type==='subheading'){
+      ensure(190);y+=8;ctx.fillStyle='#194c49';ctx.font='bold 23px Arial, sans-serif';ctx.fillText(block.title,left,y+20);y+=42;
+    }else if(block.type==='field'){
+      const lines=wrap(block.value,'21px Arial, sans-serif',right-left),needed=23+Math.max(1,lines.length)*27+5;
+      ensure(needed);
+      ctx.font='18px Arial, sans-serif';ctx.fillStyle='#61736f';ctx.fillText(block.label,left,y+17);
+      ctx.font='21px Arial, sans-serif';ctx.fillStyle='#172f2e';
+      lines.forEach((line,i)=>ctx.fillText(line,left,y+43+i*27));y+=needed;
+    }else if(block.type==='declaration'){
+      ensure(275);y+=22;ctx.strokeStyle='#cdded8';ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();y+=38;
+      const declaration='I confirm that the information in this Application is complete and accurate to the best of my knowledge.';
+      ctx.font='20px Arial, sans-serif';ctx.fillStyle='#183d3b';
+      wrap(declaration,'20px Arial, sans-serif',right-left).forEach(line=>{ctx.fillText(line,left,y);y+=29});
+      y+=24;for(const label of ['Guardian name','Signature','Date']){ctx.fillText(`${label}:  __________________________________________`,left,y);y+=37}
+    }
+  }
+  push();
+  const chunks=['%PDF-1.4\n'],offsets=[0];let length=chunks[0].length;
+  const add=(id,body)=>{offsets[id]=length;const part=`${id} 0 obj\n${body}\nendobj\n`;chunks.push(part);length+=part.length};
+  const count=pages.length,pageRefs=pages.map((_,i)=>`${3+i*3} 0 R`).join(' ');
+  add(1,'<< /Type /Catalog /Pages 2 0 R >>');add(2,`<< /Type /Pages /Count ${count} /Kids [${pageRefs}] >>`);
+  pages.forEach((jpeg,i)=>{
+    const pageId=3+i*3,imageId=pageId+1,contentId=pageId+2;
+    add(pageId,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im${i} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    add(imageId,`<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n${jpeg}\nendstream`);
+    const stream=`q\n595 0 0 842 0 0 cm\n/Im${i} Do\nQ\n`;
+    add(contentId,`<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
+  });
+  const start=length;chunks.push(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
+  for(let i=1;i<offsets.length;i++)chunks.push(`${String(offsets[i]).padStart(10,'0')} 00000 n \n`);
+  chunks.push(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${start}\n%%EOF`);
+  return new Blob([Uint8Array.from(chunks.join(''),ch=>ch.charCodeAt(0))],{type:'application/pdf'});
+}
+function mpsDownloadSignedApplicationPdf(caseId,versionId=null){
+  const c=db.admissions?.[caseId],version=mpsSignedApplicationVersion(c,versionId);
+  if(!version||!(allowed('admissions')||has('Head Teacher')&&c.childId&&canViewChild(c.childId)))return false;
+  const previous=c.applicationPdfHistory||[];
+  if(!previous.some(record=>record.applicationVersionId===version.id)){
+    c.applicationPdfHistory=[...previous,{id:'application_pdf_'+crypto.randomUUID(),applicationVersionId:version.id,generatedAt:mpsPreschoolBusinessNow().toISOString(),generatedBy:staffActor()}];
+    if(!save()){c.applicationPdfHistory=previous;return false}
+  }
+  const blob=mpsSignedApplicationPdfBlob(c,version),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=`parent-application-${c.id}-${version.id}.pdf`;
+  document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);return true;
+}
+render();
+// BQ-155: the MedicationAuthorisation remains Health-owned; readiness consumes it.
+const mpsMedicationPreviousReadiness=admissionRequiredReadinessComplete;
+admissionRequiredReadinessComplete=function(c){
+  if(!mpsMedicationPreviousReadiness(c))return false;
+  const childId=c?.childId||profileChildId(c?.id);
+  const requirement=mpsMedicationRequirement(childId);
+  return requirement==='not_reported'||requirement==='home_only'||requirement==='required'&&mpsMedicationValid(mpsMedicationAuthorisation(childId));
+};
+function mpsMedicationVersion(childId,versionId){
+  const auth=mpsMedicationAuthorisation(childId);
+  if(auth?.id===versionId)return auth;
+  if(auth?.pendingReplacement?.id===versionId)return auth.pendingReplacement;
+  return auth?.history?.find(item=>item.id===versionId)||null;
+}
+function mpsMedicationReceiptModal(data){
+  const childId=data?.childId,version=mpsMedicationVersion(childId,data?.versionId);
+  if(!mpsMedicationCanWrite(childId)||version?.status!=='awaiting_signed_form'||!mpsMedicationGuardians(childId).some(link=>link.guardianId===version.guardianId))
+    return modal('Signed medication form unavailable','',notice('A prepared form and a currently authorised Guardian are required.','warn'),btn('Close','closeOverlay()','secondary'));
+  return modal('Mark signed form received',`Medication authorisation · ${esc(version.id)}`,
+    `${kv('Child',profileChildLink(childId))}${kv('Medication',esc(version.medication))}${kv('Authorising Guardian',esc(version.authorisedBy))}`+
+    `<label class="check-row"><input id="ma_paper_received" type="checkbox"> The signed paper original is in the child’s physical file</label>`+
+    `<label class="check-row"><input id="ma_exact_version" type="checkbox"> It matches this medication authorisation version</label>`+
+    `<label class="check-row"><input id="ma_guardian_signature" type="checkbox"> I checked the authorised Guardian’s signature</label>`,
+    btn('Cancel','closeOverlay()','secondary')+btn('Mark received',`mpsMarkMedicationAuthorisationReceived('${esc(childId)}','${esc(version.id)}')`,'primary'));
+}
+function mpsMedicationCareNeedModal(data){
+  const childId=data?.childId,h=db.health?.profiles?.[childId];
+  if(!mpsMedicationCanWrite(childId)||!h?.reportedMedication)return modal('Care need unavailable','',notice('Confirmed medication information is required.','warn'),btn('Close','closeOverlay()','secondary'));
+  return modal('Review preschool medication need','Keep this separate from authorisation to give a dose.',
+    `${kv('Child',profileChildLink(childId))}${kv('Medication reported by family',esc(h.reportedMedication))}`+
+    selectField('Will the preschool need to give this medication while the child is in our care?',['Select…','Yes','No'],h.preschoolAdministration||'Select…','medication_care_need')+
+    textArea('Factual review note','','medication_care_note'),
+    btn('Cancel','closeOverlay()','secondary')+btn('Save care need',`mpsSaveMedicationCareNeed('${esc(childId)}')`,'primary'));
+}
+function mpsSaveMedicationCareNeed(childId){
+  const h=db.health?.profiles?.[childId],answer=val('medication_care_need'),actor=staffActor();
+  if(!mpsMedicationCanWrite(childId)||!h?.reportedMedication||!['Yes','No'].includes(answer)||!actor?.staffId)return false;
+  const before=structuredClone(h),at=mpsPreschoolBusinessNow().toISOString();
+  h.preschoolAdministration=answer;
+  h.preschoolAdministrationHistory=[...(h.preschoolAdministrationHistory||[]),{answer,actor,at,note:val('medication_care_note').trim()}];
+  if(!save()){db.health.profiles[childId]=before;return false}
+  closeOverlay();return true;
+}
+function mpsMarkMedicationAuthorisationReceived(childId,versionId){
+  const existing=mpsMedicationAuthorisation(childId),version=mpsMedicationVersion(childId,versionId),actor=staffActor();
+  if(!mpsMedicationCanWrite(childId)||version?.status!=='awaiting_signed_form'||!actor?.staffId||
+    !mpsMedicationGuardians(childId).some(link=>link.guardianId===version.guardianId)||
+    !['ma_paper_received','ma_exact_version','ma_guardian_signature'].every(id=>byId(id)?.checked))return false;
+  const now=mpsPreschoolBusinessNow().toISOString(),current={...version,status:'current',receivedAt:now,receivedByStaffId:actor.staffId,receivedByName:actor.name,receiptMethod:'signed_paper_received',updated:TODAY};
+  const alternate=Object.entries(db.health.medAuth).filter(([key,value])=>key!==childId&&value===existing);
+  alternate.forEach(([key])=>delete db.health.medAuth[key]);
+  if(existing===version){
+    db.health.medAuth[childId]=current;
+    if(!save()){db.health.medAuth[childId]=existing;alternate.forEach(([key,value])=>db.health.medAuth[key]=value);return false}
+  }else{
+    const previous={...existing};delete previous.pendingReplacement;delete previous.history;
+    current.history=[...(existing.history||[]),{...previous,status:previous.status==='current'?'replaced':previous.status}];
+    db.health.medAuth[childId]=current;
+    if(!save()){db.health.medAuth[childId]=existing;alternate.forEach(([key,value])=>db.health.medAuth[key]=value);return false}
+  }
+  closeOverlay();return true;
+}
+const mpsMedicationBq155BaseModal=modalView;
+modalView=function(m){return m?.name==='med-authorisation-receipt'?mpsMedicationReceiptModal(m.data):m?.name==='medication-care-need'?mpsMedicationCareNeedModal(m.data):mpsMedicationBq155BaseModal(m)};
+
+// Rebuild the PDF from its frozen version: no current Health or Guardian edits enter it.
+function mpsMedicationAuthorisationPdfBlob(childId,version){
+  const width=1240,height=1754,left=100,right=1140,pages=[];
+  let canvas,ctx,y;
+  const reset=()=>{
+    canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;ctx=canvas.getContext('2d');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);
+    ctx.fillStyle='#154c4a';ctx.fillRect(left,86,78,8);
+    ctx.font='bold 27px Arial, sans-serif';ctx.fillText(version.preschoolName||mpsOrganisationName(),left,133);
+    ctx.fillStyle='#61736f';ctx.font='18px Arial, sans-serif';ctx.fillText('Medication authorisation · '+version.id,left,166);
+    ctx.strokeStyle='#d7e5e0';ctx.beginPath();ctx.moveTo(left,188);ctx.lineTo(right,188);ctx.stroke();
+    ctx.fillStyle='#143f3e';ctx.font='bold 42px Arial, sans-serif';ctx.fillText('MEDICATION AUTHORISATION',left,268);
+    y=328;
+  };
+  const push=()=>pages.push(atob(canvas.toDataURL('image/jpeg',0.94).split(',')[1]));
+  const wrap=(value,font,maxWidth)=>{
+    ctx.font=font;const lines=[];
+    for(const paragraph of String(value||'').split('\n')){
+      let line='';for(const word of paragraph.split(/\s+/)){
+        const next=line?line+' '+word:word;
+        if(line&&ctx.measureText(next).width>maxWidth){lines.push(line);line=word}else line=next;
+      }lines.push(line);
+    }return lines;
+  };
+  const row=(label,value)=>{
+    const lines=wrap(value||'Not recorded','22px Arial, sans-serif',right-left);
+    if(y+52+lines.length*29>1310){push();reset()}
+    ctx.fillStyle='#61736f';ctx.font='18px Arial, sans-serif';ctx.fillText(label,left,y);
+    y+=31;ctx.fillStyle='#173d3b';ctx.font='22px Arial, sans-serif';
+    for(const line of lines){ctx.fillText(line,left,y);y+=29}
+    y+=21;
+  };
+  reset();
+  row('Child',version.childName||profileChildName(childId));
+  row('Medication',version.medication);
+  row('Exact dose / instruction',version.instruction);
+  if(version.triggerMode==='scheduled'){
+    row('How medication should be given','Scheduled');
+    row('Schedule',mpsMedicationScheduleSummary(version));
+  }else if(version.triggerMode==='as_needed'){
+    row('How medication should be given','As needed');
+    row('Authorised condition',version.authorisedCondition);
+  }else row('Timing / frequency or condition',version.timing);
+  if(version.directions)row('Important directions',version.directions);
+  row('Valid from / until',`${fmtDate(version.validFrom)} – ${fmtDate(version.validUntil)}`);
+  row('Authorising Guardian',version.authorisedBy);
+  row('Instruction source / reference',version.authoritySource);
+  if(y+245>height-90){push();reset()}
+  const signatureY=Math.max(y+28,1330);
+  ctx.strokeStyle='#cdded8';ctx.beginPath();ctx.moveTo(left,signatureY);ctx.lineTo(right,signatureY);ctx.stroke();
+  ctx.fillStyle='#183d3b';ctx.font='20px Arial, sans-serif';
+  ctx.fillText('Guardian confirmation of the medication details and instructions above',left,signatureY+45);
+  ctx.fillText('Signature: __________________________________________',left,signatureY+93);
+  ctx.fillText('Date:  ______________________',left,signatureY+140);
+  ctx.fillStyle='#61736f';ctx.font='17px Arial, sans-serif';
+  ctx.fillText('Return the signed original to the preschool. Staff will record receipt before this authorisation becomes current.',left,signatureY+188);
+  push();
+  const chunks=['%PDF-1.4\n'],offsets=[0];let length=chunks[0].length;
+  const add=(id,body)=>{offsets[id]=length;const part=`${id} 0 obj\n${body}\nendobj\n`;chunks.push(part);length+=part.length};
+  add(1,'<< /Type /Catalog /Pages 2 0 R >>');add(2,`<< /Type /Pages /Count ${pages.length} /Kids [${pages.map((_,i)=>`${3+i*3} 0 R`).join(' ')}] >>`);
+  pages.forEach((jpeg,i)=>{
+    const pageId=3+i*3,imageId=pageId+1,contentId=pageId+2;
+    add(pageId,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im${i} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    add(imageId,`<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n${jpeg}\nendstream`);
+    const stream=`q\n595 0 0 842 0 0 cm\n/Im${i} Do\nQ\n`;
+    add(contentId,`<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
+  });
+  const start=length;chunks.push(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
+  for(let i=1;i<offsets.length;i++)chunks.push(`${String(offsets[i]).padStart(10,'0')} 00000 n \n`);
+  chunks.push(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${start}\n%%EOF`);
+  return new Blob([Uint8Array.from(chunks.join(''),ch=>ch.charCodeAt(0))],{type:'application/pdf'});
+}
+function mpsDownloadMedicationAuthorisationPdf(childId,versionId){
+  const version=mpsMedicationVersion(childId,versionId);
+  if(!version||version.evidenceMethod!=='signed_paper'||!allowed('health')||!canViewChildHealth(childId))return false;
+  const blob=mpsMedicationAuthorisationPdfBlob(childId,version),url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.download=`medication-authorisation-${childId}-${version.id}.pdf`;
+  document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);return true;
+}
+// BQ-156: scheduled work is projected from Health authority and Attendance presence.
+// There is no second medication task or presence store.
+const mpsMedicationWeekdays=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+function mpsMedicationClockMinutes(value){
+  const match=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(value||''));
+  return match?Number(match[1])*60+Number(match[2]):null;
+}
+function mpsMedicationLocalClock(now=mpsPreschoolBusinessNow()){
+  return new Intl.DateTimeFormat('en-GB',{timeZone:mpsPreschoolClockTimezone(),hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now);
+}
+function mpsMedicationLocalStamp(at){
+  if(!at)return null;
+  const date=new Date(at);if(Number.isNaN(date.getTime()))return null;
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{timeZone:mpsPreschoolClockTimezone(),year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hourCycle:'h23'}).formatToParts(date).map(part=>[part.type,part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}T${parts.hour}:${parts.minute}:${parts.second}`;
+}
+function mpsMedicationScheduleSummary(authorisation){
+  const schedule=authorisation?.schedule;
+  if(authorisation?.triggerMode!=='scheduled'||!Array.isArray(schedule?.times))return '';
+  const times=schedule.times.map(staffTimeLabel).join(', '),days=schedule.weekdays?.length?schedule.weekdays.join(', '):'every day the child attends';
+  return `${times} · ${days}`;
+}
+function mpsMedicationTriggerDetails(authorisation){
+  if(authorisation?.triggerMode==='scheduled')return kv('How medication should be given','Scheduled')+kv('Schedule',esc(mpsMedicationScheduleSummary(authorisation)));
+  if(authorisation?.triggerMode==='as_needed')return kv('How medication should be given','As needed')+kv('Authorised condition',esc(authorisation.authorisedCondition||'Not recorded'));
+  return authorisation?.timing?kv('Timing / frequency or condition',esc(authorisation.timing)):'';
+}
+function mpsMedicationTriggerFields(authorisation){
+  const mode=authorisation?.triggerMode||'',times=authorisation?.schedule?.times?.length?authorisation.schedule.times:[''],days=authorisation?.schedule?.weekdays||[];
+  const choice=`<div class="field"><label for="ma_trigger">How should this medication be given?</label><select id="ma_trigger" onchange="mpsMedicationTriggerChanged()"><option value="">Choose…</option><option value="scheduled" ${mode==='scheduled'?'selected':''}>At scheduled time(s)</option><option value="as_needed" ${mode==='as_needed'?'selected':''}>As needed when a condition occurs</option></select></div>`;
+  const timeRows=times.map((time,index)=>mpsMedicationScheduleTimeField(index,time)).join('');
+  const schedule=`<div id="ma_schedule_fields" class="medication-trigger-fields" ${mode==='scheduled'?'':'hidden'}><div id="ma_schedule_times" class="medication-schedule-times">${timeRows}</div>${btn('Add another time','mpsMedicationAddScheduleTime()','secondary','sm')}<div class="field"><label for="ma_repeat">Repeat</label><select id="ma_repeat" onchange="mpsMedicationRepeatChanged()"><option value="attendance" ${days.length?'':'selected'}>Every day the child attends</option><option value="selected" ${days.length?'selected':''}>Selected weekdays</option></select></div><div id="ma_weekdays" class="medication-weekdays" ${days.length?'':'hidden'}><span>Applicable days</span><div>${mpsMedicationWeekdays.map(day=>`<label><input type="checkbox" value="${day}" ${days.includes(day)?'checked':''}> ${day}</label>`).join('')}</div></div></div>`;
+  const condition=`<div id="ma_condition_fields" class="medication-trigger-fields" ${mode==='as_needed'?'':'hidden'}>${textArea('Authorised condition / symptoms',authorisation?.authorisedCondition||'','ma_condition')}</div>`;
+  return choice+schedule+condition;
+}
+function mpsMedicationScheduleTimeField(index,time=''){
+  return `<div class="medication-schedule-time" data-schedule-index="${index}">${staffTimeField(`Scheduled time ${index+1}`,time,false,`ma_schedule_${index}`)}${index?btn('Remove',`mpsMedicationRemoveScheduleTime(${index})`,'ghost','sm'):''}</div>`;
+}
+function mpsMedicationTriggerChanged(){
+  const mode=val('ma_trigger');byId('ma_schedule_fields').hidden=mode!=='scheduled';byId('ma_condition_fields').hidden=mode!=='as_needed';
+}
+function mpsMedicationRepeatChanged(){byId('ma_weekdays').hidden=val('ma_repeat')!=='selected'}
+function mpsMedicationRenumberScheduleTimes(){
+  byId('ma_schedule_times')?.querySelectorAll('.medication-schedule-time').forEach((row,index)=>{row.querySelector('label').textContent=`Scheduled time ${index+1}`});
+}
+function mpsMedicationAddScheduleTime(){
+  const container=byId('ma_schedule_times'),indices=[...container.querySelectorAll('.medication-schedule-time')].map(row=>Number(row.dataset.scheduleIndex));
+  const index=indices.length?Math.max(...indices)+1:0;
+  container.insertAdjacentHTML('beforeend',mpsMedicationScheduleTimeField(index));mpsMedicationRenumberScheduleTimes();
+}
+function mpsMedicationRemoveScheduleTime(index){byId('ma_schedule_times')?.querySelector(`[data-schedule-index="${index}"]`)?.remove();mpsMedicationRenumberScheduleTimes()}
+function mpsMedicationFormTrigger(){
+  const mode=val('ma_trigger');
+  if(mode==='as_needed'){
+    const authorisedCondition=val('ma_condition').trim();
+    return authorisedCondition?{triggerMode:mode,authorisedCondition,schedule:null,timing:authorisedCondition}:null;
+  }
+  if(mode!=='scheduled')return null;
+  const times=[...byId('ma_schedule_times').querySelectorAll('.medication-schedule-time input[type=hidden]')].map(input=>input.value);
+  if(!times.length||times.some(time=>mpsMedicationClockMinutes(time)===null)||new Set(times).size!==times.length)return null;
+  const weekdays=val('ma_repeat')==='selected'?[...byId('ma_weekdays').querySelectorAll('input:checked')].map(input=>input.value):[];
+  if(val('ma_repeat')==='selected'&&!weekdays.length)return null;
+  const sorted=[...times].sort(),schedule={times:sorted,weekdays};
+  return {triggerMode:mode,schedule,authorisedCondition:null,timing:mpsMedicationScheduleSummary({triggerMode:mode,schedule})};
+}
+function mpsMedicationOccurrenceKey(authorisationId,date,time){return `${authorisationId}|${date}|${time}`}
+function mpsMedicationWeekday(date){
+  return mpsMedicationWeekdays[(new Date(`${date}T12:00:00Z`).getUTCDay()+6)%7];
+}
+function mpsMedicationAuthorisationVersions(auth){
+  return [...(auth?.history||[]),auth].filter(version=>version?.id&&version.triggerMode==='scheduled'&&Array.isArray(version.schedule?.times)&&version.schedule.times.length);
+}
+function mpsMedicationVersionApplies(version,following,date,time){
+  if(!version.validFrom||!version.validUntil||date<version.validFrom||date>version.validUntil)return false;
+  const scheduled=`${date}T${time}:00`;
+  const received=mpsMedicationLocalStamp(version.receivedAt||version.reviewedAt);
+  if(received&&scheduled<received)return false;
+  if(!received&&version.status!=='current')return false;
+  const ended=mpsMedicationLocalStamp(following?.receivedAt||following?.reviewedAt||version.withdrawnAt);
+  return !ended||scheduled<ended;
+}
+function mpsMedicationPresenceWindow(record,date,time,nowDate,nowTime){
+  if(!record||!['present','checked_out'].includes(record.status))return null;
+  const arrival=mpsMedicationClockMinutes(record.checkIn),scheduled=mpsMedicationClockMinutes(time),checkout=mpsMedicationClockMinutes(record.checkOut);
+  if(arrival===null||scheduled===null)return null;
+  const nowMinutes=mpsMedicationClockMinutes(nowTime);
+  if(date===nowDate&&nowMinutes!==null&&nowMinutes<arrival)return null;
+  if(record.status==='checked_out'&&(checkout===null||checkout<=scheduled||checkout<arrival))return null;
+  if(date===nowDate&&nowMinutes!==null&&nowMinutes<scheduled)return record.status==='present'?'upcoming':null;
+  return arrival>scheduled?'late':'due';
+}
+function mpsMedicationDueOccurrences(now=mpsPreschoolBusinessNow()){
+  const nowDate=mpsProductDate(now,mpsPreschoolClockTimezone()),nowTime=mpsMedicationLocalClock(now),result=[];
+  const unique=new Set();
+  for(const auth of Object.values(db.health?.medAuth||{})){
+    if(!auth?.childId||unique.has(auth.childId))continue;unique.add(auth.childId);
+    const childId=auth.childId,versions=mpsMedicationAuthorisationVersions(auth);
+    if(mpsMedicationRequirement(childId)!=='required')continue;
+    if(!versions.length)continue;
+    for(const {date,record} of attendanceRecordsForChild(childId)){
+      if(date>nowDate)continue;
+      for(const [index,version] of versions.entries()){
+        const weekdays=version.schedule.weekdays||[];
+        if(weekdays.length&&!weekdays.includes(mpsMedicationWeekday(date)))continue;
+        for(const time of version.schedule.times){
+          if(mpsMedicationClockMinutes(time)===null||!mpsMedicationVersionApplies(version,versions[index+1],date,time))continue;
+          const state=mpsMedicationPresenceWindow(record,date,time,nowDate,nowTime);
+          if(!state)continue;
+          const key=mpsMedicationOccurrenceKey(version.id,date,time);
+          if((db.health.administrations||[]).some(item=>item.scheduleKey===key))continue;
+          result.push({key,childId,authId:version.id,date,time,state,medication:version.medication,instruction:version.instruction});
+        }
+      }
+    }
+  }
+  return result.sort((a,b)=>(a.state==='upcoming')-(b.state==='upcoming')||a.date.localeCompare(b.date)||a.time.localeCompare(b.time));
+}
+function mpsMedicationTodayActions(){
+  if(!allowed('health')||!has('Head Teacher')&&!has('Medication administration'))return [];
+  const now=mpsPreschoolBusinessNow(),nowTime=mpsMedicationLocalClock(now);
+  return mpsMedicationDueOccurrences(now).filter(item=>canViewChildHealth(item.childId)).map(item=>{
+    const today=item.date===TODAY,shown=staffTimeLabel(item.time),child=esc(profileChildName(item.childId)),canRecord=mpsMedicationCanAdminister(item.childId),due=item.state!=='upcoming';
+    const late=item.state==='late',past=today&&mpsMedicationClockMinutes(nowTime)>mpsMedicationClockMinutes(item.time);
+    const title=late?`${child} · Dose scheduled for ${shown}`:due?`${child} · Medication due ${past||!today?'since '+(today?'':fmtDate(item.date)+' · ')+shown:'now'}`:`${child} · Medication due at ${shown}`;
+    const sub=`${late?'Review now · ':''}${esc(item.medication)} · ${esc(item.instruction)}`;
+    const go=due&&canRecord?`openModal('medication',{childId:'${esc(item.childId)}',authId:'${esc(item.authId)}',scheduleKey:'${esc(item.key)}'})`:`openMedicationForChild('${esc(item.childId)}')`;
+    return {sev:due?'amber':'blue',icon:'heart-pulse',title,sub,go,actionLabel:due&&canRecord?'Record administration':'Open medication',actionStyle:due&&canRecord?'primary':'secondary',medicationKey:item.key,medicationDue:due};
+  });
+}
+const mpsMedicationPreviousTodayActions=todayActions;
+todayActions=function(){
+  const medication=mpsMedicationTodayActions();
+  return [...medication.filter(item=>item.medicationDue),...mpsMedicationPreviousTodayActions(),...medication.filter(item=>!item.medicationDue)];
+};
+
+// The existing shell clock updates every 30 seconds. Refresh only its Today
+// projection at a minute boundary so an upcoming dose becomes due in place.
+if(window.__mpsMedicationTodayTimer)clearInterval(window.__mpsMedicationTodayTimer);
+let mpsMedicationShownMinute=mpsMedicationLocalClock();
+window.__mpsMedicationTodayTimer=setInterval(()=>{
+  const minute=mpsMedicationLocalClock();
+  if(minute===mpsMedicationShownMinute)return;
+  mpsMedicationShownMinute=minute;
+  if(ui().route==='today'&&Object.values(db.health?.medAuth||{}).some(auth=>auth?.triggerMode==='scheduled'))render();
+},30000);
+// BQ-157: one persisted Enrolment transition. The browser retries on entry,
+// business-day rollover and relevant saved source changes; production needs a scheduler.
+let mpsBq157Transitioning=false;
+function mpsBq157ReconcileUnstartedLegacy(c){
+  const e=c?.enrolment,childId=c?.childId;
+  if(!e||e.status!=='active'||!educationDate(e.start)||e.start<TODAY||e.actualStartDate||e.activatedAt||
+    c.admissionsHandoff||c.migrationHistory||!childId||db.attendance?.[childId]||
+    Object.values(db.attendanceHistory||{}).some(day=>day?.[childId]))return false;
+  const previousHistory=e.history?.length||0,at=mpsPreschoolBusinessNow().toISOString();
+  e.status='pending_start';e.history=e.history||[];
+  e.history.push({id:'enrolment_event_'+crypto.randomUUID(),type:'legacy_future_start_reconciled',at,
+    actor:{id:'system',name:'Eliira lifecycle reconciliation',type:'system'},priorStatus:'active',status:'pending_start',plannedStart:e.start});
+  let saved=false;mpsBq157Transitioning=true;
+  try{saved=!!mpsBq157BaseSave()}catch(_error){saved=false}finally{mpsBq157Transitioning=false}
+  if(!saved){e.status='active';e.history.length=previousHistory}
+  return saved;
+}
+function mpsBq157Due(c){
+  return !!(c?.enrolment?.status==='pending_start'&&educationDate(c.enrolment.start)&&c.enrolment.start<=mpsProductDate(new Date(),mpsPreschoolClockTimezone()));
+}
+function mpsBq157Activate(c){
+  if(mpsBq157Transitioning||!c?.id||db.admissions?.[c.id]!==c||!mpsBq157Due(c)||!admissionRequiredReadinessComplete(c))return false;
+  const e=c.enrolment,before={status:e.status,activatedAt:e.activatedAt,activatedBy:e.activatedBy,actualStartDate:e.actualStartDate,handoff:c.admissionsHandoff,events:c.events?.length||0,history:e.history?.length||0};
+  const now=mpsPreschoolBusinessNow(),at=now.toISOString(),actual=mpsProductDate(now,mpsPreschoolClockTimezone());
+  const actor={id:'system',name:'Eliira automatic start',type:'system'};
+  mpsBq157Transitioning=true;
+  try{
+    e.status='active';e.activatedAt=at;e.activatedBy=actor;e.actualStartDate=actual;
+    e.history=e.history||[];e.history.push({id:'enrolment_event_'+crypto.randomUUID(),type:'activated',at,actor,plannedStart:e.start,actualStartDate:actual});
+    c.events=c.events||[];c.events.push({id:'admission_event_'+crypto.randomUUID(),type:'activated',title:'Enrolment started',detail:`Actual start ${fmtDate(actual)} · planned ${fmtDate(e.start)}`,at,actor});
+    c.admissionsHandoff={childId:c.childId,start:actual,recordedAt:at,source:'Automatic activation after current required checks',actor};
+    // Attendance remains its own source. Existing roster/date orchestration
+    // reads Active enrolment; do not manufacture a physical presence event.
+    if(!mpsBq157BaseSave())throw new Error('Enrolment activation could not be saved');
+    return true;
+  }catch(_error){
+    e.status=before.status;e.activatedAt=before.activatedAt;e.activatedBy=before.activatedBy;e.actualStartDate=before.actualStartDate;
+    if(before.handoff)c.admissionsHandoff=before.handoff;else delete c.admissionsHandoff;
+    c.events.length=before.events;e.history.length=before.history;
+    return false;
+  }finally{mpsBq157Transitioning=false}
+}
+function mpsBq157CatchUp(){
+  if(mpsBq157Transitioning||educationBooting||educationSaveBlocked)return 0;
+  TODAY=mpsProductDate(new Date(),mpsPreschoolClockTimezone());
+  let activated=0;
+  for(const c of Object.values(db.admissions||{}))mpsBq157ReconcileUnstartedLegacy(c);
+  for(const c of Object.values(db.admissions||{}))if(mpsBq157Activate(c))activated++;
+  return activated;
+}
+const mpsBq157BaseSave=save;
+save=function(){
+  const saved=mpsBq157BaseSave();
+  if(saved&&!mpsBq157Transitioning&&mpsBq157CatchUp())queueMicrotask(()=>render());
+  return saved;
+};
+const mpsBq157BaseRender=render;
+render=function(){
+  TODAY=mpsProductDate(new Date(),mpsPreschoolClockTimezone());
+  mpsBq157CatchUp();
+  return mpsBq157BaseRender();
+};
+// Retain the old callable for compatibility, but it is no longer an ordinary
+// writer: direct invocation can only request the same guarded due transition.
+mpsActivatePendingEnrolment=function(caseId){
+  const c=db.admissions?.[caseId];
+  return !!c&&mpsBq157Activate(c);
+};
+mpsSignedApplicationActivationAction=function(){return ''};
+
+admissionHandoffComplete=function(c){
+  const e=c?.enrolment;
+  return !!(!c?.closed&&!c?.migrationHistory&&e&&(
+    e.status==='active'&&(c.admissionsHandoff||e.actualStartDate||e.start&&e.start<=TODAY)||
+    e.status==='inactive'&&(e.actualStartDate||e.activatedAt||c.admissionsHandoff)
+  ));
+};
+childDirectoryGroup=function(child,day=TODAY){
+  const e=childEnrolment(child);
+  if(e?.status==='inactive')return 'former';
+  if(e?.status==='pending_start')return 'prestart';
+  if(e?.status==='active')return (e.actualStartDate||e.start)>day?'prestart':'current';
+  return null;
+};
+childPreschoolJourney=function(child){
+  const e=childEnrolment(child);if(!e)return '';
+  const actual=e.actualStartDate||(e.status==='active'&&e.start<=TODAY?e.start:null);
+  const date=actual||e.start;
+  if(!educationDate(date))return e.migrationCurrentConfirmed?profileSection('Preschool journey',kv('Preschool start','Historical date not recorded')):'';
+  const months=actual?completedMonths(child.dob,actual):null;
+  const c=childAdmissionsBackgroundCase(child);
+  const change=!actual&&mpsBq157CanAmend(c)?btn('Change',`openModal('change-planned-start',{caseId:'${esc(c.id)}'})`,'ghost','sm'):'';
+  const dateValue=change?`<span class="profile-planned-start"><span class="profile-planned-date">${fmtDate(date)}</span>${change}</span>`:fmtDate(date);
+  return profileSection('Preschool journey',kv(actual?'Joined preschool':'Planned start',dateValue,actual?'':'kv-action-row')+(months!==null?kv('Age when joined',esc(educationAgeAtStartLabel(months))):''));
+};
+
+function mpsBq157CanAmend(c){
+  return !!(c&&!c.closed&&!c.migrationHistory&&c.enrolment?.status==='pending_start'&&has('Head Teacher')&&allowed('admissions')&&mpsCurrentAccount()?.status==='active');
+}
+function mpsBq157PlannedStartModal(c){
+  if(!mpsBq157CanAmend(c))return modal('Planned start','',notice('This planned start cannot be changed here.','info'),btn('Close','closeOverlay()','secondary'));
+  return modal('Change planned start',esc(c.childName),`${kv('Current planned start',fmtDate(c.enrolment.start))}${field('New planned start',c.enrolment.start,'date',false,'planned_start_new')}<p class="field-help">Once start checks are complete, the child becomes eligible for normal Attendance from the revised start date.</p>`,btn('Cancel','closeOverlay()','secondary')+btn('Save planned start',`mpsBq157SavePlannedStart('${esc(c.id)}')`,'primary'));
+}
+function mpsBq157SavePlannedStart(caseId){
+  const c=db.admissions?.[caseId],date=val('planned_start_new');
+  if(!mpsBq157CanAmend(c)||!educationDate(date)||date<mpsProductDate(new Date(),mpsPreschoolClockTimezone()))return false;
+  const e=c.enrolment,old=e.start;if(date===old){closeOverlay();return true}
+  const at=mpsPreschoolBusinessNow().toISOString(),actor=staffActor();
+  const previousCaseStart=c.start,initial=e.placementHistory?.[0],previousPlacementDate=initial?.effectiveDate;
+  const initialCare=old>TODAY&&e.daycarePlanId&&e.careArrangements?.length===1&&e.careArrangements[0].enrolmentId===e.id&&e.careArrangements[0].effectiveDate===old?e.careArrangements[0]:null;
+  const previousCareDate=initialCare?.effectiveDate,previousHistoryLength=e.plannedStartHistory?.length||0,previousEventsLength=c.events?.length||0;
+  e.plannedStartHistory=e.plannedStartHistory||[];
+  e.plannedStartHistory.push({id:'planned_start_'+crypto.randomUUID(),from:old,to:date,at,actor});
+  e.start=date;c.start=date;
+  // The initial accepted placement is planned for enrolment start; later
+  // placement and independent Daycare agreements retain their own dates.
+  if(initial?.effectiveDate===old&&e.placementHistory.length===1)initial.effectiveDate=date;
+  // Initial ongoing care was configured to begin with this enrolment. A later
+  // independent care agreement has its own effective date and is left alone.
+  if(initialCare)initialCare.effectiveDate=date;
+  c.events=c.events||[];c.events.push({id:'admission_event_'+crypto.randomUUID(),type:'planned_start_amended',title:'Planned start changed',detail:`${fmtDate(old)} → ${fmtDate(date)}`,at,actor});
+  if(!save()){
+    e.start=old;c.start=previousCaseStart;
+    if(initial)initial.effectiveDate=previousPlacementDate;
+    if(initialCare)initialCare.effectiveDate=previousCareDate;
+    e.plannedStartHistory.length=previousHistoryLength;c.events.length=previousEventsLength;
+    return false;
+  }
+  closeOverlay();return true;
+}
+const mpsBq157BaseModalView=modalView;
+modalView=function(m){return m?.name==='change-planned-start'?mpsBq157PlannedStartModal(db.admissions?.[m.data?.caseId]):mpsBq157BaseModalView(m)};
+const mpsBq157BaseOverview=admissionOverview;
+admissionOverview=function(c){
+  const html=mpsBq157BaseOverview(c),old=kv('Planned start',fmtDate(c.enrolment?c.enrolment.start:c.start));
+  return mpsBq157CanAmend(c)?html.replace(old,`${old}<div class="planned-start-action">${btn('Change planned start',`openModal('change-planned-start',{caseId:'${esc(c.id)}'})`,'secondary','sm')}</div>`):html;
+};
+const mpsBq157BaseHistory=admissionHistorySummary;
+admissionHistorySummary=function(c){
+  const html=mpsBq157BaseHistory(c);
+  return c.enrolment?.actualStartDate?html.replace('Required readiness and the planned start allowed this journey to hand off to the same Child record.','The child started after the required start checks were complete.').replace(kv('Planned start',esc(c.enrolment.start||'Not recorded')),kv('Joined preschool',fmtDate(c.enrolment.actualStartDate))+kv('Planned start',fmtDate(c.enrolment.start))):html;
+};
+const mpsBq157BaseHero=admissionHero;
+admissionHero=function(c){
+  const html=mpsBq157BaseHero(c);
+  return c.enrolment?.actualStartDate?html.replace(`Start ${fmtDate(c.enrolment.start)}`,`Joined ${fmtDate(c.enrolment.actualStartDate)}`):html;
+};
+
+function mpsBq157Blockers(c){
+  const id=c.childId,blockers=[];
+  if(!childPhotoReady(c))blockers.push('Child photo');
+  if(typeof applicationGuardianLegalReadiness==='function'&&applicationGuardianLegalReadiness(c)!=='Confirmed')blockers.push('Guardian & legal authority');
+  if(typeof applicationEmergencyReady==='function'&&!applicationEmergencyReady(c))blockers.push('Emergency contact');
+  if(typeof applicationPickupReady==='function'&&!applicationPickupReady(c))blockers.push('Authorised pickup');
+  if(!c.onboarding?.healthConfirmed)blockers.push('Health review');
+  if(typeof mpsSignedApplicationValid==='function'&&!mpsSignedApplicationValid(c))blockers.push('Signed Parent Application');
+  if(id&&typeof mpsMedicationRequirement==='function'&&['required','clarify'].includes(mpsMedicationRequirement(id))&&!mpsMedicationValid(mpsMedicationAuthorisation(id)))blockers.push('Medication authorisation');
+  return blockers;
+}
+const mpsBq157BaseTodayActions=todayActions;
+todayActions=function(){
+  const actions=mpsBq157BaseTodayActions();
+  if(!allowed('admissions'))return actions;
+  const blocked=Object.values(db.admissions||{}).filter(c=>mpsBq157Due(c)&&!admissionRequiredReadinessComplete(c));
+  return [...blocked.map(c=>({sev:'amber',icon:'circle-alert',title:`${esc(c.childName)} · Start blocked`,sub:`Planned start ${fmtDate(c.enrolment.start)} · ${esc(mpsBq157Blockers(c).slice(0,2).join(' · ')||'Required start setup incomplete')}`,go:`ui().admissionsCase='${esc(c.id)}';ui().admissionsTab='prestart';setRoute('admissions')`,actionLabel:'Review pre-start',actionStyle:'primary'})),...actions];
+};
+setTimeout(()=>{if(mpsBq157CatchUp())render()},0);
+// Completed admissions is a searchable view of the saved Admissions cases.
+// The Enrolment and its actual start remain the only completion source.
+function admissionCompletedStart(c){return c.enrolment?.actualStartDate||c.admissionsHandoff?.start||c.enrolment?.start||''}
+function admissionCompletedClassroom(c){
+  const placement=c.enrolment?.placementHistory?.at(-1);
+  return placement?.classroomLabel||(placement?.classroomId?classroomLabel(placement.classroomId,true):'');
+}
+const mpsCompletedBaseCaseListItem=caseListItem;
+caseListItem=function(c){
+  if(!admissionIsCompletedCase(c))return mpsCompletedBaseCaseListItem(c);
+  const joined=admissionCompletedStart(c),classroom=admissionCompletedClassroom(c);
+  const context=[c.guardian,joined?`Joined ${fmtDate(joined)}`:'',classroom||c.service].filter(Boolean).join(' · ');
+  const searchable=[c.childName,c.guardian,c.phone,context].join(' ').toLowerCase();
+  return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="Completed admissions" data-search="${esc(searchable)}" onclick="setAdmissionCase('${esc(c.id)}')"><div class="top"><strong>${esc(c.childName)}</strong>${badge('Completed','green')}</div><div class="meta">${esc(context)}</div></div>`;
+};
+const mpsCompletedBaseHero=admissionHero;
+admissionHero=function(c){
+  if(!admissionIsCompletedCase(c))return mpsCompletedBaseHero(c);
+  const joined=admissionCompletedStart(c),initials=String(c.childName||'').split(' ').map(x=>x[0]).slice(0,2).join('');
+  return `<div class="case-hero"><div class="case-hero-row"><div class="case-avatar">${esc(initials)}</div><div class="case-title"><h2>${esc(c.childName)}</h2><p>${esc(c.guardian)} · ${esc(c.phone)} · Joined ${fmtDate(joined)}<br>${esc(admissionCompletedClassroom(c)||c.service)}</p></div><div class="case-status">${badge('Admission completed','green')}</div></div>${journey(c)}</div>`;
+};
+const mpsCompletedBaseSummary=admissionHistorySummary;
+admissionHistorySummary=function(c){
+  if(!admissionIsCompletedCase(c))return mpsCompletedBaseSummary(c);
+  const joined=admissionCompletedStart(c),version=mpsSignedApplicationVersion(c),invoice=mpsAdmissionFeeInvoice(c);
+  const actions=[btn('Open Child profile',`openChildProfile('${esc(c.childId)}')`,'secondary')];
+  if(version)actions.push(btn('Download Parent Application PDF',`mpsDownloadSignedApplicationPdf('${esc(c.id)}')`,'secondary'));
+  if(invoice&&allowed('billing'))actions.push(btn('Open admission-fee invoice',`openBillingInvoice('${esc(invoice.id)}')`,'secondary'));
+  return `<div class="card admissions-handoff"><h3>Admissions completed</h3>${kv('Child',esc(c.childName))}${kv('Joined preschool',fmtDate(joined))}${kv('Application',esc(applicationSummary(c)))}<div class="admissions-history-links">${actions.join('')}</div></div>`;
+};
+// BQ-158: a saved Incident remains the sole record; PDF output is a read-only projection.
+function mpsIncidentCanView(incident){
+  if(!incident||!allowed('health'))return false;
+  return incidentChildIds(incident).every(id=>canViewChildHealth(id));
+}
+function mpsIncidentDateValid(value){
+  return /^\d{4}-\d{2}-\d{2}$/.test(value||'')&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
+}
+incidentModal=function(data={}){
+  const selected=healthScopedChildren().some(c=>c.id===(data.childId||healthSelectedChild()))?[data.childId||healthSelectedChild()]:[];
+  return modal('New incident','Care first; record objective facts as soon as safely practical.',
+    `${selectField('Category',incidentCategories,'Accident / Injury','inc_cat')}${incidentChildChoices(selected)}`+
+    `<div class="form-grid incident-occurrence-fields">${field('Occurrence date',TODAY,'date',false,'inc_date')}${staffTimeField('Occurrence time',mpsMedicationLocalClock(),false,'inc_time')}</div>`+
+    `${field('Location','','text',false,'inc_location')}${textArea('What happened','','inc_what')}`+
+    `${textArea('Injury / condition observed','','inc_condition')}${textArea('Immediate action / first aid','','inc_action')}`+
+    `${selectField('Guardian contact',['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'],'Not yet contacted','inc_contact')}`,
+    `${btn('Cancel','closeOverlay()','secondary')}${btn('Save incident','saveIncident()','primary')}`);
+};
+saveIncident=function(){
+  if(!allowed('health'))return false;
+  const category=val('inc_cat'),allowedChildren=new Set(healthScopedChildren().map(c=>c.id));
+  const childIds=[...new Set([...document.querySelectorAll('[data-incident-child]:checked')].map(e=>e.value))];
+  if(!incidentCategories.includes(category)||childIds.some(id=>!allowedChildren.has(id)))return false;
+  if(incidentCategoryNeedsChild(category)&&!childIds.length){alert('Select at least one child for this incident category.');return false}
+  const occurredOn=val('inc_date'),occurredAtTime=val('inc_time'),location=val('inc_location').trim(),what=val('inc_what').trim(),condition=val('inc_condition').trim(),action=val('inc_action').trim();
+  if((occurredOn&&!mpsIncidentDateValid(occurredOn))||(occurredAtTime&&mpsMedicationClockMinutes(occurredAtTime)===null)){alert('Enter a valid occurrence date and time.');return false}
+  if(category==='Accident / Injury'&&(!occurredOn||!occurredAtTime)){alert('Enter the occurrence date and time.');return false}
+  if(category==='Accident / Injury'&&(!location||!what||!condition||!action)){alert('Record the location, what happened, injury or condition observed, and immediate action.');return false}
+  const actor=staffActor();if(!actor?.staffId)return false;
+  const incident={id:'inc_'+crypto.randomUUID(),childIds,childSnapshots:childIds.map(childId=>({childId,name:profileChildName(childId)})),actor,category,occurredOn,occurredAtTime,location,condition,what,action,contact:val('inc_contact'),status:'Submitted',at:mpsPreschoolBusinessNow().toISOString(),followup:null};
+  db.health.incidents.push(incident);
+  if(!save()){db.health.incidents.pop();return false}
+  ui().modal={name:'incident-review',data:{id:incident.id}};save();render();return true;
+};
+function mpsIncidentDownloadActions(incident){
+  const ids=incidentChildIds(incident),download=id=>btn(ids.length>1?`Download parent copy · ${esc(incident.childSnapshots?.find(snapshot=>snapshot.childId===id)?.name||profileChildName(id))}`:'Download incident PDF',`mpsDownloadIncidentPdf('${esc(incident.id)}'${id?`,'${esc(id)}'`:''})`,'secondary','sm');
+  return `<div class="incident-pdf-actions">${ids.length?ids.map(download).join(''):download(null)}${ids.length>1?'<p class="incident-pdf-note">Check each parent copy for another child’s private details before sharing it.</p>':''}</div>`;
+}
+function mpsIncidentDetailModal(incident){
+  if(!mpsIncidentCanView(incident))return modal('Incident unavailable','',notice('This Incident record is not available.','warn'),btn('Close','closeOverlay()','secondary'));
+  const occurred=incident.occurredOn?`${esc(fmtDate(incident.occurredOn))}${incident.occurredAtTime?` · ${esc(staffTimeLabel(incident.occurredAtTime))}`:''}`:'Not recorded on this earlier Incident';
+  const detail=`${kv('Incident reference',esc(incident.id))}${kv('Status',esc(incident.status||'Not recorded'))}${mpsIncidentDownloadActions(incident)}${kv('Category',esc(incident.category||'Not recorded'))}${kv('Children involved',incidentChildrenContext(incident))}${kv('Occurred',occurred)}${incident.location?kv('Location',esc(incident.location)):''}${kv('What happened',esc(incident.what||'Not recorded'))}${incident.condition?kv('Injury / condition observed',esc(incident.condition)):''}${kv('Immediate action / first aid',esc(incident.action||'Not recorded'))}${kv('Guardian contact',esc(incident.contact||'Not recorded'))}${incident.followup?kv('Follow-up',esc(incident.followup)):''}${incident.actor?.name?kv('Recorded by',`${esc(incident.actor.name)}${incident.at?` · ${esc(attendanceRecordedTime(incident.at))}`:''}`):''}`;
+  const reviewing=incident.status!=='Closed',followup=reviewing?selectField('Follow-up',['No further follow-up required','Follow-up complete','Open follow-up'],incident.followup==='Open'?'Open follow-up':'No further follow-up required','inc_followup'):'';
+  return modal('Incident record','Saved Incident facts and follow-up.',detail+followup,reviewing?`${btn('Keep open','closeOverlay()','secondary')}${btn('Close incident',`closeIncident('${esc(incident.id)}')`,'primary')}`:btn('Close','closeOverlay()','secondary'));
+}
+const mpsIncidentPreviousModalView=modalView;
+modalView=function(m){
+  if(m?.name==='incident-review')return mpsIncidentDetailModal(db.health.incidents.find(i=>i.id===m.data?.id));
+  return mpsIncidentPreviousModalView(m);
+};
+healthIncidents=function(){
+  const incidents=db.health.incidents.filter(mpsIncidentCanView);
+  return `<div class="card"><div class="card-header"><div class="grow"><h3>Incident register</h3><p>Care first; factual record, guardian contact and follow-up.</p></div>${btn('New incident',"openModal('incident')",'primary','sm')}</div>${incidents.length?incidents.map(i=>`<div class="child-row" data-incident-id="${esc(i.id)}"><strong>${esc(i.category)}</strong><span>${badge(i.status,'amber')}</span><span>${incidentChildrenContext(i)}</span><span>${esc(i.what)}</span><span>${btn(i.status==='Closed'?'Closed':'Review',`openModal('incident-review',{id:'${esc(i.id)}'})`,'secondary','sm')}</span></div>`).join(''):'<div class="empty">No incidents recorded in this prototype state.</div>'}</div>`;
+};
+closeIncident=function(id){
+  const incident=db.health.incidents.find(i=>i.id===id);
+  if(!mpsIncidentCanView(incident)||incident.status==='Closed')return false;
+  const followup=val('inc_followup');if(!['No further follow-up required','Follow-up complete','Open follow-up'].includes(followup))return false;
+  const actor=staffActor();if(!actor?.staffId)return false;
+  const before=structuredClone(incident),now=mpsPreschoolBusinessNow().toISOString();
+  incident.reviewActor=actor;incident.reviewedAt=now;incident.status=followup==='Open follow-up'?'Reviewed':'Closed';incident.followup=followup==='Open follow-up'?'Open':followup;
+  if(incident.status==='Closed')incident.closedAt=now;
+  incident.reviewHistory=[...(incident.reviewHistory||[]),{actor,at:now,followup,status:incident.status}];
+  if(!save()){Object.assign(incident,before);return false}
+  closeOverlay();return true;
+};
+function mpsIncidentParentSafeText(value,incident,childId){
+  let text=String(value||'');if(!childId)return text;
+  const own=new Set([profileChildName(childId),incident.childSnapshots?.find(c=>c.childId===childId)?.name].filter(Boolean).map(name=>name.toLowerCase()));
+  const otherNames=incidentChildIds(incident).filter(id=>id!==childId).flatMap(id=>[profileChildName(id),incident.childSnapshots?.find(c=>c.childId===id)?.name]).filter(name=>name&&!own.has(name.toLowerCase()));
+  const ownTokens=new Set([...own].flatMap(name=>name.split(/\s+/)));
+  for(const name of [...otherNames]){
+    for(const token of name.split(/\s+/))if(token.length>=3&&!ownTokens.has(token.toLowerCase()))otherNames.push(token);
+  }
+  for(const name of [...new Set(otherNames)].sort((a,b)=>b.length-a.length)){
+    const escaped=name.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+    text=text.replace(new RegExp(`\\b${escaped}\\b`,'gi'),'another child');
+  }
+  return text;
+}
+function mpsIncidentPdfDocument(incident,childId=null,generatedAt=mpsPreschoolBusinessNow()){
+  if(!mpsIncidentCanView(incident))return null;
+  const ids=incidentChildIds(incident);
+  if(ids.length>1&&!childId||childId&&!ids.includes(childId))return null;
+  const selected=childId||ids[0]||null,clean=value=>mpsIncidentParentSafeText(value,incident,selected),fields=[];
+  const add=(label,value)=>{if(value!==null&&value!==undefined&&String(value).trim())fields.push({label,value:clean(value)})};
+  add('Child',selected?incident.childSnapshots?.find(c=>c.childId===selected)?.name||profileChildName(selected):null);
+  add('Occurred',incident.occurredOn?`${fmtDate(incident.occurredOn)}${incident.occurredAtTime?` · ${staffTimeLabel(incident.occurredAtTime)}`:''}`:null);
+  add('Location',incident.location);add('Category',incident.category);add('What happened',incident.what);
+  add('Injury / condition observed',incident.condition);add('Immediate action / first aid',incident.action);
+  if(selected)add('Guardian contact',incident.contact);
+  add('Follow-up',incident.followup);
+  add('Recorded by',incident.actor?.name);add('Record saved',incident.at?attendanceRecordedTime(incident.at):null);
+  if(incident.reviewActor?.name)add('Reviewed by',`${incident.reviewActor.name}${incident.reviewedAt?` · ${attendanceRecordedTime(incident.reviewedAt)}`:''}`);
+  return {preschool:mpsOrganisationName(),reference:incident.id,status:incident.status||'Not recorded',generatedAt:attendanceRecordedTime(generatedAt.toISOString()),fields,acknowledgement:!!selected};
+}
+function mpsIncidentPdfBlob(incident,childId=null,generatedAt=mpsPreschoolBusinessNow()){
+  const doc=mpsIncidentPdfDocument(incident,childId,generatedAt);if(!doc)return null;
+  const width=1240,height=1754,left=100,right=1140,bottom=1635,pages=[];let canvas,ctx,y,page=0;
+  const start=()=>{
+    canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;ctx=canvas.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);page++;
+    ctx.fillStyle='#154c4a';ctx.fillRect(left,86,78,8);ctx.fillStyle='#173d3b';ctx.font='bold 28px Arial, sans-serif';ctx.fillText(doc.preschool,left,132);
+    ctx.fillStyle='#566a67';ctx.font='18px Arial, sans-serif';ctx.fillText(`Incident ${doc.reference}`,left,163);
+    ctx.strokeStyle='#cfded9';ctx.beginPath();ctx.moveTo(left,184);ctx.lineTo(right,184);ctx.stroke();
+    ctx.fillStyle='#657571';ctx.font='17px Arial, sans-serif';ctx.fillText(`Page ${page}`,right-65,height-75);y=224;
+  };
+  const push=()=>pages.push(atob(canvas.toDataURL('image/jpeg',0.94).split(',')[1]));
+  const ensure=needed=>{if(y+needed>bottom){push();start()}};
+  const wrap=(value,font,maxWidth)=>{
+    ctx.font=font;const lines=[];
+    for(const paragraph of String(value).split('\n')){
+      let line='';for(const word of paragraph.split(/\s+/)){
+        const next=line?line+' '+word:word;
+        if(ctx.measureText(next).width>maxWidth&&line){lines.push(line);line=word}else line=next;
+        while(ctx.measureText(line).width>maxWidth){
+          let cut=line.length-1;while(cut>1&&ctx.measureText(line.slice(0,cut)).width>maxWidth)cut--;
+          lines.push(line.slice(0,cut));line=line.slice(cut);
+        }
+      }lines.push(line);
+    }return lines;
+  };
+  start();ctx.fillStyle='#173d3b';ctx.font='bold 43px Arial, sans-serif';ctx.fillText('INCIDENT RECORD',left,y+36);y+=77;
+  for(const [label,value] of [['Reference',doc.reference],['Status at generation',doc.status],['Generated',doc.generatedAt]]){
+    ctx.fillStyle='#61736f';ctx.font='18px Arial, sans-serif';ctx.fillText(label,left,y);
+    ctx.fillStyle='#173d3b';ctx.font='bold 21px Arial, sans-serif';ctx.fillText(value,left+255,y);y+=37;
+  }y+=18;
+  for(const field of doc.fields){
+    const lines=wrap(field.value,'21px Arial, sans-serif',right-left);ensure(85);
+    ctx.fillStyle='#5e706d';ctx.font='bold 18px Arial, sans-serif';ctx.fillText(field.label,left,y+18);y+=34;
+    ctx.fillStyle='#1c302f';ctx.font='21px Arial, sans-serif';
+    lines.forEach(line=>{
+      if(y+38>bottom){push();start();ctx.fillStyle='#5e706d';ctx.font='bold 18px Arial, sans-serif';ctx.fillText(`${field.label} (continued)`,left,y+18);y+=40;ctx.fillStyle='#1c302f';ctx.font='21px Arial, sans-serif'}
+      ctx.fillText(line,left,y+19);y+=27;
+    });y+=13;
+    ctx.strokeStyle='#e0e9e5';ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();y+=10;
+  }
+  if(doc.acknowledgement){
+    ensure(245);y+=24;ctx.fillStyle='#173d3b';ctx.font='bold 22px Arial, sans-serif';ctx.fillText('PARENT / GUARDIAN ACKNOWLEDGEMENT',left,y);y+=31;
+    ctx.fillStyle='#61736f';ctx.font='18px Arial, sans-serif';ctx.fillText('(if required by the preschool)',left,y);y+=47;
+    ctx.fillStyle='#1c302f';ctx.font='20px Arial, sans-serif';
+    for(const label of ['Name','Signature','Date']){ctx.fillText(`${label}:  ______________________________________________`,left,y);y+=44}
+  }
+  push();
+  const chunks=['%PDF-1.4\n'],offsets=[0];let length=chunks[0].length;
+  const add=(id,body)=>{offsets[id]=length;const part=`${id} 0 obj\n${body}\nendobj\n`;chunks.push(part);length+=part.length};
+  add(1,'<< /Type /Catalog /Pages 2 0 R >>');add(2,`<< /Type /Pages /Count ${pages.length} /Kids [${pages.map((_,i)=>`${3+i*3} 0 R`).join(' ')}] >>`);
+  pages.forEach((jpeg,i)=>{
+    const pageId=3+i*3,imageId=pageId+1,contentId=pageId+2;
+    add(pageId,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im${i} ${imageId} 0 R >> >> /Contents ${contentId} 0 R >>`);
+    add(imageId,`<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n${jpeg}\nendstream`);
+    const stream=`q\n595 0 0 842 0 0 cm\n/Im${i} Do\nQ\n`;
+    add(contentId,`<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
+  });
+  const offset=length;chunks.push(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
+  for(let i=1;i<offsets.length;i++)chunks.push(`${String(offsets[i]).padStart(10,'0')} 00000 n \n`);
+  chunks.push(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${offset}\n%%EOF`);
+  return new Blob([Uint8Array.from(chunks.join(''),ch=>ch.charCodeAt(0))],{type:'application/pdf'});
+}
+function mpsDownloadIncidentPdf(id,childId=null){
+  const incident=db.health.incidents.find(i=>i.id===id);
+  if(!mpsIncidentCanView(incident)||!mpsIncidentPdfDocument(incident,childId))return false;
+  try{
+    const blob=mpsIncidentPdfBlob(incident,childId);if(!blob)return false;
+    const url=URL.createObjectURL(blob),link=document.createElement('a');link.href=url;link.download=`incident-${incident.id}${childId?'-'+childId:''}.pdf`;
+    document.body.append(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),60000);return true;
+  }catch(error){alert('The Incident remains saved. Please retry the PDF download.');return false}
+}
 
 finishEducationBoot();
