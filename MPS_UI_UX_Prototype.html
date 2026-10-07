@@ -975,8 +975,9 @@ fieldset{min-width:0;border:1px solid #e6e8ef;border-radius:10px;margin:12px 0;p
 .progress-timeline .child-evidence-card>p{font-size:14px;color:var(--navy);line-height:1.5}
 .progress-timeline .progress-support p{font-size:13px;color:var(--navy)}
 .report-period-controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;max-width:740px;margin:12px 0 16px}
-.report-period-controls label{display:flex;flex-direction:column;gap:5px;font-size:13px;font-weight:700;min-width:0}
-.report-period-controls select,.report-period-controls input{min-width:0;width:100%;min-height:44px;font-size:14px}
+.report-period-controls>.field{display:flex;flex-direction:column;gap:5px;min-width:0;margin:0}
+.report-period-controls>.field>label{display:block;margin:0;font-size:13px;font-weight:700;line-height:18px;min-width:0}
+.report-period-controls select,.report-period-controls input{min-width:0;width:100%;height:44px;min-height:44px;font-size:14px}
 .report-workspace h3{font-size:16px}.report-workspace p,.report-parent-output p,.report-internal p{font-size:14px;line-height:1.55;white-space:pre-wrap;overflow-wrap:anywhere}
 .report-professional label{display:block;margin-top:14px}.report-professional textarea{min-height:100px;font-size:14px}
 .report-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}.report-actions .btn{min-height:44px}
@@ -1517,6 +1518,22 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
   .incident-photo-grid{grid-template-columns:1fr}
   .incident-photo-grid img{height:240px}
 }
+/* Head Teacher review Round 2A: shared compact rhythm and accessible interaction. */
+.operational-empty>.btn,.teaching-draft>.btn,.daycare-today-children>.btn,.report-empty>.btn{margin-top:12px}
+.today-care-summary>summary::before,.daycare-safety-compact>summary::before{content:'';width:7px;height:7px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(-45deg);margin:0 10px 0 3px;transition:transform .15s ease;flex:none}
+.today-care-summary[open]>summary::before,.daycare-safety-compact[open]>summary::before{transform:rotate(45deg) translate(-1px,-1px)}
+.case-item:is(button){display:block;width:100%;font:inherit;color:inherit;text-align:left;background:transparent;border:0;cursor:pointer}
+.case-item:is(button):focus-visible{outline:3px solid var(--focus-ring,#2f6f73);outline-offset:-3px}
+.health-update-reason{min-width:0;overflow-wrap:anywhere}
+.planning-publish-blocked{display:flex;align-items:center;justify-content:flex-end;gap:8px 12px;flex-wrap:wrap}.planning-publish-blocked p{flex-basis:100%;margin:0;color:var(--text-secondary);font-size:12px;text-align:right}.planning-publish-blocked .btn[disabled]{opacity:.55;cursor:not-allowed}
+.report-note-editor{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.report-note-editor h4{margin:0 0 8px}.report-note-editor>small{display:block;margin-top:6px;color:var(--text-secondary)}
+.assessment-observation-links{font-size:13px;color:var(--text-secondary)}.assessment-observation-links a{font-weight:700}
+#overlay [role=dialog]:focus{outline:none}
+@media(max-width:1100px){.admissions-stage-selector{display:flex!important;align-items:center;gap:10px;width:100%;min-height:46px;padding:9px 12px;border:1px solid var(--ui-border,var(--line));border-radius:9px;background:var(--ui-selected,#eaf4f8);color:var(--navy);font:inherit;text-align:left}.admissions-stage-tabs{display:none!important}}
+@media(max-width:600px){
+ .health-pending-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 10px;align-items:center}.health-pending-row>strong{grid-column:1}.health-pending-row>span:nth-child(2){grid-column:2}.health-pending-row>.health-update-reason{grid-column:1/-1}.health-pending-row>span:last-child{grid-column:1/-1}
+ .planning-publish-blocked{justify-content:flex-start}.planning-publish-blocked p{text-align:left}
+}
 
 </style>
 <script type="text/plain" id="manrope-license">Copyright 2018 The Manrope Project Authors (https://github.com/googlefonts/manrope)
@@ -1706,12 +1723,12 @@ function eliiraClearFieldError(input){
   if(!input)return;
   const errorId=input.getAttribute('aria-errormessage')||'';
   if(errorId)document.getElementById(errorId)?.remove();
-  input.removeAttribute('aria-invalid');input.removeAttribute('aria-errormessage');input.classList.remove('eliira-validation-invalid');
+  input.removeAttribute('aria-invalid');input.removeAttribute('aria-errormessage');input.setAttribute('aria-describedby',(input.getAttribute('aria-describedby')||'').split(/\s+/).filter(id=>id&&id!==errorId).join(' '));if(!input.getAttribute('aria-describedby'))input.removeAttribute('aria-describedby');input.classList.remove('eliira-validation-invalid');
 }
 function eliiraClearValidation(scope=document){
   const root=scope||document;
   root.querySelectorAll?.('.eliira-field-error').forEach(error=>error.remove());
-  root.querySelectorAll?.('.eliira-validation-invalid').forEach(input=>{input.removeAttribute('aria-invalid');input.removeAttribute('aria-errormessage');input.classList.remove('eliira-validation-invalid')});
+  root.querySelectorAll?.('.eliira-validation-invalid').forEach(input=>eliiraClearFieldError(input));
 }
 function eliiraBeginValidation(fieldId){eliiraClearValidation(eliiraValidationScope(document.getElementById(fieldId)));}
 function eliiraFieldError(fieldId,message){
@@ -1719,7 +1736,7 @@ function eliiraFieldError(fieldId,message){
   eliiraClearFieldError(input);
   const field=input.closest('.field')||input.parentElement,error=document.createElement('div'),errorId=fieldId+'_validation_error';
   error.id=errorId;error.className='eliira-field-error';error.setAttribute('role','alert');error.textContent=message;
-  input.setAttribute('aria-invalid','true');input.setAttribute('aria-errormessage',errorId);input.classList.add('eliira-validation-invalid');field.appendChild(error);
+  input.setAttribute('aria-invalid','true');input.setAttribute('aria-errormessage',errorId);input.setAttribute('aria-describedby',[...(input.getAttribute('aria-describedby')||'').split(/\s+/).filter(Boolean),errorId].filter((id,index,all)=>all.indexOf(id)===index).join(' '));input.classList.add('eliira-validation-invalid');field.appendChild(error);
   const clear=()=>eliiraClearFieldError(input);input.addEventListener('input',clear,{once:true});input.addEventListener('change',clear,{once:true});
   input.scrollIntoView({block:'center'});input.focus({preventScroll:true});return false;
 }
@@ -50151,7 +50168,7 @@ function healthUpdates(){
   const selected=healthSelectedChild(),children=healthScopedChildren(),all=Object.values(db.health.updates),updates=selected?all.filter(u=>u.childId===selected):all;
   const pending=updates.filter(u=>u.status==='pending'),earlier=updates.filter(u=>u.status!=='pending');
   const currentEmpty=children.length?'Select a child or review a pending update to see the matching current Health record.':'No current Health record is available in your scope.';
-  const pendingRows=pending.map(u=>`<div class="child-row ${u.childId===selected?'is-selected':''}"><strong>${profileChildLink(u.childId,u.childName)}</strong><span>${badge('Pending','amber')}</span><span class="hide-mobile">${esc(u.summary)}</span><span>${btn('Review',`reviewHealthUpdate('${u.id}')`,'primary','sm')}</span></div>`).join('');
+  const pendingRows=pending.map(u=>`<div class="child-row health-pending-row ${u.childId===selected?'is-selected':''}"><strong>${profileChildLink(u.childId,u.childName)}</strong><span>${badge('Pending','amber')}</span><span class="health-update-reason">${esc(u.summary)}</span><span>${btn('Review',`reviewHealthUpdate('${u.id}')`,'primary','sm')}</span></div>`).join('');
   const earlierHistory=earlier.length?`<details class="health-earlier-updates"><summary>Earlier Health updates</summary>${earlier.map(u=>`<div class="child-row"><strong>${profileChildLink(u.childId,u.childName)}</strong><span>${badge(u.status,'green')}</span><span>${esc(u.summary)}</span></div>`).join('')}</details>`:'';
   return `${healthChildSelector()}<div class="grid health-review-grid"><div class="${pending.length?'span-7':'span-12'} card health-current"><h3>Current Health record</h3>${selected?childHealthContext(selected):`<div class="empty">${currentEmpty}</div>`}</div>${pending.length?`<div class="span-5 card health-pending"><h3>Parent updates awaiting review</h3>${pendingRows}</div>`:''}</div>${!pending.length?'<p class="health-quiet-status">No parent Health updates awaiting review.</p>':''}${earlierHistory}`;
 }
@@ -50247,7 +50264,7 @@ function sendReport(){
 }
 
 function renderMedia(){let socialOnly=has('Social Media')&&!has('Head Teacher')&&!has('Class Teacher');let canApprove=has('Head Teacher');if(socialOnly)ui().mediaTab='approved';if(!canApprove&&ui().mediaTab==='review')ui().mediaTab='private';let tabs=socialOnly?`<div class="tabs"><button class="tab active">Approved assets</button></div>`:`<div class="tabs"><button class="tab ${ui().mediaTab==='private'?'active':''}" onclick="setMediaTab('private')">Private library</button>${canApprove?`<button class="tab ${ui().mediaTab==='review'?'active':''}" onclick="setMediaTab('review')">Marketing review</button>`:''}<button class="tab ${ui().mediaTab==='approved'?'active':''}" onclick="setMediaTab('approved')">Approved assets</button></div>`;let body=ui().mediaTab==='review'&&canApprove?marketingReview():ui().mediaTab==='approved'?approvedAssets():privateMedia();let recycle=(has('Head Teacher')||has('System Administration'))?btn('Recycle bin',"openDrawer('recycle-bin')",'secondary'):'';return shell(`${pageHead('Photos & media','Photos & media',socialOnly?'Only approved public-safe MarketingAssets are visible to this persona.':'Private evidence stays private by default. Marketing and deletion are separate decisions.',socialOnly?'':recycle)}${tabs}${body}`)}
-function privateMedia(){let photos=Object.values(db.media.photos).filter(p=>!p.deletedAt&&canViewPrivatePhoto(p));return `<div class="media-grid">${photos.map(p=>`<div class="media-card"><div class="media-thumb">${p.image?.data?.startsWith('data:image/jpeg;base64,')?`<img src="${esc(p.image.data)}" alt="${esc(p.title)}">`:'◩'}</div><div class="media-body"><strong>${p.title}</strong><span>${lessonEvidenceVisibility(p.visibility).text} · ${p.date}</span><div>${p.childIds.map(id=>profileChildLink(id)).join(', ')}</div><div class="media-actions">${p.observationId&&!mpsObservationPhotoPublicReady(p)?badge('Staff evidence','grey'):p.marketing.status==='not_nominated'?btn('Nominate',`nominatePhoto('${p.id}')`,'secondary','sm'):p.marketing.status==='pending'?badge('Marketing review','amber'):p.marketing.status==='approved'?badge('Approved asset','green'):badge(p.marketing.status,'grey')}<details class="media-item-menu"><summary class="btn secondary sm" role="button" aria-label="Photo actions for ${esc(p.title)}"><span aria-hidden="true">⋯</span></summary><div class="media-item-menu-options" role="menu"><button type="button" role="menuitem" onclick="openModal('delete-photo',{id:'${p.id}'})">Delete</button></div></details></div></div></div>`).join('')||'<div class="empty operational-empty"><strong>No photos are available here yet.</strong><span>Photo capture is not available here.</span></div>'}</div>`}
+function privateMedia(){let photos=Object.values(db.media.photos).filter(p=>!p.deletedAt&&canViewPrivatePhoto(p));return `<div class="media-grid">${photos.map(p=>`<div class="media-card"><div class="media-thumb">${p.image?.data?.startsWith('data:image/jpeg;base64,')?`<img src="${esc(p.image.data)}" alt="${esc(p.title)}">`:'◩'}</div><div class="media-body"><strong>${p.title}</strong><span>${lessonEvidenceVisibility(p.visibility).text} · ${p.date}</span><div>${p.childIds.map(id=>profileChildLink(id)).join(', ')}</div><div class="media-actions">${p.observationId&&!mpsObservationPhotoPublicReady(p)?badge('Staff evidence','grey'):p.marketing.status==='not_nominated'?btn('Nominate',`nominatePhoto('${p.id}')`,'secondary','sm'):p.marketing.status==='pending'?badge('Marketing review','amber'):p.marketing.status==='approved'?badge('Approved asset','green'):badge(p.marketing.status,'grey')}<details class="media-item-menu"><summary class="btn secondary sm" role="button" aria-label="Photo actions for ${esc(p.title)}"><span aria-hidden="true">⋯</span></summary><div class="media-item-menu-options" role="menu"><button type="button" role="menuitem" onclick="openModal('delete-photo',{id:'${p.id}'})">Delete</button></div></details></div></div></div>`).join('')||'<div class="empty operational-empty"><strong>No photos are available here yet.</strong><span>Add a photo while recording an Observation. Eligible photos will appear here for review.</span></div>'}</div>`}
 function nominatePhoto(id){let p=db.media.photos[id];if(!canViewPrivatePhoto(p))return;p.marketing.nominatedActor=staffActor();p.marketing.status='pending';p.marketing.use='Facebook';ui().mediaTab='review';save();render()}
 function marketingReview(){let photos=Object.values(db.media.photos).filter(p=>!p.deletedAt&&p.marketing.status==='pending');return `<div class="card"><h3>Marketing queue</h3>${photos.map(p=>`<div class="child-row"><strong>${p.title}</strong><span>${badge('Awaiting review','amber')}</span><span class="hide-mobile">${p.marketing.use}</span><span>${btn('Review',`openModal('marketing-review',{id:'${p.id}'})`,'primary','sm')}</span></div>`).join('')||'<div class="empty">No items awaiting review.</div>'}</div>`}
 function approvedAssets(){let assets=Object.values(db.media.approvedAssets);return `<div class="media-grid">${assets.map(a=>`<div class="media-card"><div class="media-thumb">▧</div><div class="media-body"><strong>${a.title}</strong><span>${a.use} · approved ${a.approvedAt}</span><div class="media-actions">${badge('Public-safe asset','green')}</div></div></div>`).join('')||'<div class="empty operational-empty"><strong>No approved public-use photos yet.</strong></div>'}</div>`}
@@ -50634,7 +50651,7 @@ function lessonWeekDisplayLabel(w){
 function goToCurrentLessonWeek(){const start=mpsMondayForDate(TODAY);if(!start||mpsLessonWeekStart()===start)return;ui().lessonWeek=start;save();render()}
 function lessonWeekDayHeading(day){const date=lessonDayDate(day);return `<strong>${esc(day)} <time datetime="${esc(date||'')}">${esc(date?lessonShortDate(new Date(date+'T12:00:00Z'),{day:'numeric',month:'short'}):'')}</time>${date===TODAY?' <span class="lesson-today-label">Today</span>':''}</strong>`}
 
-renderLessons=function(){mpsEnsureLessonWeekStart();if(!['week','evidence'].includes(ui().lessonTab))ui().lessonTab='week';let w=currentWeek();const weekView=ui().lessonTab==='week';let publishAction=!w.published&&canPlanCurrentWeek(w)?btn('Publish week',"publishWeek()",'primary','sm'):'';return shell(`${pageHead('Teaching','Planning','Prepare the week for this Level.')}<div class="lesson-primary"><div class="card lesson-plan-card">${weekView?`<div class="lesson-plan-controls"><div class="lesson-level-context">${lessonClassControl()}${mpsLevelAppliesHtml()}</div><div class="lesson-week-identity"><div class="card-header"><div class="grow"><h3>${esc(lessonWeekDisplayLabel(w))}</h3><p>${w.published?`Published by ${w.approvedBy||'Head Teacher'}`:'Working plan · not yet published'}</p></div>${badge(w.published?'Published':'Draft',w.published?'green':'amber')}</div><div class="lesson-week-actions ui-action-group">${btn('‹ Previous',"changeWeek(-1)",'secondary','sm')}${btn('Next ›',"changeWeek(1)",'secondary','sm')}${mpsLessonWeekStart()!==mpsMondayForDate(TODAY)?btn('Go to current week','goToCurrentLessonWeek()','secondary','sm'):''}${publishAction}</div>${mpsTermContextHtml()}</div></div>${mpsMonthContextHtml()}`:ui().lessonTab==='evidence'?`<div class="lesson-progress-scope">${lessonClassControl()}</div>`:''}<div class="tabs"><button class="tab ${ui().lessonTab==='week'?'active':''}" onclick="setLessonTab('week')">Week plan</button><button class="tab ${ui().lessonTab==='evidence'?'active':''}" onclick="setLessonTab('evidence')">Evidence & progress</button></div>${weekView?renderWeekBoard(w):renderLessonEvidence()}${weekView?'<div data-teaching-calendar-context></div>':''}</div></div>`) }
+renderLessons=function(){mpsEnsureLessonWeekStart();if(!['week','evidence'].includes(ui().lessonTab))ui().lessonTab='week';let w=currentWeek();const weekView=ui().lessonTab==='week';let publishAction=!w.published&&canPlanCurrentWeek(w)?mpsWeekPublishAction(w):'';return shell(`${pageHead('Teaching','Planning','Prepare the week for this Level.')}<div class="lesson-primary"><div class="card lesson-plan-card">${weekView?`<div class="lesson-plan-controls"><div class="lesson-level-context">${lessonClassControl()}${mpsLevelAppliesHtml()}</div><div class="lesson-week-identity"><div class="card-header"><div class="grow"><h3>${esc(lessonWeekDisplayLabel(w))}</h3><p>${w.published?`Published by ${w.approvedBy||'Head Teacher'}`:'Working plan · not yet published'}</p></div>${badge(w.published?'Published':'Draft',w.published?'green':'amber')}</div><div class="lesson-week-actions ui-action-group">${btn('‹ Previous',"changeWeek(-1)",'secondary','sm')}${btn('Next ›',"changeWeek(1)",'secondary','sm')}${mpsLessonWeekStart()!==mpsMondayForDate(TODAY)?btn('Go to current week','goToCurrentLessonWeek()','secondary','sm'):''}${publishAction}</div>${mpsTermContextHtml()}</div></div>${mpsMonthContextHtml()}`:ui().lessonTab==='evidence'?`<div class="lesson-progress-scope">${lessonClassControl()}</div>`:''}<div class="tabs"><button class="tab ${ui().lessonTab==='week'?'active':''}" onclick="setLessonTab('week')">Week plan</button><button class="tab ${ui().lessonTab==='evidence'?'active':''}" onclick="setLessonTab('evidence')">Evidence & progress</button></div>${weekView?renderWeekBoard(w):renderLessonEvidence()}${weekView?'<div data-teaching-calendar-context></div>':''}</div></div>`) }
 
 function createOwnActivityAction(day=null){return btn('+ Create your own activity',`openDrawer('create-activity',{day:${day?`'${day}'`:'null'}})`,'secondary','sm')}
 
@@ -50923,8 +50940,8 @@ function openTeachingWeekPlan(){
 function renderLessonToday(){const rooms=teachingRooms().filter(room=>mpsTeachingAccess(room.id));if(rooms.length>1&&(ui().teachingClassroomChoice||!rooms.some(room=>room.id===ui().lessonClass)))return mpsTeachingClassroomOverview(rooms);const room=rooms.length===1?rooms[0].id:ui().lessonClass,day=mpsTodayState(room);if(!day)return shell(`${pageHead('Teaching','Teaching today','Teaching access is required.')}<div class="card">No teaching access for this classroom.</div>`);
  if(rooms.length===1)ui().lessonClass=room;
  const title=`${className()} · ${fmtDate(TODAY)}`,action=(rooms.length>1?btn('Change Classroom','showTeachingClassroomChoice()','secondary'):'')+(!has('Head Teacher')||day.draft?'':btn('Open week plan','openTeachingWeekPlan()','secondary'));
- const message=day.draft?'This week’s plan has not been published yet.':day.items.length?'Record what happened when it is useful.':'No published activities planned today.';
- const draft=day.draft?`<div class="card teaching-draft"><h3>Week plan not published</h3><p>${has('Head Teacher')?'Open the week plan to review and publish it.':'The Head Teacher has not published this week’s plan yet.'} Draft activities are not shown here.</p>${has('Head Teacher')?btn('Open week plan','openTeachingWeekPlan()','primary'):''}</div>`:'';
+ const message=day.draft?(has('Head Teacher')?'Open the week plan to review and publish it.':'The Head Teacher has not published this week’s plan yet.'):day.items.length?'Record what happened when it is useful.':'No published activities planned today.';
+ const draft=day.draft?`<div class="card teaching-draft"><p>Draft activities are not shown here.</p>${has('Head Teacher')?btn('Open week plan','openTeachingWeekPlan()','primary'):''}</div>`:'';
  const unfinished=day.items.filter(item=>!mpsActualStatus(item)),recorded=day.items.filter(item=>mpsActualStatus(item)?.outcome==='DONE'),exceptions=day.items.filter(item=>{const outcome=mpsActualStatus(item)?.outcome;return outcome&&outcome!=='DONE'});
  return shell(`${pageHead('Teaching',title,message,action)}${draft}${!unfinished.length&&day.items.length?`<div class="notice info teaching-complete-message">${exceptions.length?'All planned work has been recorded.':'All planned activities are done.'}</div>`:''}<div class="teaching-today-list">${unfinished.map(mpsTodayCard).join('')}${exceptions.map(mpsTodayCard).join('')}</div>${recorded.length?`<details class="teaching-done-section"><summary>Done (${recorded.length})</summary><div class="teaching-today-list">${recorded.map(mpsTodayCard).join('')}</div></details>`:''}${day.emergent.length?`<section class="card"><h3>Other experiences today</h3>${day.emergent.map(mpsActualHistoryHtml).join('')}</section>`:''}<div class="teaching-day-action ui-action-group">${btn('Add spontaneous observation',"openModal('observation',{})",'secondary')}${btn('Record another experience',"openModal('actual-teaching',{outcome:'DONE'})",'secondary')}</div>${mpsTeachingObservations(room,TODAY,o=>!o.activityUid)}`)}
 let mpsActualExperienceDraft=null;
@@ -52478,12 +52495,12 @@ admissionsMetrics = function(){
   const renderPrimaryFilter = stage => {
     const count = all.filter(c=>admissionMatchesFilter(c,stage)).length;
     const selected = active === stage || (stage === 'Application' && applicationContext);
-    return `<button class="tab ${selected?'active':''}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`;
+    return `<button class="tab ${selected?'active':''}" aria-pressed="${selected}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`;
   };
   const renderApplicationView = (label,filter) => {
     const count = all.filter(c=>admissionMatchesFilter(c,filter)).length;
     const stageAttr = filter === 'Application' ? '' : ` data-stage-filter="${esc(filter)}"`;
-    return `<button class="tab ${active===filter?'active':''}" data-application-outcome-filter="${esc(label)}"${stageAttr} onclick='setAdmissionsStageFilter(${JSON.stringify(filter)})'>${label} <strong>${count}</strong></button>`;
+    return `<button class="tab ${active===filter?'active':''}" aria-pressed="${active===filter}" data-application-outcome-filter="${esc(label)}"${stageAttr} onclick='setAdmissionsStageFilter(${JSON.stringify(filter)})'>${label} <strong>${count}</strong></button>`;
   };
   const secondary = applicationContext
     ? `<div data-application-outcome-filters style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px"><div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${renderApplicationView('Under review','Application')}${renderApplicationView('Waitlisted','Waitlisted')}${renderApplicationView('Closed','Closed')}</div></div>`
@@ -54496,7 +54513,7 @@ const MPS_PLAIN_LANGUAGE_REPLACEMENTS = [
   ['Private evidence stays private by default. Marketing and deletion are separate decisions.','Classroom photos stay private unless they are approved for public use.'],
   ['No approved MarketingAssets in this prototype state.','No photos are currently approved for public use.'],
   ['Public-safe asset','Approved for public use'],
-  ['Nominate','Send for approval'],
+  ['Nominate','Send to marketing review'],
   ['Marketing queue','Photos awaiting approval'],
   ['Review final intended Facebook asset','Review for Facebook'],
   ['Approve the exact asset/context, not a generic permission.','Check this photo and its intended use before approving.'],
@@ -56598,7 +56615,7 @@ function renderChildren(){
       :group==='current'
         ?'<div class="empty operational-empty"><strong>No current children in your assigned scope.</strong></div>'
         :`<div class="empty operational-empty"><strong>${group==='former'?'No former children recorded in your scope.':'No pre-start children in your scope.'}</strong></div>`;
-    return shell(`${pageHead('','Children','Find a child and their current care information.')}${directoryTabs('children')}${children.length?`<label class="profile-search">Search children<input aria-label="Search children" value="${esc(ui().childrenSearch||'')}" oninput="filterProfileChildren(this.value)"></label>`:''}<div class="profile-list">${children.map(c=>`<button data-child-search="${esc((c.legalName+' '+c.preferred).toLowerCase())}" class="card person-choice" onclick="openChildProfile('${c.id}')">${childPhotoMarkup(c.id)}<span><strong>${esc(c.legalName||c.preferred)}</strong><small>${esc(childClass(c)||'Class not recorded')}</small></span><span aria-hidden="true">›</span></button>`).join('')||empty}</div>`);
+    return shell(`${pageHead('','Children','Find a child and open their profile.')}${directoryTabs('children')}${children.length?`<label class="profile-search">Search children<input aria-label="Search children" value="${esc(ui().childrenSearch||'')}" oninput="filterProfileChildren(this.value)"></label>`:''}<div class="profile-list">${children.map(c=>`<button data-child-search="${esc((c.legalName+' '+c.preferred).toLowerCase())}" class="card person-choice" onclick="openChildProfile('${c.id}')">${childPhotoMarkup(c.id)}<span><strong>${esc(c.legalName||c.preferred)}</strong><small>${esc(childClass(c)||'Class not recorded')}</small></span><span aria-hidden="true">›</span></button>`).join('')||empty}</div>`);
   }
   const c=selected,ad=profileCase(c),d=ad?.onboarding?.draft,health=db.health.profiles[c.id],att=attendanceCurrentRecord(c.id),service=childCurrentServiceLabel(c);
   const book=daycareRoster().filter(b=>(profileChildId(b.childId)||b.childId)===c.id);
@@ -57207,7 +57224,7 @@ function attendanceWorkspace(){
   const controls=pickup||!rows.length?'':btn('Rapid arrival',"openModal('rapid-arrival')",'primary');
   const allCurrent=Object.values(db.people.children).filter(c=>currentOperationalChild(c.id));
   const emptyCopy=!allCurrent.length?'No children are ready for Attendance yet. Children appear after Admissions, enrolment and pre-start readiness.':!rows.length?'No current children are assigned to your Attendance scope.':'No children are currently on site for pickup.';
-  return shell(`${pageHead('Physical presence','Attendance & pickup',pickup?'Verify the collector before handover. Children stay checked in until checkout is recorded.':'Check children in when they arrive. Record absence only when it is confirmed.',controls)}
+  return shell(`${pageHead('Physical presence','Attendance & pickup',pickup?'Verify the collector before handover. Children stay checked in until checkout.':'Check children in when they arrive. Record absence only when it is confirmed.',controls)}
     <div class="tabs attendance-tabs" role="tablist" aria-label="Attendance workspace">${[['arrivals','Arrivals'],['pickup','Pickup']].map(([id,label])=>`<button role="tab" aria-selected="${(pickup?'pickup':'arrivals')===id}" class="tab ${(pickup?'pickup':'arrivals')===id?'active':''}" onclick="setAttendanceTab('${id}')">${label}</button>`).join('')}</div>
     ${rows.length?`<div class="attendance-summary">${rows.filter(r=>r.status==='present').length} on site · ${rows.filter(r=>r.status==='not_marked').length} not checked in · ${rows.filter(r=>r.status==='absent').length} absent · ${rows.filter(r=>r.status==='checked_out').length} checked out</div>`:''}
     <div class="table-wrap operational-roster-wrap"><table class="table operational-roster attendance-roster ${pickup?'pickup-roster':'arrivals-roster'}"><thead><tr><th class="roster-ordinal">#</th><th>Child</th><th>Class</th><th>Status</th><th>Arrival</th>${pickup?'<th>Pickup</th>':''}<th></th></tr></thead><tbody>${visible.map((r,index)=>{
@@ -59560,9 +59577,9 @@ function mpsProgressSet(key,value){const state=ui().drawer?.name==='child-progre
 function mpsProgressObservationCard(o,month){
  const sharing=mpsObservationSharing(o),included=mpsObservationIncluded(o,month),photo=mpsObservationPhotoRecord(o),reportPhoto=photo&&mpsReportPhotoRecord(o,o.childId),mutable=mpsProgressObservationMutable(o),report=mpsProgressReportForMonth(o.childId,month),canChange=mutable&&(!report||mpsReportEditable(report));
  const mediaState=photo?reportPhoto?'Eligible for parent report':sharing==='Internal'?'Internal media':'Consent or approval prevents report use':'';
- return `<article class="child-evidence-card card flat" data-child-progress-evidence-id="${esc(o.id)}"><header><strong>Observation</strong><span>${esc(fmtDate(o.date))}</span></header><p>${esc(o.text)}</p>${mpsObservationPhotoHtml(o)}${mediaState?`<small>${esc(mediaState)}</small>`:''}<div class="progress-evidence-state"><span>Sharing: ${esc(sharing)}</span>${sharing==='Parent-eligible'?`<span>${included?'Included in report':'Excluded from report'}</span>`:''}</div>${o.interpretation||o.nextStep?`<details><summary>Interpretation & next step</summary>${o.interpretation?kv('What this may show',esc(o.interpretation)):''}${o.nextStep?kv('Next step',esc(o.nextStep)):''}</details>`:''}<footer>${canChange?btn(sharing==='Parent-eligible'?'Make internal':'Make parent-eligible',`mpsSetObservationSharing('${esc(o.id)}','${sharing==='Parent-eligible'?'Internal':'Parent-eligible'}')`,'secondary','sm'):''}${canChange&&sharing==='Parent-eligible'?btn(included?'Remove from report':'Add back to report',`mpsToggleObservationMonth('${esc(o.id)}','${esc(month)}')`,'secondary','sm'):''}</footer></article>`;
+ return `<article id="progress-observation-${esc(o.id)}" class="child-evidence-card card flat" data-child-progress-evidence-id="${esc(o.id)}"><header><strong>Observation</strong><span>${esc(fmtDate(o.date))}</span></header><p>${esc(o.text)}</p>${mpsObservationPhotoHtml(o)}${mediaState?`<small>${esc(mediaState)}</small>`:''}<div class="progress-evidence-state"><span>Sharing: ${esc(sharing)}</span>${sharing==='Parent-eligible'?`<span>${included?'Included in report':'Excluded from report'}</span>`:''}</div>${o.interpretation||o.nextStep?`<details><summary>Interpretation & next step</summary>${o.interpretation?kv('What this may show',esc(o.interpretation)):''}${o.nextStep?kv('Next step',esc(o.nextStep)):''}</details>`:''}<footer>${canChange?btn(sharing==='Parent-eligible'?'Make internal':'Make parent-eligible',`mpsSetObservationSharing('${esc(o.id)}','${sharing==='Parent-eligible'?'Internal':'Parent-eligible'}')`,'secondary','sm'):''}${canChange&&sharing==='Parent-eligible'?btn(included?'Remove from report':'Add back to report',`mpsToggleObservationMonth('${esc(o.id)}','${esc(month)}')`,'secondary','sm'):''}</footer></article>`;
 }
-function mpsProgressAssessmentCard(a){return `<article class="child-evidence-card card flat" data-child-progress-evidence-id="${esc(a.id)}"><header><strong>Assessment</strong><span>${esc(fmtDate(a.date))}</span></header><p>${esc(a.target?.label||'Earlier assessment · target not recorded')}</p><p>${a.resultKind==='non-rating'?'No judgement recorded':'Developmental level'}: ${esc(a.result||'Not recorded')}</p>${a.evidenceIds?.length?`<details><summary>Supporting observation references</summary>${a.evidenceIds.map(id=>db.observations[id]&&mpsObservationSharing(db.observations[id])==='Internal'?`<p>Internal Observation · ${esc(db.observations[id].text)}</p>`:db.observations[id]?`<p>${esc(db.observations[id].text)}</p>`:'').join('')}</details>`:''}</article>`}
+function mpsProgressAssessmentCard(a){const evidence=(a.evidenceIds||[]).map(id=>db.observations[id]).filter(Boolean);return `<article class="child-evidence-card card flat" data-child-progress-evidence-id="${esc(a.id)}"><header><strong>Assessment</strong><span>${esc(fmtDate(a.date))}</span></header><p>${esc(a.target?.label||'Earlier assessment · target not recorded')}</p><p>${a.resultKind==='non-rating'?'No judgement recorded':'Developmental level'}: ${esc(a.result||'Not recorded')}</p>${evidence.length?`<p class="assessment-observation-links">Supported by ${evidence.map(o=>`<a href="#progress-observation-${esc(o.id)}">${mpsObservationSharing(o)==='Internal'?'Internal observation':'Observation'} · ${esc(fmtDate(o.date))}</a>`).join(', ')} below.</p>`:''}</article>`}
 function mpsProgressActivityGroup(g,month){return `<section class="progress-activity-group" data-progress-activity="${esc(g.actual.id)}"><header><h3>${esc(g.title)}</h3><small>${esc(fmtDate(g.date))}</small></header>${g.assessments.filter(item=>mpsProgressValidAssessment(item.record)).map(item=>mpsProgressAssessmentCard(item.record)).join('')}${g.assessments.filter(item=>!mpsProgressValidAssessment(item.record)).map(item=>mpsProgressAssessmentCard(item.record)).join('')}${g.observations.map(item=>mpsProgressObservationCard(item.record,month)).join('')}</section>`}
 function mpsChildProgressView(data={}){
  const cid=profileChildId(data.childId);if(!mpsChildLearningAllowed(cid))return drawer('Learning unavailable','',notice('This child is outside your learning scope.','info'));
@@ -59741,7 +59758,7 @@ const mpsHeadTeacherLeanCopy = [
  'Record what happened when it is useful.',
  'Create invoices, verify payments, and follow up outstanding balances.',
  'Review Health updates, medication authorisations and incidents in one place.',
- 'Find a child and their current care information.',
+ 'Find a child and open their profile.',
  'People and responsibilities.',
  'Choose the child whose Health information you need.',
  "Open a child's learning history.",
@@ -60012,7 +60029,7 @@ function billingDetailView(inv,issueRoute=false){
     +(inv.status==='issued'&&billingVerifiedAllocated(inv)>0?notice('This invoice has verified payment history and stays unchanged. If more is owed, create a related invoice. If a payment is wrong, use the restricted payment correction process.','info'):'');
   const title=issueRoute||inv.category==='admission_fee'&&inv.status==='draft'?'Review admission-fee invoice':inv.status==='draft'&&/draft/i.test(inv.number)?esc(inv.number):`Invoice ${esc(inv.number)}`;
   const sub=`<span>${esc(billingDetailKind(inv))} · ${esc(inv.childName||profileChildName(inv.childId)||'')}</span> ${badge(state.text,state.tone)}`;
-  return modal(title,sub,body,billingDetailActions(inv)).replace('<div class="modal">','<div class="modal invoice-detail">')
+  return modal(title,sub,body,billingDetailActions(inv)).replace('<div class="modal"','<div class="modal invoice-detail"')
     .replace('<div class="modal-foot">',`<div class="modal-foot${inv.status==='draft'?' invoice-detail-draft-actions':''}">`);
 }
 const billingDetailPreviousModal=modalView;
@@ -60266,7 +60283,8 @@ function mpsTodayHomeDate(){
 }
 function mpsTodayHomeOpening(){
  const op=operatingStatusForDate(TODAY),closed=op.text==='Closed'||op.text==='Closed Day',daycareOnly=op.text==='Daycare-Only Day'||op.text==='Daycare Only';
- return `<section class="today-opening today-operating-status" aria-label="${closed?'Closed today':'Open today'}"><h3>${closed?'Closed today':'Open today'}</h3>${closed?'':`<div class="today-services">${daycareOnly?'':`<span>Preschool</span>`}<span>Daycare</span></div>`}${op.source==='Operating exception'?`<small>${esc(op.source)}</small>`:''}</section>`;
+ const service=daycareOnly?'Daycare only':/Preschool Only/i.test(op.text)?'Preschool only':'Preschool and daycare';
+ return `<section class="today-opening today-operating-status" aria-label="${closed?'Closed today':`Open today · ${service}`}"><h3>${closed?'Closed today':`Open today · ${service}`}</h3>${op.source==='Operating exception'?`<small>${esc(op.source)}</small>`:''}</section>`;
 }
 function mpsTodayHomeCalendarContext(){
  const events=calendarEventsOn(TODAY),holidays=holidayReferencesOn(TODAY),birthdays=birthdaysOn(TODAY);
@@ -60282,7 +60300,7 @@ renderToday=function(){
  }
  const actions=todayActions(),present=attendanceRoster().filter(row=>row.status==='present').length,daycare=daycareRoster().length;
  const canTeach=allowed('lesson-today'),lessons=canTeach?(mpsTodayState(ensureTeachingSelection())?.items.length||0):0;
- const glance=`<section class="today-glance" aria-label="At a glance"><h3>At a glance</h3><div class="today-home-metrics" role="group" aria-label="Today summary"><div><strong>${present}</strong><span>Children here</span></div><div><strong>${daycare}</strong><span>Daycare today</span></div><div><strong>${lessons}</strong><span>Lessons today</span></div></div></section>`;
+ const glance=`<section class="today-glance" aria-label="At a glance"><h3>At a glance</h3><div class="today-home-metrics" role="group" aria-label="Today summary"><div><strong>${present}</strong><span>Children here</span></div><div><strong>${daycare}</strong><span>Daycare today</span></div><div><strong>${lessons}</strong><span>Activities today</span></div></div></section>`;
  return shell(`${header}${mpsTodayHomeOpening()}${glance}${todayAttentionSection(actions)}${canTeach?`<div class="section-title">Teaching today</div>${todayTeachingCard()}`:''}${mpsTodayHomeCalendarContext()}`);
 };
 // BQ-148: new plans belong to Level + week. Earlier Classroom weeks remain intact.
@@ -61583,18 +61601,19 @@ function mpsReportDeliveredTitle(actual){
  const planned=actual.plannedUid&&planActivityByUid(actual.plannedUid);
  return planned?mpsResolveActivity(mpsLibraryActivity(planned.a.libId,planned.wk),planned.a)?.title||'Learning activity':'Learning activity';
 }
-function mpsReportParentMeaning(result){return {
- 'Not Yet':'The child has not yet demonstrated the relevant skill or knowledge.',
- 'Emerging':'The child shows early signs or attempts, inconsistently or with support.',
- 'Developing':'The child demonstrates the skill with growing confidence and partial independence.',
- 'Consistent':'The child reliably and independently demonstrates the skill across contexts.'
-}[result]||null}
+function mpsReportParentName(ref){const id=profileChildId(ref),child=id&&db.people?.children?.[id];return child?.preferred||child?.legalName||profileChildName(ref)}
+function mpsReportParentMeaning(result,childName){return childName?({
+ 'Not Yet':`${childName} has not yet demonstrated the relevant skill or knowledge.`,
+ 'Emerging':`${childName} shows early signs or attempts, inconsistently or with support.`,
+ 'Developing':`${childName} demonstrates the skill with growing confidence and partial independence.`,
+ 'Consistent':`${childName} reliably and independently demonstrates the skill across contexts.`
+}[result]||null):null}
 function mpsReportTeachingComposition(r){
- const period=mpsReportPeriod(r),actuals=mpsReportActualActivities(r),groups=mpsProgressGroups(r.childId,period.monthKey),validByActual=new Map(groups.assessed.map(g=>[g.actual.id,g.assessments.filter(item=>mpsProgressValidAssessment(item.record))]));
+ const period=mpsReportPeriod(r),actuals=mpsReportActualActivities(r),childName=mpsReportParentName(r.childId),groups=mpsProgressGroups(r.childId,period.monthKey),validByActual=new Map(groups.assessed.map(g=>[g.actual.id,g.assessments.filter(item=>mpsProgressValidAssessment(item.record))]));
  const assessed=[],other=[],assessedByTitle=new Map(),seenOther=new Set();
  for(const actual of actuals){const title=mpsReportDeliveredTitle(actual),assessments=validByActual.get(actual.id)||[];
   if(assessments.length){const key=title.toLocaleLowerCase(),entry=assessedByTitle.get(key)||{actualId:actual.id,title,date:actual.date,judgements:[]};
-   for(const item of assessments){const judgement={target:item.record.target.label,meaning:mpsReportParentMeaning(item.record.result)};if(judgement.meaning&&!entry.judgements.some(existing=>existing.target===judgement.target&&existing.meaning===judgement.meaning))entry.judgements.push(judgement)}
+   for(const item of assessments){const judgement={target:item.record.target.label,meaning:mpsReportParentMeaning(item.record.result,childName)};if(judgement.meaning&&!entry.judgements.some(existing=>existing.target===judgement.target&&existing.meaning===judgement.meaning))entry.judgements.push(judgement)}
    if(!assessedByTitle.has(key)){assessedByTitle.set(key,entry);assessed.push(entry)}
   }
   else{const key=title.toLocaleLowerCase();if(!seenOther.has(key)){seenOther.add(key);other.push({actualId:actual.id,title,date:actual.date})}}
@@ -61648,7 +61667,7 @@ mpsReportParentHtml=function(content){
  const observations=content.observations.length?content.observations.map(o=>`<div class="report-observation"><p>${esc(o.text)}</p>${o.photo?mpsReportPhotoSnapshotHtml(o.photo):mpsReportPhotoHtml(o,content.childId)}</div>`).join(''):'<p>No observation included this month.</p>';
  return `<article class="report-parent-output card flat" data-parent-report="monthly"><div class="eyebrow">Monthly Family Update</div><h3>${esc(content.childName)}</h3><p>${esc(content.month)}</p>${context}<section><h4>Learning & progress</h4>${assessed}</section>${other}<section><h4>What we noticed</h4>${observations}</section>${content.teacherNote?`<section><h4>Teacher note</h4><p>${esc(content.teacherNote)}</p></section>`:''}</article>`;
 };
-mpsReportControls=function(){const s=mpsReportSelection(),children=currentChildrenInScope();return children.length?`<div class="report-period-controls">${profileChildSelect('Child',children.map(c=>c.id),s.childId,'report_child').replace('<label>','<label for="report_child">').replace('id="report_child"','id="report_child" onchange="mpsReportChange(\'reportChild\',this.value)"')}<label for="report_month">Calendar month<input id="report_month" type="month" value="${esc(s.monthKey)}" onchange="mpsReportChange('reportMonth',this.value)"></label></div>`:''};
+mpsReportControls=function(){const s=mpsReportSelection(),children=currentChildrenInScope();return children.length?`<div class="report-period-controls">${profileChildSelect('Child',children.map(c=>c.id),s.childId,'report_child').replace('<label>','<label for="report_child">').replace('id="report_child"','id="report_child" onchange="mpsReportChange(\'reportChild\',this.value)"')}<div class="field"><label for="report_month">Calendar month</label><input id="report_month" type="month" value="${esc(s.monthKey)}" onchange="mpsReportChange('reportMonth',this.value)"></div></div>`:''};
 function mpsHistoricalTermReports(childId){return Object.values(db.reports||{}).filter(r=>mpsReportKind(r)==='term'&&profileChildId(r.childId)===profileChildId(childId)&&mpsReportFrozen(r)).sort((a,b)=>String(b.sentAt||mpsReportFrozen(b)?.approvedAt||'').localeCompare(String(a.sentAt||mpsReportFrozen(a)?.approvedAt||'')))}
 renderReports=function(){
  if(!allowed('reports')||mpsCurrentAccount()?.status!=='active')return shell(notice('Reports are outside your access.','info'));
@@ -61660,7 +61679,7 @@ renderReports=function(){
   const frozen=mpsReportFrozen(r),editable=mpsReportEditable(r),review=r.status==='teacher_ready'&&!frozen,content=reportPreviewContent(r),sendAvailable=frozen&&!r.sentAt&&linkedRecipientIds(r.childId).length>0,correctionAvailable=has('Head Teacher')&&!!frozen&&!!mpsReportCurrentVersion(r);
   const status=r.sentAt?'Sent':frozen?'Approved':review?'Head Teacher review':'Teacher review';
   const actions=(editable?btn('Save draft','mpsSaveReportDraft(false)','secondary')+btn('Save note & complete review','markReportTeacherReady()','primary'):review?(has('Head Teacher')?btn('Approve exact report','approveReport()','primary')+btn('Edit draft','mpsEditReportDraft()','secondary'):badge('Awaiting Head Teacher review','amber')):sendAvailable?btn('Mark as sent','sendReport()','primary'):'')+(correctionAvailable?btn('Correct report',`openModal('report-correction',{reportId:'${r.id}'})`,'secondary'):'');
-  const parent=frozen?`<h3>Approved parent report</h3>${mpsReportParentHtml(content)}`:review?`<h3>Parent report for approval</h3>${mpsReportParentHtml(content)}`:`<div class="report-progress-link">${btn('Review evidence in Progress',`mpsOpenChildProgress('${esc(r.childId)}')`,'secondary','sm')}</div>${mpsReportParentHtml(content)}${mpsReportTextArea('Optional teacher note',r.teacherNote||'','report_note')}`;
+  const parent=frozen?`<h3>Approved parent report</h3>${mpsReportParentHtml(content)}`:review?`<h3>Parent report for approval</h3>${mpsReportParentHtml(content)}`:`<div class="report-progress-link">${btn('Review evidence in Progress',`mpsOpenChildProgress('${esc(r.childId)}')`,'secondary','sm')}</div>${mpsReportParentHtml(content?{...content,teacherNote:''}:null)}<section class="report-note-editor"><h4>Teacher note</h4>${mpsReportTextArea('Note for the family',r.teacherNote||'','report_note')}<small>Save the draft to include this note in the parent report.</small></section>`;
   body=`<div class="grid"><div class="span-8 card report-workspace" data-report-kind="monthly"><header class="card-header"><div class="grow"><h3>${esc(content?.childName||profileChildName(r.childId))}</h3><p>${esc(content?.month||mpsReportMonthLabel(s.monthKey))}</p></div>${badge(status,r.sentAt||frozen?'green':'amber')}</header>${parent}<div class="report-actions">${actions}</div>${frozen&&!r.sentAt&&!sendAvailable?notice('Add or confirm an authorised report recipient before sending.','info'):''}${mpsReportVersionHistory(r)}</div><aside class="span-4 card report-delivery"><h3>Delivery</h3>${kv('Recipients',r.sentAt&&r.sentRecipients?esc(r.sentRecipients.map(x=>x.name).join(', ')):recipientDisplay(linkedRecipientIds(r.childId)))}${kv('Channel','WhatsApp Web · manual')}${kv('Status',r.sentAt?'Sent':frozen?(sendAvailable?'Approved / ready to send':'Approved / not sent'):'Not yet approved')}${r.sentAt?kv('Recorded by',esc(r.sentActor?.name||'Not recorded'))+kv('Sent at',esc(r.sentAt)):''}${frozen?`<details><summary>Approval details</summary>${kv('Approved by',esc(frozen.approvedBy||frozen.approvalActor?.name||'Not recorded'))}${kv('Approved at',esc(frozen.approvedAt||'Not recorded'))}</details>`:''}</aside></div>`;
  }
  const history=mpsHistoricalTermReports(s.childId),historyHtml=history.length?`<details class="report-historical-term"><summary>Earlier Term reports · ${history.length}</summary>${history.map(item=>`<div class="report-historical-term-row"><span>${esc(mpsReportFrozen(item).term?.label||'Earlier Term report')}</span>${btn('Open',`mpsOpenReportById('${esc(item.id)}')`,'secondary','sm')}</div>`).join('')}</details>`:'';
@@ -61880,6 +61899,160 @@ renderDaycare=function(){
  const recorded=daycareTodayRecordCount()?`<section class="daycare-today-recorded"><h2>Recorded today</h2>${daycareTodayRecords()}</section>`:'';
  return shell(`${pageHead('','Daycare','',canBook?btn('Add one-day care',"openModal('daycare-booking')",'secondary'):'')}${tabs}${summary}<section class="daycare-today-children"><h2>Today’s children</h2>${children?`<div class="daycare-today-child-list">${children}</div>`:`<p class="daycare-today-empty">${empty}</p>${!allCurrent.length&&allowed('admissions')?btn('Open Admissions',"setRoute('admissions')",'secondary','sm'):''}`}</section>${attention}${care}${recorded}${futureCareBookings()}`);
 };
+// Head Teacher review Round 2A: bounded presentation, accessibility and planning safeguards.
+let mpsRound2FieldSequence=0;
+function mpsRound2FieldId(label){
+ const stem=String(label||'field').toLowerCase().replace(/<[^>]+>/g,'').replace(/[^a-z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,32)||'field';
+ return `field_${stem}_${++mpsRound2FieldSequence}`;
+}
+field=function(label,value='',type='text',disabled=false,id=''){
+ const controlId=id||mpsRound2FieldId(label);if(type==='time')return staffTimeField(label,value,disabled,controlId);
+ return `<div class="field"><label for="${esc(controlId)}">${esc(label)}</label><input id="${esc(controlId)}" type="${esc(type)}" value="${esc(value)}" ${disabled?'disabled':''}></div>`;
+};
+selectField=function(label,options,value='',id='',onchange=''){
+ const controlId=id||mpsRound2FieldId(label);
+ return `<div class="field"><label for="${esc(controlId)}">${esc(label)}</label><select id="${esc(controlId)}" ${onchange?`onchange="${onchange}"`:''}>${options.map(o=>`<option ${o===value?'selected':''}>${esc(o)}</option>`).join('')}</select></div>`;
+};
+textArea=function(label,value='',id=''){
+ const controlId=id||mpsRound2FieldId(label);
+ return `<div class="field"><label for="${esc(controlId)}">${esc(label)}</label><textarea id="${esc(controlId)}">${esc(value)}</textarea></div>`;
+};
+
+function mpsWeekPublicationReadiness(w=currentWeek()){
+ const planned=[];for(const [day,items] of Object.entries(w?.days||{}))for(const activity of items||[])planned.push({day,activity,date:lessonDayDate(day)});
+ if(!planned.length)return {ok:false,kind:'empty',reason:'Add at least one activity before publishing.'};
+ const uncovered=planned.filter(item=>!item.date||mpsSchoolTermState(item.date).kind!=='term');
+ if(uncovered.length){
+  const missing=uncovered.some(item=>!item.date||mpsSchoolTermState(item.date).kind==='missing');
+  return {ok:false,kind:missing?'missing-term':'term-gap',reason:missing?'Set up school terms before publishing this week.':'Choose a week covered by a school term or update the school term dates.'};
+ }
+ return {ok:true,kind:'ready',reason:''};
+}
+function mpsWeekPublishAction(w){
+ const state=mpsWeekPublicationReadiness(w);if(state.ok)return btn('Publish week',"publishWeek()",'primary','sm');
+ return `<div class="planning-publish-blocked"><button class="btn primary sm" type="button" disabled>Publish week</button><p role="status">${esc(state.reason)}</p>${state.kind==='missing-term'&&mpsCanManageSchoolTerms()?btn('Set up school terms',"mpsOpenSchoolTermSetup()",'secondary','sm'):''}</div>`;
+}
+const mpsRound2BasePublishWeek=publishWeek;
+publishWeek=function(){const w=currentWeek(),state=mpsWeekPublicationReadiness(w);if(!state.ok){showFeedback(state.reason);return false}return mpsRound2BasePublishWeek()};
+
+const mpsRound2BasePageHead=pageHead;
+pageHead=function(eye,title,sub,actions=''){
+ if(ui().route==='lesson-today')return mpsRound2BasePageHead('',title,sub,actions);
+ return mpsRound2BasePageHead(eye,title,sub,actions);
+};
+
+const mpsRound2BaseCaseListItem=caseListItem;
+caseListItem=function(c){
+ const html=mpsRound2BaseCaseListItem(c);
+ return html.replace(/^<div class="case-item/,`<button type="button" aria-label="Open ${esc(c.childName)} admissions case" class="case-item`).replace(/<\/div>$/,'</button>');
+};
+
+const mpsRound2BaseModal=modal,mpsRound2BaseDrawer=drawer;
+modal=function(title,sub,body,foot=''){
+ return `<div class="overlay"><div class="modal" role="dialog" aria-modal="true" aria-labelledby="mps_overlay_title" tabindex="-1"><div class="modal-head"><div><h2 id="mps_overlay_title">${title}</h2><p>${sub}</p></div><button type="button" class="x" aria-label="Close ${esc(String(title).replace(/<[^>]+>/g,''))}" onclick="closeOverlay()">×</button></div><div class="modal-body">${body}</div><div class="modal-foot">${foot}</div></div></div>`;
+};
+drawer=function(title,sub,body,foot='',closeAction='closeOverlay()'){
+ return `<div class="overlay"><div class="drawer" role="dialog" aria-modal="true" aria-labelledby="mps_overlay_title" tabindex="-1"><div class="modal-head"><div><h2 id="mps_overlay_title">${title}</h2><p>${sub}</p></div><button type="button" class="x" aria-label="Close ${esc(String(title).replace(/<[^>]+>/g,''))}" onclick="${closeAction}">×</button></div><div class="modal-body">${body}</div>${foot?`<div class="modal-foot">${foot}</div>`:''}</div></div>`;
+};
+
+let mpsRound2ReturnFocus=null,mpsRound2OverlayWasOpen=false;
+function mpsRound2RememberFocus(){
+ const el=document.activeElement;if(!el||el===document.body)return;
+ mpsRound2ReturnFocus={id:el.id||'',onclick:el.getAttribute?.('onclick')||'',text:(el.textContent||'').trim()};
+}
+const mpsRound2BaseOpenModal=openModal,mpsRound2BaseOpenDrawer=openDrawer,mpsRound2BaseCloseOverlay=closeOverlay;
+openModal=function(name,data=null){mpsRound2RememberFocus();return mpsRound2BaseOpenModal(name,data)};
+openDrawer=function(name,data=null){mpsRound2RememberFocus();return mpsRound2BaseOpenDrawer(name,data)};
+closeOverlay=function(){mpsRound2OverlayWasOpen=true;return mpsRound2BaseCloseOverlay()};
+
+function mpsRound2EnhanceForms(root=document){
+ let generated=0;
+ root.querySelectorAll('.field').forEach(group=>{
+  const controls=[...group.querySelectorAll('input:not([type=hidden]),select,textarea')],control=controls[0],label=group.querySelector(':scope > label');if(controls.length!==1||!control||!label)return;
+  if(!control.id)control.id=`render_field_${++generated}`;if(!label.htmlFor&&!label.contains(control))label.htmlFor=control.id;
+  const helper=Array.from(group.children).find(node=>node.tagName==='SMALL');if(helper){if(!helper.id)helper.id=control.id+'_help';const ids=new Set((control.getAttribute('aria-describedby')||'').split(/\s+/).filter(Boolean));ids.add(helper.id);control.setAttribute('aria-describedby',[...ids].join(' '))}
+ });
+ root.querySelectorAll('input[type="search"],input.search,.search,input[placeholder*="Search" i]').forEach(input=>{if(!input.getAttribute('aria-label')&&!input.getAttribute('aria-labelledby')){const label=input.id&&root.querySelector(`label[for="${CSS.escape(input.id)}"]`);input.setAttribute('aria-label',(label?.textContent||input.placeholder||'Search').trim().replace(/…/g,''))}});
+}
+function mpsRound2TabLabel(group){
+ if(group.classList.contains('attendance-tabs'))return 'Attendance views';
+ if(group.closest('.health-review-grid')||ui().route==='health')return 'Health views';
+ if(ui().route==='lessons')return 'Planning views';if(ui().route==='media')return 'Photos and media views';if(ui().route==='reports')return 'Report views';
+ return 'Workspace views';
+}
+function mpsRound2EnhanceTabs(root=document){
+ root.querySelectorAll('.tabs').forEach(group=>{
+  const controls=[...group.querySelectorAll(':scope > button.tab')];if(!controls.length)return;
+  const filter=group.classList.contains('admissions-stage-tabs')||group.closest('[data-application-outcome-filters]')||group.classList.contains('billing-view-tabs')||controls.some(button=>button.hasAttribute('data-stage-filter'));
+  group.setAttribute('role',filter?'group':'tablist');if(!group.getAttribute('aria-label'))group.setAttribute('aria-label',filter?'Filters':mpsRound2TabLabel(group));
+  controls.forEach(button=>{if(filter){button.removeAttribute('role');button.setAttribute('aria-pressed',String(button.classList.contains('active')));button.removeAttribute('aria-selected')}else{button.setAttribute('role','tab');button.setAttribute('aria-selected',String(button.classList.contains('active')));button.tabIndex=button.classList.contains('active')?0:-1}});
+  if(!filter&&!group.dataset.keyboardTabs){group.dataset.keyboardTabs='true';group.addEventListener('keydown',event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;const tabs=[...group.querySelectorAll(':scope > [role="tab"]')],index=tabs.indexOf(document.activeElement);if(index<0)return;event.preventDefault();const next=event.key==='Home'?0:event.key==='End'?tabs.length-1:(index+(event.key==='ArrowRight'?1:-1)+tabs.length)%tabs.length;tabs[next].focus();tabs[next].click();queueMicrotask(()=>{const replacement=[...document.querySelectorAll('.tabs[role="tablist"]')].find(candidate=>candidate.getAttribute('aria-label')===group.getAttribute('aria-label'));(replacement?.querySelector('[role="tab"][aria-selected="true"]')||replacement?.querySelectorAll('[role="tab"]')[next])?.focus()})})}
+ });
+}
+function mpsRound2Focusables(dialog){return [...dialog.querySelectorAll('button:not([disabled]),a[href],input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>!el.hidden&&el.getClientRects().length)}
+function mpsRound2RestoreFocus(){
+ const ref=mpsRound2ReturnFocus;if(!ref)return;mpsRound2ReturnFocus=null;
+ let target=ref.id&&document.getElementById(ref.id);if(!target&&ref.onclick)target=[...document.querySelectorAll('[onclick]')].find(el=>el.getAttribute('onclick')===ref.onclick);if(!target&&ref.text)target=[...document.querySelectorAll('button,a')].find(el=>(el.textContent||'').trim()===ref.text);target?.focus?.();
+}
+function mpsRound2EnhanceRendered(){
+ mpsRound2EnhanceForms();mpsRound2EnhanceTabs();
+ const dialog=document.querySelector('#overlay [role="dialog"]');if(dialog&&document.activeElement&&!dialog.contains(document.activeElement))queueMicrotask(()=>{if(!dialog.contains(document.activeElement))dialog.focus()});
+ if(!dialog&&mpsRound2OverlayWasOpen){mpsRound2OverlayWasOpen=false;queueMicrotask(mpsRound2RestoreFocus)}
+}
+document.addEventListener('keydown',event=>{
+ const dialog=document.querySelector('#overlay [role="dialog"]');if(!dialog)return;
+ if(event.key==='Escape'){const close=dialog.querySelector('.x');if(close){event.preventDefault();close.click()}return}
+ if(event.key!=='Tab')return;const focusable=mpsRound2Focusables(dialog);if(!focusable.length){event.preventDefault();dialog.focus();return}const first=focusable[0],last=focusable.at(-1);if(event.shiftKey&&document.activeElement===first){event.preventDefault();last.focus()}else if(!event.shiftKey&&document.activeElement===last){event.preventDefault();first.focus()}
+});
+
+const mpsRound2BaseRender=render;
+render=function(){mpsRound2FieldSequence=0;const result=mpsRound2BaseRender();mpsRound2EnhanceRendered();return result};
+// Head Teacher review Round 2B: bounded staff and parent language refinement.
+// This layer changes presentation wording only. Stored values, controlled terms,
+// permissions, validation, state transitions and audit records remain unchanged.
+
+const MPS_HEAD_TEACHER_ROUND2B_COPY_REPLACEMENTS = [
+  // Staff workspace guidance
+  ['People and responsibilities.','Review staff accounts, access and classroom responsibilities.'],
+  ['Review the monthly parent report and approve the exact output before sending.','Review and approve the monthly report before it is sent to the family.'],
+  ['Care first; factual record, guardian contact and follow-up.','Care for the child first. Then record what happened, contact the guardian and follow up.'],
+  ['Select a child or review a pending update to see the matching current Health record.','Choose a child, or review a parent update, to see the current Health record.'],
+  ['Select a child to see medication authorisation and administration history.','Choose a child to see medication authorisations and dose records.'],
+  ['Prepare the week for this Level.','Prepare the week for this level.'],
+  ['Open the week plan to review and publish it.','Open the week plan to review or publish it.'],
+  ['No learning evidence recorded yet','No learning evidence yet'],
+  ['No care records yet.','No care recorded yet.'],
+  ['No care records yet','No care recorded yet'],
+  ['No children are available in your Daycare scope.','No Daycare children are assigned to you.'],
+  ['Choose an eligible enrolled child and care date.','Choose an enrolled child who can use Daycare, and choose a care date.'],
+  ['Payment awaiting verification','Payment to verify'],
+  ['Health update awaiting review','Health update needs review'],
+
+  // Parent monthly report wording
+  ['No child assessment result included this month.','No assessment update is included this month.'],
+  ['No observation included this month.','No observation is included this month.'],
+  ['<section><h4>Teacher note</h4>','<section><h4>A note from the teacher</h4>']
+];
+
+const mpsHeadTeacherRound2bBasePlainLanguage = mpsPlainLanguageHtml;
+mpsPlainLanguageHtml = function(html){
+ let out=mpsHeadTeacherRound2bBasePlainLanguage(html);
+ MPS_HEAD_TEACHER_ROUND2B_COPY_REPLACEMENTS.forEach(([from,to])=>{out=out.split(from).join(to)});
+ return out;
+};
+
+// Parent reports translate the saved BQ-115 judgement into warm, factual
+// language. The saved assessment state and staff-facing rating stay unchanged.
+mpsReportParentMeaning=function(result,childName){
+ return childName?({
+  'Not Yet':`${childName} is still learning this and needs support.`,
+  Emerging:`${childName} is beginning to show this with support.`,
+  Developing:`${childName} is growing in confidence and can do some of this independently.`,
+  Consistent:`${childName} shows this consistently and independently in different situations.`
+ })[result]||null:null;
+};
+
+render();
 
 finishEducationBoot();
 
