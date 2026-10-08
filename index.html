@@ -8,7 +8,7 @@
 <meta http-equiv="Expires" content="0" />
 <script>
 (function(){
-  const currentBuild='e67ed58f5704';
+  const currentBuild='5904befaf58b';
   fetch('version.json?t='+Date.now(),{cache:'no-store'})
     .then(function(r){if(!r.ok) throw new Error('version check failed'); return r.json();})
     .then(function(v){
@@ -22,12 +22,12 @@
 })();
 </script>
 <title>Eliira — Product Prototype</title>
-<link rel="icon" type="image/svg+xml" href="assets/brand/eliira-favicon.svg?v=e67ed58f5704">
-<link rel="preload" href="assets/fonts/manrope-v20-latin-400-700.woff2?v=e67ed58f5704" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="styles.css?v=e67ed58f5704">
+<link rel="icon" type="image/svg+xml" href="assets/brand/eliira-favicon.svg?v=5904befaf58b">
+<link rel="preload" href="assets/fonts/manrope-v20-latin-400-700.woff2?v=5904befaf58b" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="styles.css?v=5904befaf58b">
 </head>
 <body>
-<div id="root"></div>
+<div id="root"><main id="app-load-status" role="status" style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f8f8;color:#123f42;font:16px/1.5 sans-serif"><div style="width:min(100%,420px);padding:24px;border:1px solid #cbdedc;border-radius:16px;background:white"><strong>Eliira</strong><h1 style="font-size:22px">Opening Eliira…</h1></div></main></div>
 <div id="overlay"></div>
 
 <style>
@@ -36,6 +36,13 @@
 @media(max-width:780px){.review-harness{margin:8px 12px 0;padding:8px 10px}.review-harness>span{display:none}.prototype-persona span{display:none}.prototype-persona select{max-width:150px}.search{display:none}.case-layout{display:flex!important;flex-direction:column}.case-workspace{order:1}.case-list{order:2;max-height:220px;overflow:auto}.topbar{gap:8px}.week-board{display:block!important}.tabs{scrollbar-width:thin}.tab{flex:0 0 auto}.drawer .modal-body{padding-bottom:90px}}
 @media(max-width:780px){.review-harness strong{display:none}.prototype-review-date{gap:4px}.prototype-review-date select{box-sizing:border-box;width:135px;max-width:135px}.review-harness .prototype-persona select{box-sizing:border-box;width:95px;max-width:95px}}
 </style>
-<script src="app.js?v=e67ed58f5704"></script>
+<script src="app.js?v=5904befaf58b"></script>
+<script>
+(function(){
+  var root=document.getElementById('root');
+  if(!root||root.textContent.trim()&&!document.getElementById('app-load-status'))return;
+  root.innerHTML='<main role="alert" style="min-height:100vh;display:grid;place-items:center;padding:24px;background:#f4f8f8;color:#123f42;font:16px/1.5 sans-serif"><div style="width:min(100%,420px);padding:24px;border:1px solid #cbdedc;border-radius:16px;background:white"><strong>Eliira</strong><h1 style="font-size:22px">Eliira could not open</h1><p>Check your connection and try again. Saved information on this device has not been cleared.</p><button type="button" onclick="location.reload()" style="min-height:44px;padding:10px 18px;border:0;border-radius:8px;background:#0d514d;color:white;font:inherit">Try again</button></div></main>';
+})();
+</script>
 </body>
 </html>
