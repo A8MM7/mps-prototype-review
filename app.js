@@ -48338,7 +48338,7 @@ function mpsReviewSwitchStaff(id){
  const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
  save();render();return true;
 }
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=5904befaf58b" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=5904befaf58b" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=46202bd88551" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=46202bd88551" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -53142,7 +53142,7 @@ function mpsResponsibilityFields(selected=[],roomId='access_rooms'){
 function mpsManageAccessModal(id){
   const a=mpsAccount(id);if(!a)return modal('Manage access','',notice('Staff account not found.','warn'),btn('Close','closeOverlay()','secondary'));
   const isLast=mpsIsAccountAdminAccount(a)&&mpsAccountAdminCount()===1;
-  return modal('Manage access','One account can hold several responsibilities without role switching.',`${mpsResponsibilityFields(a.bundles||[])}${staffRoomFields(a)}${a.classroomReview?notice('Previous classroom assignments need review. Select the confirmed classrooms before saving teaching access.','warn'):''}${isLast?notice('This is the last active Account Admin. Give Account Admin access to someone else before removing or deactivating this account.','warn'):''}${notice('Account Admin manages MPS accounts and basic preschool settings. It does not automatically grant access to Admissions, Billing, Health, teaching or other preschool work.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Deactivate account',`deactivateStaff('${a.id}')`,'danger')}${btn('Save access',`saveAccess('${a.id}')`,'primary')}`);
+  return modal('Manage access','One account can hold several responsibilities without role switching.',`${mpsResponsibilityFields(a.bundles||[])}${staffRoomFields(a)}${a.classroomReview?notice('Previous classroom assignments need review. Select the confirmed classrooms before saving teaching access.','warn'):''}${isLast?notice('This is the last active Account Admin. Give Account Admin access to someone else before removing or deactivating this account.','warn'):''}${a.status==='inactive'?notice('This account remains inactive while you correct its access. Review the saved access before reactivating it.','info'):''}${notice('Account Admin manages MPS accounts and basic preschool settings. It does not automatically grant access to Admissions, Billing, Health, teaching or other preschool work.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${a.status==='inactive'?'':btn('Deactivate account',`mpsOpenStaffDeactivation('${a.id}')`,'danger')}${btn('Save access',`saveAccess('${a.id}')`,'primary')}`);
 }
 saveAccess=function(id){
   if(!mpsCurrentIsAccountAdmin())return;
@@ -53151,19 +53151,44 @@ saveAccess=function(id){
   const next=mpsSelectedResponsibilityBundles();
   const removingLast=(a.bundles||[]).includes(MPS_ACCOUNT_ADMIN)&&!next.includes(MPS_ACCOUNT_ADMIN)&&mpsAccountAdminCount()===1;
   if(removingLast){showFeedback('Eliira must always have at least one active Account Admin. Give Account Admin access to another active staff member first.');return}
-  const rooms=readStaffRooms();if(a.classroomReview&&next.some(b=>['Class Teacher','Assistant Teacher'].includes(b))&&!rooms.length){showFeedback('Confirm classroom assignments before saving this teaching access.');return}
+  const rooms=readStaffRooms();if((a.classroomReview||a.status==='inactive')&&mpsTeachingClassroomsRequired(next)&&!rooms.length){showFeedback('Choose an active teaching classroom before saving this access.');return}
   const before={bundles:[...a.bundles],classroomIds:[...(a.classroomIds||[])],classrooms:(a.classroomIds||[]).map(id=>({id,label:classroomLabel(id,true)}))};
   a.bundles=next;a.classroomIds=rooms;a.classroomReview=false;a.legacyChildAccess=[];
   mpsEnsurePersonaForAccount(a);
   db.staff.history.push({actor:staffActor(),staffId:a.id,at:new Date().toISOString(),before,after:{bundles:[...next],classroomIds:[...rooms],classrooms:rooms.map(id=>({id,label:classroomLabel(id,true)}))},text:`${a.username} access updated: ${a.bundles.join(', ')}`});
   ui().modal=null;if(!save()){db=beforeDb;return}render();showFeedback('Access saved.');
 };
+function mpsStaffLifecycleSnapshot(a,data=db){const identity=a.identityId?data.auth?.identities?.[a.identityId]:null,tokens=Object.values(data.auth?.tokens||{}).filter(t=>t.identityId===a.identityId&&!t.usedAt&&!t.revokedAt).map(t=>({id:t.id,purpose:t.purpose,expiresAt:t.expiresAt}));return JSON.stringify({name:a.name,status:a.status,deactivatedFromStatus:a.deactivatedFromStatus||null,bundles:a.bundles||[],classroomIds:a.classroomIds||[],classroomReview:!!a.classroomReview,legacyChildAccess:a.legacyChildAccess||[],scope:a.scope||'',profile:a.profile||null,identityId:a.identityId||null,identity:identity?{email:identity.email,emailVerified:identity.emailVerified,credentialVersion:identity.credentialVersion,googleSubject:identity.googleSubject,pendingEmail:identity.pendingEmail}:null,tokens})}
+function mpsStaffLifecyclePersisted(a){
+  try{const saved=JSON.parse(localStorage.getItem(storageKey));return !!saved?.staff?.accounts?.[a.id]&&mpsStaffLifecycleSnapshot(saved.staff.accounts[a.id],saved)===mpsStaffLifecycleSnapshot(a)}catch(_error){return false}
+}
+function mpsStaffLifecycleStoreCurrent(){
+  try{const saved=JSON.parse(localStorage.getItem(storageKey));return JSON.stringify(saved?.staff)===JSON.stringify(db.staff)&&JSON.stringify(saved?.auth)===JSON.stringify(db.auth)}catch(_error){return false}
+}
+function mpsStaffLifecycleProblem(message){showFeedback(message);return false}
+function mpsOpenStaffDeactivation(id){
+  const a=mpsAccount(id);
+  if(!mpsCurrentIsAccountAdmin()||!a||!['active','pending_profile'].includes(a.status))return mpsStaffLifecycleProblem('This account is no longer available for deactivation.');
+  ui().modal={name:'confirm-staff-deactivation',data:{id,snapshot:mpsStaffLifecycleSnapshot(a)}};render();return true;
+}
+function mpsStaffDeactivationModal(id){
+  const a=mpsAccount(id);if(!mpsCurrentIsAccountAdmin()||!a)return '';
+  return modal('Deactivate account','',`${kv('Staff member',esc(a.name))}<p>This will disable this person’s access to Eliira. Their Staff record and past actions will remain.</p>`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Confirm deactivation',`deactivateStaff('${esc(id)}')`,'danger')}`);
+}
 deactivateStaff=function(id){
-  const a=mpsAccount(id);if(!a)return;
-  if(mpsIsAccountAdminAccount(a)&&mpsAccountAdminCount()===1){showFeedback('This is the last active Account Admin. Give Account Admin access to another active staff member before deactivating this account.');return}
-  a.status='inactive';
-  db.staff.history.push({actor:staffActor(),staffId:a.id,at:new Date().toISOString(),text:`${a.username} deactivated; past actions remain linked to this person`});
-  closeOverlay();
+  const a=mpsAccount(id),confirmation=ui().modal;
+  if(!mpsCurrentIsAccountAdmin()||!a||confirmation?.name!=='confirm-staff-deactivation'||confirmation.data?.id!==id)return false;
+  if(!mpsStaffLifecyclePersisted(mpsCurrentAccount()))return mpsStaffLifecycleProblem('Your Account Admin access could not be confirmed. Reload and review the account before trying again.');
+  if(!['active','pending_profile'].includes(a.status)||confirmation.data.snapshot!==mpsStaffLifecycleSnapshot(a)||!mpsStaffLifecyclePersisted(a))return mpsStaffLifecycleProblem('This Staff account changed. Reload it and review the current access before trying again.');
+  if(!mpsStaffLifecycleStoreCurrent())return mpsStaffLifecycleProblem('Saved Staff information changed. Reload before trying again.');
+  if(mpsIsAccountAdminAccount(a)&&mpsAccountAdminCount()===1)return mpsStaffLifecycleProblem('This is the last active Account Admin. Give Account Admin access to another active staff member before deactivating this account.');
+  const before=structuredClone(db),actor=staffActor(),at=new Date().toISOString();
+  a.deactivatedFromStatus=a.status;a.status='inactive';
+  if(a.identityId)mpsInvalidateTokens(a.identityId,['reset','invite','email-change']);
+  db.staff.history.push({actor,staffId:id,at,before:{status:before.staff.accounts[id].status},after:{status:'inactive'},text:`${a.name} account deactivated; access disabled`});
+  ui().modal=null;
+  if(!save()){db=before;return mpsStaffLifecycleProblem('Account was not deactivated. Check browser storage and try again.')}
+  render();showFeedback(`${a.name} account deactivated.`);return true;
 };
 function mpsAccountAdminToday(){
   const p=currentPersona();
@@ -53178,6 +53203,7 @@ const _mpsAccountModalView=modalView;
 modalView=function(m){
   if(m?.name==='staff-account') return mpsCreateStaffModal();
   if(m?.name==='manage-access') return mpsManageAccessModal(m.data?.id);
+  if(m?.name==='confirm-staff-deactivation')return mpsStaffDeactivationModal(m.data?.id);
   return _mpsAccountModalView(m);
 };
 
@@ -53269,6 +53295,33 @@ function educationAgeMonths(value){
  const years=Number(value),months=Math.round(years*12);
  return String(value).trim()!==''&&Number.isFinite(years)&&years>=0&&Number.isSafeInteger(months)&&Math.abs(years*12-months)<0.001?months:null;
 }
+// Expected-age bands use completed months and half-open [start, end) intervals.
+// Saved legacy conflicts stay readable; a configuration write cannot introduce
+// a new conflict or change either range in a still-conflicting pair.
+function educationActiveRangeConflicts(config){
+ const levels=config.levels.filter(level=>!level.retired),conflicts=[];
+ for(let i=0;i<levels.length;i++)for(let j=i+1;j<levels.length;j++){
+  const a=levels[i],b=levels[j];
+  if(Number.isSafeInteger(a.minMonths)&&Number.isSafeInteger(a.maxMonths)&&a.minMonths<a.maxMonths&&Number.isSafeInteger(b.minMonths)&&Number.isSafeInteger(b.maxMonths)&&b.minMonths<b.maxMonths&&a.minMonths<b.maxMonths&&b.minMonths<a.maxMonths)conflicts.push([a,b]);
+ }
+ return conflicts;
+}
+function educationRangeWriteError(before,after){
+ for(const [a,b] of educationActiveRangeConflicts(after)){
+  const oldA=before.levels.find(level=>level.id===a.id),oldB=before.levels.find(level=>level.id===b.id);
+  const unchanged=oldA&&oldB&&!oldA.retired&&!oldB.retired&&oldA.minMonths===a.minMonths&&oldA.maxMonths===a.maxMonths&&oldB.minMonths===b.minMonths&&oldB.maxMonths===b.maxMonths;
+  if(unchanged)continue;
+  const edited=oldA&&!oldA.retired&&oldA.minMonths===a.minMonths&&oldA.maxMonths===a.maxMonths?b:a;
+  const other=edited===a?b:a;
+  return {levelId:edited.id,message:`This age range overlaps with ${other.name} (${educationLevelRangeLabel(other)}). Choose a different range.`};
+ }
+ return null;
+}
+function educationExistingConflictHtml(config){
+ const conflicts=educationActiveRangeConflicts(config);
+ if(!conflicts.length)return '';
+ return `<div class="settings-level-conflicts" role="status">${conflicts.map(([a,b])=>notice(`${esc(a.name)} (${esc(educationLevelRangeLabel(a))}) overlaps with ${esc(b.name)} (${esc(educationLevelRangeLabel(b))}). Edit a Level to resolve this saved conflict; existing children and Classrooms stay as recorded.`,'warn')).join('')}</div>`;
+}
 function educationPlanningRangeField(level){
  const choices=mpsB09PlanningRanges(),value=`${level.minMonths}|${level.maxMonths}`,supported=!!mpsB09BandsForRange(level.minMonths,level.maxMonths),id=`level_range_${level.id}`;
  return `<div class="field education-planning-range"><label for="${esc(id)}">Planning age band</label><select id="${esc(id)}" data-level-range onchange="refreshEducationLevelSummary('${esc(level.id)}')">${supported?'':`<option value="${esc(value)}" selected>Existing range needs review (${esc(educationAgeYears(level.minMonths))}–${esc(educationAgeYears(level.maxMonths))} years)</option>`}${choices.map(([min,max])=>`<option value="${min}|${max}" ${value===`${min}|${max}`?'selected':''}>Ages ${min/12}–${max/12}</option>`).join('')}</select><small>Choose one planning band for this Level. Children keep their exact dates of birth and placement.</small></div>`;
@@ -53347,7 +53400,7 @@ function educationHoursFields(id,label,h){
 function educationSettingsFields(){const c=educationConfig();return `${mpsSchoolTermFields()}<details class="settings-section"><summary>Levels</summary><p>Each Level uses one planning band for activity suggestions. This does not move children or limit admission.</p>${c.levels.filter(l=>!l.retired).map(educationLevelFields).join('')}<div id="add_education_level">${btn('Add level','addEducationLevel()','secondary','sm')}</div>${c.levels.filter(l=>l.retired).map(l=>`<div class="education-retired-level">${esc(l.name)} · Retired</div>`).join('')}</details><details class="settings-section"><summary>Classrooms</summary><div id="education_rooms">${c.levels.filter(l=>!l.retired).map(l=>educationClassroomGroup(l,c.classrooms.filter(r=>r.levelId===l.id))).join('')}</div></details>${curriculumSettingsFields()}<details class="settings-section education-hours" data-settings-section="preschool-hours"><summary>Preschool hours</summary>${educationHoursFields('preschool','Preschool',c.preschool)}</details><details class="settings-section education-hours" data-settings-section="daycare"><summary>Daycare</summary>${c.plans.map(p=>educationHoursFields(p.id,p.name,p)).join('')}<small>Existing authorised bookings keep their recorded hours. Amend a booking explicitly to change its coverage.</small></details>`}
 function readEducationSettings(){const c=JSON.parse(JSON.stringify(educationConfig()));
  const edited=Array.from(document.querySelectorAll('[data-level-id]')).map(el=>({id:el.dataset.levelId}));
- for(const l of edited){l.name=val('level_name_'+l.id).trim();l.shortName=val('level_short_'+l.id).trim();const range=val('level_range_'+l.id).split('|').map(Number);l.minMonths=range[0];l.maxMonths=range[1];const old=c.levels.find(item=>item.id===l.id),unchangedLegacy=old&&!mpsB09BandsForRange(old.minMonths,old.maxMonths)&&old.minMonths===l.minMonths&&old.maxMonths===l.maxMonths;if(!l.name||!l.shortName||!(mpsB09BandsForRange(l.minMonths,l.maxMonths)||unchangedLegacy))throw new Error('Choose one of the supported planning age ranges for each new or changed Level.');}
+ for(const l of edited){l.name=val('level_name_'+l.id).trim();l.shortName=val('level_short_'+l.id).trim();const range=val('level_range_'+l.id).split('|').map(Number);l.minMonths=range[0];l.maxMonths=range[1];const old=c.levels.find(item=>item.id===l.id),unchangedLegacy=old&&!mpsB09BandsForRange(old.minMonths,old.maxMonths)&&old.minMonths===l.minMonths&&old.maxMonths===l.maxMonths;if(!l.name||!l.shortName||!(mpsB09BandsForRange(l.minMonths,l.maxMonths)||unchangedLegacy)){const error=new Error('Choose one of the supported planning age ranges for each new or changed Level.');error.levelId=l.id;throw error}}
  const retired=new Set(Array.from(document.querySelectorAll('[data-retired-level-id]')).map(el=>el.dataset.retiredLevelId));
  const original=c.levels;
  c.levels=[...original.map(l=>edited.find(e=>e.id===l.id)||((l.retired||retired.has(l.id))?{...l,retired:true}:null)).filter(Boolean),...edited.filter(l=>!original.some(old=>old.id===l.id))];
@@ -53407,7 +53460,7 @@ mpsSavePreschoolSettings=function(section=null){
   const o=db.organization;
   let nextFees=null,nextEducation=null,nextCurriculum=null,nextSchoolYear=null;
   if(head){
-    try{nextEducation=readEducationSettings();nextCurriculum=readCurriculumSettings();nextSchoolYear=mpsReadSchoolTermSettings()}catch(error){if(!byId('school_term_error')||byId('school_term_error').hidden)showFeedback(error.message);return}
+    try{nextEducation=readEducationSettings();nextCurriculum=readCurriculumSettings();nextSchoolYear=mpsReadSchoolTermSettings()}catch(error){if(error.levelId&&byId('level_range_'+error.levelId))eliiraFieldError('level_range_'+error.levelId,error.message);else if(!byId('school_term_error')||byId('school_term_error').hidden)showFeedback(error.message);return}
     const ids=['fee_admission','fee_due','fee_preschool','fee_standard','fee_extended','fee_grace','fee_late','fee_monthly_due_day'];
     const missing=ids.find(id=>!val(id).trim());if(missing){eliiraFieldError(missing,'Enter this fee or period.');return}
     const values=ids.map(id=>Number(val(id)));
@@ -53422,6 +53475,9 @@ mpsSavePreschoolSettings=function(section=null){
     if(section!=='academic')nextSchoolYear=null;
     if(section!=='fees')nextFees=null;
   }
+  // This is the Level configuration writer for page, modal and planning-setup
+  // entry paths. Validate the staged result before assigning it to the store.
+  if(nextEducation){const conflict=educationRangeWriteError(educationConfig(),nextEducation);if(conflict){eliiraFieldError('level_range_'+conflict.levelId,conflict.message);return}}
   const saveHeadSettings=()=>{if(nextEducation&&JSON.stringify(o.educationCare)!==JSON.stringify(nextEducation)){o.educationCare=nextEducation;o.settingsHistory.push({at:new Date().toISOString(),byId:currentPersona().id,changes:['education and operating settings updated'],educationSnapshot:JSON.parse(JSON.stringify(nextEducation))})}if(nextCurriculum&&JSON.stringify(mpsTenantCurriculum())!==JSON.stringify(nextCurriculum)){o.curriculum=nextCurriculum;o.settingsHistory.push({at:new Date().toISOString(),by:currentPersona().name,byId:currentPersona().id,changes:['primary curriculum pack updated'],curriculumSnapshot:JSON.parse(JSON.stringify(nextCurriculum))})}if(nextFees&&JSON.stringify(mpsTenantFees())!==JSON.stringify(nextFees)){o.fees=nextFees;o.settingsHistory.push({at:new Date().toISOString(),by:currentPersona().name,byId:currentPersona().id,changes:['fees updated'],feeSnapshot:JSON.parse(JSON.stringify(nextFees))})}if(nextSchoolYear)mpsApplySchoolYear(nextSchoolYear)};
   if(!admin){saveHeadSettings();if(!save()){db=beforeDb;return}mpsSettingsSaved();return}
   if(section&&section!=='preschool'){saveHeadSettings();if(!save()){db=beforeDb;return}mpsSettingsSaved();return}
@@ -55186,7 +55242,8 @@ function seedOperationalStaffProfiles(){
 seedOperationalStaffProfiles();
 const _profileCompletionAllowed=allowed;
 allowed=function(route){
-  const a=mpsCurrentAccount();if(a&&(a.status==='pending_profile'||a.status==='active'&&!staffProfileComplete(a)))return route==='staff';
+  const a=mpsCurrentAccount();if(ui().signedOut||a?.status==='inactive')return false;
+  if(a&&(a.status==='pending_profile'||a.status==='active'&&!staffProfileComplete(a)))return route==='staff';
   return _profileCompletionAllowed(route);
 };
 const _profileCompletionRender=render;
@@ -55208,15 +55265,15 @@ calendarGuardianBirthdaysOn=function(date){
 
 // Assigned bundles on a pending account are a plan, not effective authority.
 const _profileHas=has;
-has=function(bundle){const a=db.staff?.accounts?.[ui().persona];if(a?.status==='pending_profile')return false;return _profileHas(bundle)};
+has=function(bundle){const a=db.staff?.accounts?.[ui().persona];if(ui().signedOut||a?.status==='pending_profile'||a?.status==='inactive')return false;return _profileHas(bundle)};
 const _profileIsAdmin=mpsCurrentIsAccountAdmin;
-mpsCurrentIsAccountAdmin=function(){return mpsCurrentAccount()?.status==='active'&&_profileIsAdmin()};
+mpsCurrentIsAccountAdmin=function(){return !ui().signedOut&&mpsCurrentAccount()?.status==='active'&&_profileIsAdmin()};
 
 // Only existing account-management authority may change assigned access/status.
 const _profileSaveAccess=saveAccess;
 saveAccess=function(id){if(mpsCurrentIsAccountAdmin())_profileSaveAccess(id)};
 const _profileDeactivate=deactivateStaff;
-deactivateStaff=function(id){if(mpsCurrentIsAccountAdmin())_profileDeactivate(id)};
+deactivateStaff=function(id){return mpsCurrentIsAccountAdmin()?_profileDeactivate(id):false};
 
 function pickupGuardianLinkControl(p,index,caseId){
   const links=childLinks(db.admissions[caseId]?.childId).filter(l=>l.caseId===caseId&&!l.deactivated);
@@ -56645,18 +56702,18 @@ function mpsInvalidateTokens(identityId,purposes=['reset']){
 }
 // Replaceable delivery boundary. No network delivery; credentials are never shown in Admin UI.
 function mpsDeliverAuthEmail(message){db.auth.outbox.push({...message,delivery:'simulated',createdAt:Date.now()})}
-function mpsIssueAuthLink(a,purpose,email){
+function mpsIssueAuthLink(a,purpose,email,persist=true){
   const identity=mpsIdentity(a);if(!identity)return null;
   mpsInvalidateTokens(identity.id,[purpose]);
   const id=crypto.randomUUID(),minutes=purpose==='invite'?mpsAuthPolicy().inviteMinutes:purpose==='reset'?mpsAuthPolicy().resetMinutes:mpsAuthPolicy().verificationMinutes;
   db.auth.tokens[id]={id,identityId:identity.id,staffId:a.id,purpose,email,credentialVersion:identity.credentialVersion||0,expiresAt:Date.now()+minutes*60000};
   mpsDeliverAuthEmail({to:email,token:id,purpose,staffId:a.id});
   mpsAuthAudit(a,`${purpose==='invite'?'Invitation':purpose==='reset'?'Password reset link':'Email verification'} prepared (prototype email simulation)`);
-  save();return id;
+  if(persist)save();return id;
 }
 function mpsValidAuthToken(id,purpose){
   const t=db.auth?.tokens[id],a=t&&mpsAccount(t.staffId),i=mpsIdentity(a);
-  if(!t||!i||a.identityId!==t.identityId||!['active','pending_profile'].includes(a.status)||t.purpose!==purpose||t.usedAt||t.revokedAt||t.expiresAt<=Date.now())return null;
+  if(!t||!i||a.identityId!==t.identityId||!(['active','pending_profile'].includes(a.status)||a.status==='inactive'&&['invite','email-change'].includes(purpose))||t.purpose!==purpose||t.usedAt||t.revokedAt||t.expiresAt<=Date.now())return null;
   if(purpose==='email-change')return i.pendingEmail===t.email&&!mpsEmailReserved(t.email,i.id)?t:null;
   if(i.email!==t.email||mpsEmailReserved(t.email,i.id))return null;
   if(purpose==='reset'&&(!i.emailVerified||t.credentialVersion!==(i.credentialVersion||0)))return null;
@@ -56728,7 +56785,7 @@ async function mpsCompleteEmailPassword(){
   if(!mpsValidAuthToken(t.id,mode))return render();
   const a=mpsAccount(t.staffId),i=mpsIdentity(a);i.password=record;i.credentialVersion=(i.credentialVersion||0)+1;i.emailVerified=true;t.usedAt=Date.now();
   mpsInvalidateTokens(i.id,['reset','invite']);mpsAuthAudit(a,mode==='invite'?'Email invitation accepted; password set':'Password reset completed');
-  if(mode==='invite'){a.invitationAcceptedAt=new Date().toISOString();mpsFinishSignIn(a)}else{ui().authEmail=i.email;ui().authToken=null;ui().authMode='login';mpsAuthNotice('Password updated. You can sign in now.')}
+  if(mode==='invite'){a.invitationAcceptedAt=new Date().toISOString();if(a.status==='inactive'){ui().authEmail=i.email;ui().authToken=null;ui().authMode='login';mpsAuthNotice('Email verified. The Staff account remains inactive until an Account Admin reactivates it.')}else mpsFinishSignIn(a)}else{ui().authEmail=i.email;ui().authToken=null;ui().authMode='login';mpsAuthNotice('Password updated. You can sign in now.')}
 }
 // The only simulated Google assertions offered are explicit verified test identities.
 // Production supplies validated OIDC assertions here; never trust a typed email.
@@ -56748,14 +56805,14 @@ function mpsAcceptGoogleAssertion(assertion){
   if(!ui().signedOut||assertion?.emailVerified!==true||!assertion.sub)return false;
   const email=mpsAuthEmail(assertion.email),a=email&&mpsAccountForEmail(email),i=mpsIdentity(a);
   const invitation=ui().googleContext==='invite'&&mpsValidAuthToken(ui().authToken,'invite');
-  if((ui().googleContext==='invite'&&(!invitation||invitation.email!==email))||!a||!['active','pending_profile'].includes(a.status)||(!i.emailVerified&&(!invitation||invitation.staffId!==a.id))||(i.googleSubject&&i.googleSubject!==assertion.sub)||Object.values(db.auth.identities).some(other=>other.id!==i.id&&other.googleSubject===assertion.sub)){
+  if((ui().googleContext==='invite'&&(!invitation||invitation.email!==email))||!a||!(['active','pending_profile'].includes(a.status)||a.status==='inactive'&&invitation?.staffId===a.id)||(!i.emailVerified&&(!invitation||invitation.staffId!==a.id))||(i.googleSubject&&i.googleSubject!==assertion.sub)||Object.values(db.auth.identities).some(other=>other.id!==i.id&&other.googleSubject===assertion.sub)){
     mpsAuthNotice('This Google identity is not linked to an eligible Eliira account.');return false;
   }
   i.emailVerified=true;i.googleSubject=assertion.sub;
   db.auth.googleFixtures=db.auth.googleFixtures||[];
   if(!db.auth.googleFixtures.some(f=>f.sub===assertion.sub))db.auth.googleFixtures.push({...assertion});
   if(invitation&&invitation.staffId===a.id){invitation.usedAt=Date.now();a.invitationAcceptedAt=new Date().toISOString();mpsInvalidateTokens(i.id,['invite'])}
-  mpsAuthAudit(a,'Signed in with verified Google identity (prototype simulation)');mpsFinishSignIn(a);return true;
+  mpsAuthAudit(a,a.status==='inactive'?'Verified Google identity linked while account inactive (prototype simulation)':'Signed in with verified Google identity (prototype simulation)');if(a.status==='inactive'){ui().googleContext=null;ui().authToken=null;ui().authMode='login';mpsAuthNotice('Email verified. The Staff account remains inactive until an Account Admin reactivates it.')}else mpsFinishSignIn(a);return true;
 }
 function mpsOwnSecurityContent(id){
   const a=mpsCurrentAccount(),i=mpsIdentity(a);if(ui().signedOut||a?.id!==id||ui().profileStaff!==id)return '';
@@ -56804,41 +56861,80 @@ createStaff=function(){
   db.staff.accounts[id]=a;mpsEnsurePersonaForAccount(a);mpsAuthAudit(a,'Staff account created; invitation pending');mpsIssueAuthLink(a,'invite',email);ui().modal={name:'invitation-result',data:{id}};save();render();
 };
 function mpsResendInvitation(id){
-  const a=mpsAccount(id),i=mpsIdentity(a);if(!mpsCurrentIsAccountAdmin()||!['active','pending_profile'].includes(a?.status)||!i||i.emailVerified)return;
-  mpsIssueAuthLink(a,'invite',i.email);ui().modal={name:'invitation-result',data:{id}};save();render();
+  const a=mpsAccount(id),i=mpsIdentity(a);if(!mpsCurrentIsAccountAdmin()||!['active','pending_profile','inactive'].includes(a?.status)||!i||i.emailVerified)return;
+  const before=structuredClone(db);mpsIssueAuthLink(a,'invite',i.email,false);ui().modal={name:'invitation-result',data:{id}};
+  if(!save()){db=before;showFeedback('Invitation was not prepared. Check browser storage and try again.');return false}
+  render();return true;
 }
 function mpsStaffAccountContent(a){
   if(!mpsCurrentIsAccountAdmin())return '';
   const i=mpsIdentity(a),pending=a.status==='pending_profile';
   const emailState=!i?'Not configured':i.emailVerified?'Verified':'Invitation pending';
-  return `<div class="staff-access-metadata"><section class="staff-profile-block"><h3>Account</h3>${kv('Sign-in email',i?`${esc(i.email)} · ${emailState}`:'Not configured')}${kv('Account state',esc(staffAccountState(a)))}${i?.pendingEmail?kv('Email change',esc(i.pendingEmail)+' · Awaiting verification'):''}${pending?kv('Profile setup',staffProfileComplete(a)?'Complete':'Required profile completion outstanding'):''}</section><section class="staff-profile-block"><h3>Access</h3>${kv('Responsibilities',esc(staffResponsibilities(a)))}${kv('Teaching classrooms',esc(staffTeachingClassrooms(a)))}</section></div><div class="staff-access-actions">${a.status!=='inactive'?btn('Manage access',`openModal('manage-access',{id:'${a.id}'})`,'secondary'):btn('Account history',`openModal('access-history',{id:'${a.id}'})`,'secondary')}${a.status!=='inactive'&&!i?.emailVerified&&i?btn('Resend invitation',`mpsResendInvitation('${a.id}')`,'secondary'):''}${a.status!=='inactive'?btn(i?'Change login email':'Configure login email',`openModal('change-login-email',{id:'${a.id}'})`,'secondary'):''}${pending?btn('Activate account',`activateProfileStaff('${a.id}')`,'primary'):''}</div>`;
+  return `<div class="staff-access-metadata"><section class="staff-profile-block"><h3>Account</h3>${kv('Sign-in email',i?`${esc(i.email)} · ${emailState}`:'Not configured')}${kv('Account state',esc(staffAccountState(a)))}${i?.pendingEmail?kv('Email change',esc(i.pendingEmail)+' · Awaiting verification'):''}${pending?kv('Profile setup',staffProfileComplete(a)?'Complete':'Required profile completion outstanding'):''}</section><section class="staff-profile-block"><h3>Access</h3>${kv('Responsibilities',esc(staffResponsibilities(a)))}${kv('Teaching classrooms',esc(staffTeachingClassrooms(a)))}</section></div><div class="staff-access-actions">${btn('Manage access',`openModal('manage-access',{id:'${a.id}'})`,'secondary')}${a.status==='inactive'?btn('Reactivate account',`mpsOpenStaffReactivation('${a.id}')`,'primary'):''}${!i?.emailVerified&&i?btn('Resend invitation',`mpsResendInvitation('${a.id}')`,'secondary'):''}${btn(i?'Change login email':'Configure login email',`openModal('change-login-email',{id:'${a.id}'})`,'secondary')}${pending?btn('Activate account',`activateProfileStaff('${a.id}')`,'primary'):''}</div>`;
+}
+function mpsStaffRestoredStatus(a){return a.deactivatedFromStatus==='active'?'active':'pending_profile'}
+function mpsStaffReactivationBlockers(a){
+  const issues=[],i=mpsIdentity(a),roles=a.bundles||[],rooms=a.classroomIds||[];
+  if(mpsStaffRestoredStatus(a)==='active'&&(!i||!i.emailVerified||!mpsAuthEmail(i.email)||mpsAccountForEmail(i.email)!==a))issues.push('A unique verified login email is required. Use the existing login-email or invitation controls to correct it.');
+  if(mpsStaffRestoredStatus(a)==='active'&&!staffProfileComplete(a))issues.push('Required Staff profile information is incomplete. Ask an authorised Head Teacher to complete the Staff profile.');
+  if(roles.some(role=>!mpsBundleOptions().includes(role)))issues.push('An earlier responsibility is no longer available. Use Manage access to review it.');
+  if(a.classroomReview||rooms.some(id=>!activeEducationRoom(id))||mpsTeachingClassroomsRequired(roles)&&!rooms.length)issues.push('Teaching Classroom access needs review. Use Manage access to select current Classrooms.');
+  return issues;
+}
+function mpsOpenStaffReactivation(id){
+  const a=mpsAccount(id);if(!mpsCurrentIsAccountAdmin()||a?.status!=='inactive')return mpsStaffLifecycleProblem('This account is no longer available for reactivation.');
+  ui().modal={name:'confirm-staff-reactivation',data:{id,snapshot:mpsStaffLifecycleSnapshot(a)}};render();return true;
+}
+function mpsStaffReactivationModal(id){
+  const a=mpsAccount(id);if(!mpsCurrentIsAccountAdmin()||!a)return '';
+  const issues=mpsStaffReactivationBlockers(a),rooms=(a.classroomIds||[]).map(id=>`${classroomLabel(id,true)}${activeEducationRoom(id)?'':' (no longer active)'}`).join(' · ')||'No teaching Classrooms assigned';
+  const loginAction=mpsIdentity(a)&&!mpsIdentity(a).emailVerified?btn('Resend invitation',`mpsResendInvitation('${esc(id)}')`,'secondary'):btn('Login email',`openModal('change-login-email',{id:'${esc(id)}'})`,'secondary');
+  return modal('Reactivate account','Review the access this person will regain.',`<div id="staff-reactivation-review">${kv('Staff member',esc(a.name))}${kv('Sign-in email',esc(mpsIdentity(a)?.email||'Not configured'))}${kv('Responsibilities',esc((a.bundles||[]).join(' · ')||'None assigned'))}${kv('Teaching Classrooms',esc(rooms))}</div>${issues.map(message=>notice(esc(message),'warn')).join('')}<p>${mpsStaffRestoredStatus(a)==='pending_profile'?'This account will return to profile setup. Its responsibilities stay inactive until authorised activation.':'The same Staff account, login identity and history will be kept.'}</p>`,`${btn('Cancel','closeOverlay()','secondary')}${issues.length?`${btn('Manage access',`openModal('manage-access',{id:'${esc(id)}'})`,'secondary')}${loginAction}`:btn('Confirm reactivation',`reactivateStaff('${esc(id)}')`,'primary')}`);
+}
+function reactivateStaff(id){
+  const a=mpsAccount(id),confirmation=ui().modal;
+  if(!mpsCurrentIsAccountAdmin()||!a||confirmation?.name!=='confirm-staff-reactivation'||confirmation.data?.id!==id)return false;
+  if(!mpsStaffLifecyclePersisted(mpsCurrentAccount()))return mpsStaffLifecycleProblem('Your Account Admin access could not be confirmed. Reload and review the account before trying again.');
+  if(a.status!=='inactive'||confirmation.data.snapshot!==mpsStaffLifecycleSnapshot(a)||!mpsStaffLifecyclePersisted(a))return mpsStaffLifecycleProblem('This Staff account changed. Reload it and review the current access before trying again.');
+  if(!mpsStaffLifecycleStoreCurrent())return mpsStaffLifecycleProblem('Saved Staff information changed. Reload before trying again.');
+  const issues=mpsStaffReactivationBlockers(a);if(issues.length)return mpsStaffLifecycleProblem(issues[0]);
+  const before=structuredClone(db),actor=staffActor(),at=new Date().toISOString();
+  const restored=mpsStaffRestoredStatus(a);
+  a.status=restored;delete a.deactivatedFromStatus;db.staff.history.push({actor,staffId:id,at,before:{status:'inactive'},after:{status:restored,bundles:[...a.bundles],classroomIds:[...(a.classroomIds||[])]},text:`${a.name} account reactivated after access review`});
+  ui().modal=null;
+  if(!save()){db=before;return mpsStaffLifecycleProblem('Account was not reactivated. Check browser storage and try again.')}
+  render();showFeedback(`${a.name} account reactivated.`);return true;
 }
 function mpsEmailChangeModal(id){
-  const a=mpsAccount(id);if(!mpsCurrentIsAccountAdmin()||!a||a.status==='inactive')return '';
-  return modal('Change login email','',`${kv('Staff member',esc(a.name))}${mpsAuthField('New email',mpsIdentity(a)?.pendingEmail||'','email',false,'new_login_email')}<p>The current sign-in email stays active until the new email is verified.</p>`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Send verification',`mpsRequestEmailChange('${id}')`,'primary')}`);
+  const a=mpsAccount(id);if(!mpsCurrentIsAccountAdmin()||!a)return '';
+  return modal('Change login email','',`${kv('Staff member',esc(a.name))}${mpsAuthField('New email',mpsIdentity(a)?.pendingEmail||'','email',false,'new_login_email')}<p>The current sign-in email stays active until the new email is verified. An inactive account remains inactive.</p>`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Send verification',`mpsRequestEmailChange('${id}')`,'primary')}`);
 }
 function mpsRequestEmailChange(id){
-  const a=mpsAccount(id);if(!mpsCurrentIsAccountAdmin()||!a||a.status==='inactive')return;
+  const a=mpsAccount(id);if(!mpsCurrentIsAccountAdmin()||!a)return;
   const email=mpsAuthEmail(val('new_login_email'));let i=mpsIdentity(a);
   if(!email)return eliiraFieldError('new_login_email','Enter a valid email.');
   if(mpsEmailReserved(email,i?.id)||i?.email===email)return eliiraFieldError('new_login_email','Use a different email that is not already in use.');
-  if(!i){const identityId='identity_'+crypto.randomUUID();i={id:identityId,email,emailVerified:false,password:null,googleSubject:null,credentialVersion:0};db.auth.identities[identityId]=i;a.identityId=identityId;mpsIssueAuthLink(a,'invite',email)}
-  else if(!i.emailVerified){mpsInvalidateTokens(i.id,['invite','email-change']);i.email=email;delete i.pendingEmail;mpsIssueAuthLink(a,'invite',email)}
-  else{i.pendingEmail=email;mpsIssueAuthLink(a,'email-change',email)}
-  mpsAuthAudit(a,'Login email verification requested');save();closeOverlay();showFeedback('Verification is available in the signed-out test inbox. No real email was sent.');
+  const before=structuredClone(db);
+  if(!i){const identityId='identity_'+crypto.randomUUID();i={id:identityId,email,emailVerified:false,password:null,googleSubject:null,credentialVersion:0};db.auth.identities[identityId]=i;a.identityId=identityId;mpsIssueAuthLink(a,'invite',email,false)}
+  else if(!i.emailVerified){mpsInvalidateTokens(i.id,['invite','email-change']);i.email=email;delete i.pendingEmail;mpsIssueAuthLink(a,'invite',email,false)}
+  else{i.pendingEmail=email;mpsIssueAuthLink(a,'email-change',email,false)}
+  mpsAuthAudit(a,'Login email verification requested');ui().modal=null;
+  if(!save()){db=before;showFeedback('Login email change was not saved. Check browser storage and try again.');return false}
+  render();showFeedback('Verification is available in the signed-out test inbox. No real email was sent.');return true;
 }
 function mpsConfirmEmailChange(){
   if(!ui().signedOut)return;
   const t=mpsValidAuthToken(ui().authToken,'email-change');if(!t)return render();
   const a=mpsAccount(t.staffId),i=mpsIdentity(a),previous=i.email;
   i.email=t.email;i.emailVerified=true;delete i.pendingEmail;i.googleSubject=null;t.usedAt=Date.now();mpsInvalidateTokens(i.id,['reset','invite','email-change']);
-  mpsAuthAudit(a,'Verified login email changed',{before:{email:previous},after:{email:i.email}});ui().authEmail=i.email;ui().authMode='login';ui().authToken=null;mpsAuthNotice('Email verified. Sign in with your new email.');
+  mpsAuthAudit(a,'Verified login email changed',{before:{email:previous},after:{email:i.email}});ui().authEmail=i.email;ui().authMode='login';ui().authToken=null;mpsAuthNotice(a.status==='inactive'?'Email verified. The Staff account remains inactive until an Account Admin reactivates it.':'Email verified. Sign in with your new email.');
 }
 const _emailAuthModal=modalView;
 modalView=function(m){
   if(['profile-recovery','verify-recovery-mobile','account-recovery-code','admin-reset-result','staff-setup-instructions'].includes(m?.name))return '';
   if(m?.name==='change-own-password')return mpsOwnPasswordModal();
   if(m?.name==='change-login-email')return mpsEmailChangeModal(m.data?.id);
+  if(m?.name==='confirm-staff-reactivation')return mpsStaffReactivationModal(m.data?.id);
   if(m?.name==='invitation-result'){
     if(!mpsCurrentIsAccountAdmin())return '';
     return modal('Invitation prepared','',notice('Prototype: the invitation is in the signed-out test inbox. No real email was sent.','info'),btn('Done','closeOverlay()','primary'));
@@ -56947,7 +57043,7 @@ mpsPreschoolSettingsContent=function(){
  const preschool=mpsSettingsCard('preschool','Preschool',`<div class="settings-preschool-name">${esc(o.name||ORG)}</div><dl>${mpsSettingsSummaryRow('Phone region',phoneCountry)}${mpsSettingsSummaryRow('Time zone',mpsTimezoneLabel(o.timezone))}${mpsSettingsSummaryRow('Contact phone',o.contactPhone)}</dl>`,admin?general:'',admin?mpsSettingsEditButton('Edit preschool','preschool'):'');
  const academic=head?mpsSettingsCard('academic','Academic year & terms',year?`<dl>${mpsSettingsSummaryRow('Academic year',mpsSettingsDates(year.start,year.end))}</dl><div class="settings-term-summaries">${terms.map((term,index)=>`<div><strong>Term ${index+1}</strong><span>${esc(mpsSettingsDates(term.start,term.end))}</span><small>${esc(mpsSchoolTermDuration(mpsCalendarDays(term.start,term.end)))}</small></div>`).join('')}</div>`:'<p>No governed academic year configured.</p>',`<div data-school-term-settings class="school-term-settings">${termEditor.replace(/<div class="school-term-actions">[\s\S]*?<\/div>/,'')}</div>`,mpsSettingsEditButton('Edit academic year & terms','academic')):'';
  const configured=mpsTenantCurriculum(),pack=mpsCurriculumPack(configured.primaryPackId),version=mpsCurrentCurriculumVersion(pack);
- const teaching=head?`<section class="card settings-overview-section" data-overview-section="teaching"><header><h3>Teaching setup</h3>${btn('Add level','mpsSettingsAddLevel()','secondary','sm')}</header><div class="settings-levels">${c.levels.filter(l=>!l.retired).map(l=>{
+ const teaching=head?`<section class="card settings-overview-section" data-overview-section="teaching"><header><h3>Teaching setup</h3>${btn('Add level','mpsSettingsAddLevel()','secondary','sm')}</header>${educationExistingConflictHtml(c)}<div class="settings-levels">${c.levels.filter(l=>!l.retired).map(l=>{
  const rooms=c.classrooms.filter(r=>r.levelId===l.id&&!r.retired),supported=!!mpsB09BandsForRange(l.minMonths,l.maxMonths);
  return `<article class="settings-level" data-settings-level="${esc(l.id)}"><div class="settings-level-read"><div class="settings-level-summary" data-settings-read="level" data-read-id="${esc(l.id)}"><div><h4>${esc(l.name)}</h4><span>${supported?'Ages':'Existing planning range'} ${esc(educationAgeYears(l.minMonths))}–${esc(educationAgeYears(l.maxMonths))}${supported?'':' · Needs review'}</span></div>${mpsSettingsEditButton('Edit level','level',l.id)}</div><div class="settings-classroom-summaries"><div class="settings-classroom-list">${rooms.map(r=>`<div class="settings-classroom-row" data-settings-read="room" data-read-id="${esc(r.id)}"><span>${esc(r.name)}</span>${mpsSettingsEditButton('Edit classroom','room',r.id)}</div>`).join('')}</div>${btn('Add classroom',`mpsSettingsAddRoom('${l.id}')`,'secondary','sm')}</div></div><div data-settings-editor="level" data-editor-id="${esc(l.id)}" hidden>${levelFields.get(l.id)}</div>${mpsSettingsActions('level',l.id)}<div data-settings-editor="rooms" data-editor-id="${esc(l.id)}" hidden>${roomFields.get(l.id)}</div>${mpsSettingsActions('room',l.id)}</article>`;
  }).join('')}</div><div id="settings-new-level" data-settings-editor="new-level" hidden><div id="add_education_level"></div><div id="education_rooms"></div></div>${mpsSettingsActions('new-level')}<div class="settings-curriculum" data-settings-section="curriculum"><header><h4>Curriculum</h4>${mpsSettingsEditButton('Edit curriculum','curriculum')}</header><div data-settings-read="curriculum"><dl>${mpsSettingsSummaryRow('Framework',pack?.name||'Not configured')}${mpsSettingsSummaryRow('Planning version',version?.label==='Prototype curriculum sample'?'Sample curriculum content':version?.label||'Not available')}${configured.adoptionDate?mpsSettingsSummaryRow('Adoption date',fmtDate(configured.adoptionDate)):''}</dl></div><div data-settings-editor="curriculum" hidden>${curriculumEditor}</div>${mpsSettingsActions('curriculum')}</div>${c.levels.some(l=>l.retired)||c.classrooms.some(r=>r.retired)?`<details class="settings-retired"><summary>Retired levels & classrooms</summary>${c.levels.filter(l=>l.retired).map(l=>`<p>${esc(l.name)} · Retired</p>`).join('')}${c.classrooms.filter(r=>r.retired).map(r=>`<p>${esc(educationLevel(r.levelId)?.name||'Level')} · ${esc(r.name)} · Retired</p>`).join('')}</details>`:''}</section>`:'';
@@ -59811,6 +59907,70 @@ function mpsIncidentCanView(incident){
   if(!incident||!allowed('health'))return false;
   return incidentChildIds(incident).every(id=>canViewChildHealth(id));
 }
+function mpsIncidentCanReview(incident){
+  return mpsIncidentCanView(incident)&&mpsCurrentAccount()?.status==='active'&&has('Head Teacher');
+}
+function mpsIncidentContactEvents(incident){
+  if(Array.isArray(incident?.contactHistory))return incident.contactHistory;
+  if(!incident?.contact)return [];
+  const ids=incidentChildIds(incident);
+  return [{childId:ids.length===1?ids[0]:null,outcome:incident.contact,legacy:true}];
+}
+function mpsIncidentContactOutcomeState(outcome){
+  if(['Called — spoke to guardian','Informed in person'].includes(outcome))return 'completed';
+  if(outcome==='Called — no answer')return 'attempted';
+  if(outcome==='Contact not required')return 'not_required';
+  return 'pending';
+}
+function mpsIncidentContactState(incident,childId){
+  if(!incidentChildIds(incident).length)return 'not_applicable';
+  const events=mpsIncidentContactEvents(incident).filter(event=>event.childId===childId);
+  const latest=[...events].reverse().find(event=>mpsIncidentContactOutcomeState(event.outcome)!=='pending');
+  if(!latest)return 'pending';
+  const state=mpsIncidentContactOutcomeState(latest.outcome);
+  return state==='not_required'&&incident.category==='Uncollected Child'?'pending':state;
+}
+function mpsIncidentContactStateLabel(state){
+  return {pending:'Pending',attempted:'Called — no answer',completed:'Guardian informed',not_required:'Contact not required',not_applicable:'Not applicable'}[state]||'Pending';
+}
+function mpsIncidentContactSummary(incident){
+  const ids=incidentChildIds(incident);
+  if(!ids.length)return 'Not applicable · no child involved';
+  return ids.map(id=>`${profileChildName(id)}: ${mpsIncidentContactStateLabel(mpsIncidentContactState(incident,id))}`).join(' · ');
+}
+function mpsIncidentContactHistoryHtml(incident){
+  const events=mpsIncidentContactEvents(incident);
+  if(!events.length)return '<p>No contact attempt recorded yet.</p>';
+  return `<div class="incident-contact-history">${events.map(event=>`<p>${event.childId?`<strong>${esc(incident.childSnapshots?.find(child=>child.childId===event.childId)?.name||profileChildName(event.childId))}</strong> · `:incidentChildIds(incident).length>1?'<strong>Earlier incident-wide entry</strong> · ':''}${esc(event.outcome||'Not yet contacted')}${event.reason?` · ${esc(event.reason)}`:''}${event.detail?` · ${esc(event.detail)}`:''}${event.actor?.name?` · ${esc(event.actor.name)}`:''}${event.at?` · ${esc(attendanceRecordedTime(event.at))}`:''}${event.legacy?' · Earlier saved outcome; caller and time were not separately recorded.':''}</p>`).join('')}</div>`;
+}
+function mpsIncidentContactPdfText(incident,childId){
+  const events=mpsIncidentContactEvents(incident).filter(event=>event.childId===childId);
+  const status=mpsIncidentContactStateLabel(mpsIncidentContactState(incident,childId));
+  return [status,...events.filter(event=>event.outcome&&event.outcome!=='Not yet contacted').map(event=>[event.outcome,event.reason,event.detail,event.actor?.name,event.at?attendanceRecordedTime(event.at):'',event.legacy?'Earlier saved outcome; caller and time not separately recorded':''].filter(Boolean).join(' · '))].join('\n');
+}
+function mpsIncidentReviewBlocker(incident,followup){
+  if(!mpsIncidentCanReview(incident))return 'Head Teacher review access is required.';
+  if(incident.status==='Closed')return 'This Incident is already closed.';
+  if(incidentCategoryNeedsChild(incident.category)&&!incidentChildIds(incident).length)return 'This Incident needs an involved Child.';
+  const unresolved=incidentChildIds(incident).filter(id=>{
+    const state=mpsIncidentContactState(incident,id);
+    return state!=='completed'&&(state!=='not_required'||incident.category==='Uncollected Child');
+  });
+  if(unresolved.length)return `Guardian contact remains unresolved for ${unresolved.map(id=>profileChildName(id)).join(', ')}.`;
+  if(followup==='Open follow-up')return 'Follow-up is still open.';
+  if(!['No further follow-up required','Follow-up complete'].includes(followup))return 'Choose the follow-up outcome.';
+  return '';
+}
+function mpsIncidentChildSelectionChanged(){
+  const count=document.querySelectorAll('[data-incident-child]:checked').length,wrap=byId('inc_contact_entry'),help=byId('inc_contact_entry_help');
+  if(wrap)wrap.hidden=count!==1;
+  if(help)help.textContent=count===0?'Select an involved Child. A facility Incident with no Child has no Guardian contact.':count>1?'Record each child’s Guardian contact separately after saving.':'';
+  if(count!==1&&byId('inc_contact'))byId('inc_contact').value='Not yet contacted';
+}
+function mpsIncidentChildChoices(selected=[]){
+  const choices=healthScopedChildren();
+  return `<fieldset class="incident-children"><legend>Children involved</legend>${choices.length?choices.map(child=>`<label class="check-row"><input type="checkbox" data-incident-child onchange="mpsIncidentChildSelectionChanged()" value="${esc(child.id)}" ${selected.includes(child.id)?'checked':''}><span>${esc(profileChildName(child.id))}</span></label>`).join(''):'<p>No children are available in your Health scope.</p>'}<small id="incident_child_help">Select each child involved. A facility incident may have none.</small></fieldset>`;
+}
 function mpsIncidentDateValid(value){
   return /^\d{4}-\d{2}-\d{2}$/.test(value||'')&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
 }
@@ -59840,11 +60000,11 @@ function mpsIncidentPhotosHtml(incident){
 incidentModal=function(data={}){
   const selected=healthScopedChildren().some(c=>c.id===(data.childId||healthSelectedChild()))?[data.childId||healthSelectedChild()]:[];
   return modal('New incident','Care first; record objective facts as soon as safely practical.',
-    `${selectField('Category',incidentCategories,'Accident / Injury','inc_cat')}${incidentChildChoices(selected)}`+
+    `${selectField('Category',incidentCategories,'Accident / Injury','inc_cat')}${mpsIncidentChildChoices(selected)}`+
     `<div class="form-grid incident-occurrence-fields">${field('Occurrence date',TODAY,'date',false,'inc_date')}${staffTimeField('Occurrence time',mpsMedicationLocalClock(),false,'inc_time')}</div>`+
     `${field('Location','','text',false,'inc_location')}${textArea('What happened','','inc_what')}`+
     `${textArea('Injury / condition observed','','inc_condition')}${textArea('Immediate action / first aid','','inc_action')}${mpsIncidentPhotoInput()}`+
-    `${selectField('Guardian contact',['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'],'Not yet contacted','inc_contact')}`,
+    `<div id="inc_contact_entry" ${selected.length===1?'':'hidden'}>${selectField('Guardian contact',['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'],'Not yet contacted','inc_contact')}</div><p id="inc_contact_entry_help" class="field-help">${selected.length===1?'':'Select an involved Child. A facility Incident with no Child has no Guardian contact.'}</p>`,
     `${btn('Cancel','closeOverlay()','secondary')}${btn('Save incident','saveIncident()','primary')}`);
 };
 saveIncident=async function(){
@@ -59862,10 +60022,13 @@ saveIncident=async function(){
   const actor=staffActor();if(!actor?.staffId)return false;
   const at=mpsPreschoolBusinessNow().toISOString(),files=[...(byId('inc_photos')?.files||[])];let photos=[];
   try{photos=await Promise.all(files.map(file=>mpsReadIncidentPhoto(file,actor,at)))}catch(error){return eliiraFieldError('inc_photos',error.message||'A photo could not be saved.')}
-  const incident={id:'inc_'+crypto.randomUUID(),childIds,childSnapshots:childIds.map(childId=>({childId,name:profileChildName(childId)})),actor,category,occurredOn,occurredAtTime,location,condition,what,action,contact:val('inc_contact'),photos,status:'Submitted',at,followup:null};
+  const contact=childIds.length===1?val('inc_contact')||'Not yet contacted':childIds.length?'Not yet contacted':'Not applicable';
+  if(childIds.length===1&&!['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'].includes(contact))return eliiraFieldError('inc_contact','Choose the actual Guardian contact outcome.');
+  const contactHistory=childIds.length===1?[{childId:childIds[0],outcome:contact,actor,at}]:[];
+  const incident={id:'inc_'+crypto.randomUUID(),childIds,childSnapshots:childIds.map(childId=>({childId,name:profileChildName(childId)})),actor,category,occurredOn,occurredAtTime,location,condition,what,action,contact,contactHistory,photos,status:'Submitted',at,followup:null};
   db.health.incidents.push(incident);
   if(!save()){db.health.incidents.pop();return false}
-  ui().modal={name:'incident-review',data:{id:incident.id}};save();render();return true;
+  ui().modal={name:'incident-review',data:{id:incident.id}};render();return true;
 };
 function mpsIncidentDownloadActions(incident){
   const ids=incidentChildIds(incident),download=id=>btn(ids.length>1?`Download parent copy · ${esc(incident.childSnapshots?.find(snapshot=>snapshot.childId===id)?.name||profileChildName(id))}`:'Download incident PDF',`mpsDownloadIncidentPdf('${esc(incident.id)}'${id?`,'${esc(id)}'`:''})`,'secondary','sm');
@@ -59874,9 +60037,51 @@ function mpsIncidentDownloadActions(incident){
 function mpsIncidentDetailModal(incident){
   if(!mpsIncidentCanView(incident))return modal('Incident unavailable','',notice('This Incident record is not available.','warn'),btn('Close','closeOverlay()','secondary'));
   const occurred=incident.occurredOn?`${esc(fmtDate(incident.occurredOn))}${incident.occurredAtTime?` · ${esc(staffTimeLabel(incident.occurredAtTime))}`:''}`:'Not recorded on this earlier Incident';
-  const detail=`${kv('Incident reference',esc(incident.id))}${kv('Status',esc(incident.status||'Not recorded'))}${mpsIncidentDownloadActions(incident)}${kv('Category',esc(incident.category||'Not recorded'))}${kv('Children involved',incidentChildrenContext(incident))}${kv('Occurred',occurred)}${incident.location?kv('Location',esc(incident.location)):''}${kv('What happened',esc(incident.what||'Not recorded'))}${incident.condition?kv('Injury / condition observed',esc(incident.condition)):''}${kv('Immediate action / first aid',esc(incident.action||'Not recorded'))}${mpsIncidentPhotosHtml(incident)}${kv('Guardian contact',esc(incident.contact||'Not recorded'))}${incident.followup?kv('Follow-up',esc(incident.followup)):''}${incident.actor?.name?kv('Recorded by',`${esc(incident.actor.name)}${incident.at?` · ${esc(attendanceRecordedTime(incident.at))}`:''}`):''}`;
-  const reviewing=incident.status!=='Closed',followup=reviewing?selectField('Follow-up',['No further follow-up required','Follow-up complete','Open follow-up'],incident.followup==='Open'?'Open follow-up':'No further follow-up required','inc_followup'):'';
-  return modal('Incident record','Saved Incident facts and follow-up.',detail+followup,reviewing?`${btn('Keep open','closeOverlay()','secondary')}${btn('Close incident',`closeIncident('${esc(incident.id)}')`,'primary')}`:btn('Close','closeOverlay()','secondary'));
+  const detail=`${kv('Incident reference',esc(incident.id))}${kv('Status',esc(incident.status||'Not recorded'))}${mpsIncidentDownloadActions(incident)}${kv('Category',esc(incident.category||'Not recorded'))}${kv('Children involved',incidentChildrenContext(incident))}${kv('Occurred',occurred)}${incident.location?kv('Location',esc(incident.location)):''}${kv('What happened',esc(incident.what||'Not recorded'))}${incident.condition?kv('Injury / condition observed',esc(incident.condition)):''}${kv('Immediate action / first aid',esc(incident.action||'Not recorded'))}${mpsIncidentPhotosHtml(incident)}${kv('Guardian contact',esc(mpsIncidentContactSummary(incident)))}${incident.followup?kv('Follow-up',esc(incident.followup)):''}${incident.actor?.name?kv('Recorded by',`${esc(incident.actor.name)}${incident.at?` · ${esc(attendanceRecordedTime(incident.at))}`:''}`):''}`;
+  const open=incident.status!=='Closed',canReview=open&&mpsIncidentCanReview(incident),ids=incidentChildIds(incident);
+  const contactOptions=['Choose outcome…','Called — spoke to guardian','Called — no answer','Informed in person',...(canReview&&incident.category!=='Uncollected Child'?['Contact not required']:[])];
+  const target=ids.length>1?`<div class="field"><label for="inc_contact_child">Child whose Guardian was contacted</label><select id="inc_contact_child">${ids.map(id=>`<option value="${esc(id)}">${esc(incident.childSnapshots?.find(child=>child.childId===id)?.name||profileChildName(id))}</option>`).join('')}</select></div>`:ids.length?`<input type="hidden" id="inc_contact_child" value="${esc(ids[0])}">`:'';
+  const contactEntry=open&&ids.length?`<section class="incident-contact-section"><h3>Record Guardian contact</h3>${target}${selectField('Actual outcome',contactOptions,'Choose outcome…','inc_contact_update','mpsIncidentContactChoiceChanged()')}<div id="inc_contact_reason_wrap" hidden>${textArea('Why contact was not required','','inc_contact_reason')}<label class="check-row"><input id="inc_minor_confirm" type="checkbox"> I confirm this was genuinely minor and Guardian contact was not required.</label><p class="field-help">Serious or urgent Incidents and Uncollected Child cases still require human contact.</p></div>${textArea('Factual contact note (optional)','','inc_contact_detail')}${btn('Save contact update',`mpsRecordIncidentContact('${esc(incident.id)}')`,'secondary')}</section>`:'';
+  const contactHistory=`<section class="incident-contact-section"><h3>Contact history</h3>${mpsIncidentContactHistoryHtml(incident)}</section>`;
+  const followupValue=incident.followup==='Open'?'Open follow-up':incident.followup||'Choose follow-up outcome…';
+  const review=canReview?`<section class="incident-review-section"><h3>Head Teacher review</h3>${selectField('Follow-up',['Choose follow-up outcome…','Open follow-up','Follow-up complete','No further follow-up required'],followupValue,'inc_followup','mpsIncidentUpdateReviewActions()')}<p id="inc_review_blocker" role="status">${esc(mpsIncidentReviewBlocker(incident,followupValue))}</p></section>`:'';
+  const closeAction=canReview?`<span id="inc_close_action" ${mpsIncidentReviewBlocker(incident,followupValue)?'hidden':''}>${btn('Close incident',`closeIncident('${esc(incident.id)}')`,'primary')}</span>`:'';
+  const footer=`${btn('Done','closeOverlay()','secondary')}${canReview?btn('Save review',`mpsSaveIncidentReview('${esc(incident.id)}',false)`,'secondary'):''}${closeAction}`;
+  return modal('Incident record','Saved facts, Guardian contact and follow-up.',detail+contactEntry+contactHistory+review,footer);
+}
+function mpsIncidentContactChoiceChanged(){
+  const show=val('inc_contact_update')==='Contact not required',wrap=byId('inc_contact_reason_wrap');
+  if(wrap)wrap.hidden=!show;
+  if(!show&&byId('inc_minor_confirm'))byId('inc_minor_confirm').checked=false;
+}
+function mpsIncidentUpdateReviewActions(){
+  const incident=db.health.incidents.find(item=>item.id===ui().modal?.data?.id),blocker=incident?mpsIncidentReviewBlocker(incident,val('inc_followup')):'Incident unavailable.';
+  if(byId('inc_close_action'))byId('inc_close_action').hidden=!!blocker;
+  if(byId('inc_review_blocker'))byId('inc_review_blocker').textContent=blocker;
+}
+function mpsRecordIncidentContact(id){
+  const index=db.health.incidents.findIndex(item=>item.id===id),incident=db.health.incidents[index];
+  if(!mpsIncidentCanView(incident)||incident.status==='Closed')return false;
+  const childId=val('inc_contact_child'),ids=incidentChildIds(incident),outcome=val('inc_contact_update');
+  if(!ids.includes(childId))return eliiraFieldError('inc_contact_child','Choose an involved Child.');
+  if(!['Called — spoke to guardian','Called — no answer','Informed in person','Contact not required'].includes(outcome))return eliiraFieldError('inc_contact_update','Choose the actual contact outcome.');
+  let reason='';
+  if(outcome==='Contact not required'){
+    if(!mpsIncidentCanReview(incident)||incident.category==='Uncollected Child')return eliiraFieldError('inc_contact_update','Guardian contact is required for this Incident.');
+    reason=val('inc_contact_reason').trim();
+    if(!reason)return eliiraFieldError('inc_contact_reason','Give a brief factual reason.');
+    if(!byId('inc_minor_confirm')?.checked)return eliiraFieldError('inc_minor_confirm','Confirm this was genuinely minor.');
+  }
+  const detail=val('inc_contact_detail').trim();
+  if(reason.length>500||detail.length>500)return eliiraFieldError(reason.length>500?'inc_contact_reason':'inc_contact_detail','Keep this factual note under 500 characters.');
+  const actor=staffActor();if(!actor?.staffId)return false;
+  const before=structuredClone(incident),at=mpsPreschoolBusinessNow().toISOString(),unsavedFollowup=byId('inc_followup')?.value;
+  incident.contactHistory=[...mpsIncidentContactEvents(incident),{childId,outcome,...(reason?{reason}:{}),...(detail?{detail}:{}),actor,at}];
+  incident.contact=outcome;
+  if(!save()){db.health.incidents[index]=before;return false}
+  render();
+  if(unsavedFollowup&&byId('inc_followup')){byId('inc_followup').value=unsavedFollowup;mpsIncidentUpdateReviewActions()}
+  showFeedback('Guardian contact saved.');return true;
 }
 const mpsIncidentPreviousModalView=modalView;
 modalView=function(m){
@@ -59885,20 +60090,26 @@ modalView=function(m){
 };
 healthIncidents=function(){
   const incidents=db.health.incidents.filter(mpsIncidentCanView);
-  return `<div class="card"><div class="card-header"><div class="grow"><h3>Incident register</h3><p>Care first; factual record, guardian contact and follow-up.</p></div>${btn('New incident',"openModal('incident')",'primary','sm')}</div>${incidents.length?incidents.map(i=>`<div class="child-row" data-incident-id="${esc(i.id)}"><strong>${esc(i.category)}</strong><span>${badge(i.status,'amber')}</span><span>${incidentChildrenContext(i)}</span><span>${esc(i.what)}</span><span>${btn(i.status==='Closed'?'Closed':'Review',`openModal('incident-review',{id:'${esc(i.id)}'})`,'secondary','sm')}</span></div>`).join(''):'<div class="empty">No incidents recorded in this prototype state.</div>'}</div>`;
+  return `<div class="card"><div class="card-header"><div class="grow"><h3>Incident register</h3><p>Care first; factual record, guardian contact and follow-up.</p></div>${btn('New incident',"openModal('incident')",'primary','sm')}</div>${incidents.length?incidents.map(i=>`<div class="child-row" data-incident-id="${esc(i.id)}"><strong>${esc(i.category)}</strong><span>${badge(i.status,'amber')}</span><span>${incidentChildrenContext(i)}</span><span>${esc(i.what)}</span><span>${btn(i.status==='Closed'?'Closed':mpsIncidentCanReview(i)?'Review':'View',`openModal('incident-review',{id:'${esc(i.id)}'})`,'secondary','sm')}</span></div>`).join(''):'<div class="empty">No incidents recorded in this prototype state.</div>'}</div>`;
 };
-closeIncident=function(id){
-  const incident=db.health.incidents.find(i=>i.id===id);
-  if(!mpsIncidentCanView(incident)||incident.status==='Closed')return false;
-  const followup=val('inc_followup');if(!['No further follow-up required','Follow-up complete','Open follow-up'].includes(followup))return false;
+function mpsSaveIncidentReview(id,closeRequested=false){
+  const index=db.health.incidents.findIndex(item=>item.id===id),incident=db.health.incidents[index];
+  if(!mpsIncidentCanReview(incident)||incident.status==='Closed')return false;
+  const followup=val('inc_followup');if(!['No further follow-up required','Follow-up complete','Open follow-up'].includes(followup))return eliiraFieldError('inc_followup','Choose the follow-up outcome.');
+  const blocker=mpsIncidentReviewBlocker(incident,followup);
+  if(closeRequested&&blocker){
+    if(blocker.startsWith('Guardian contact'))return eliiraFieldError('inc_contact_update',blocker);
+    return eliiraFieldError('inc_followup',blocker);
+  }
   const actor=staffActor();if(!actor?.staffId)return false;
   const before=structuredClone(incident),now=mpsPreschoolBusinessNow().toISOString();
-  incident.reviewActor=actor;incident.reviewedAt=now;incident.status=followup==='Open follow-up'?'Reviewed':'Closed';incident.followup=followup==='Open follow-up'?'Open':followup;
+  incident.reviewActor=actor;incident.reviewedAt=now;incident.status=closeRequested?'Closed':'Reviewed';incident.followup=followup==='Open follow-up'?'Open':followup;
   if(incident.status==='Closed')incident.closedAt=now;
   incident.reviewHistory=[...(incident.reviewHistory||[]),{actor,at:now,followup,status:incident.status}];
-  if(!save()){Object.assign(incident,before);return false}
-  closeOverlay();return true;
-};
+  if(!save()){db.health.incidents[index]=before;return false}
+  ui().modal=null;render();showFeedback(closeRequested?'Incident closed.':'Review saved; Incident remains open.');return true;
+}
+closeIncident=function(id){return mpsSaveIncidentReview(id,true)};
 function mpsIncidentParentSafeText(value,incident,childId){
   let text=String(value||'');if(!childId)return text;
   const own=new Set([profileChildName(childId),incident.childSnapshots?.find(c=>c.childId===childId)?.name].filter(Boolean).map(name=>name.toLowerCase()));
@@ -59923,7 +60134,7 @@ function mpsIncidentPdfDocument(incident,childId=null,generatedAt=mpsPreschoolBu
   add('Occurred',incident.occurredOn?`${fmtDate(incident.occurredOn)}${incident.occurredAtTime?` · ${staffTimeLabel(incident.occurredAtTime)}`:''}`:null);
   add('Location',incident.location);add('Category',incident.category);add('What happened',incident.what);
   add('Injury / condition observed',incident.condition);add('Immediate action / first aid',incident.action);
-  if(selected)add('Guardian contact',incident.contact);
+  if(selected)add('Guardian contact',mpsIncidentContactPdfText(incident,selected));
   add('Follow-up',incident.followup);
   add('Recorded by',incident.actor?.name);add('Record saved',incident.at?attendanceRecordedTime(incident.at):null);
   if(incident.reviewActor?.name)add('Reviewed by',`${incident.reviewActor.name}${incident.reviewedAt?` · ${attendanceRecordedTime(incident.reviewedAt)}`:''}`);
