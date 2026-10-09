@@ -48338,7 +48338,7 @@ function mpsReviewSwitchStaff(id){
  const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
  save();render();return true;
 }
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=46202bd88551" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=46202bd88551" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=147d1d394cbf" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=147d1d394cbf" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -48714,7 +48714,7 @@ function returnToDuplicateReview(){ui().drawer=null;ui().modal={name:'duplicate-
 function closePendingAsDuplicate(){let p=ui().pendingEnquiry;if(!p)return closeOverlay();if(!confirm(`Close the unsaved enquiry for ${p.childName} as a duplicate of the existing record?`))return;ui().pendingEnquiry=null;ui().modal=null;ui().drawer=null;save();render()}
 function commitNewEnquiry(mode){let p=ui().pendingEnquiry;if(!p)return closeOverlay();if(!p.duplicateReviewed){alert('Inspect the possible existing record before proceeding as a new record.');return}let id='case_'+crypto.randomUUID();db.admissions[id]={id,childName:p.childName,dob:p.dob,guardian:p.guardian,phone:p.phone,start:p.start,service:p.service,source:p.source,reason:'Other',events:[ev('enquiry','Enquiry created',`${p.source} · possible match reviewed; staff confirmed separate record`)],tour:null,application:{status:'not_sent',draft:null,snapshot:null},fee:null,enrolment:null,onboarding:null,closed:null};ui().admissionsCase=id;ui().admissionsTab='overview';ui().pendingEnquiry=null;ui().modal=null;ui().drawer=null;save();render()}
 function qualifyCase(id){addEvent(id,'qualified','Marked Qualified Lead','Genuine family · relevant age/start · follow-up agreed');closeOverlay()}
-function scheduleTour(id){let c=db.admissions[id];c.tour={status:'scheduled',date:val('tour_date'),time:val('tour_time'),outcome:null};addEvent(id,'tour_scheduled','Tour scheduled',`${fmtDate(c.tour.date)} · ${c.tour.time}`);closeOverlay()}
+function scheduleTour(id){let c=db.admissions[id],time=mpsTimeFieldValue('tour_time');if(!c||time===null)return false;c.tour={status:'scheduled',date:val('tour_date'),time,outcome:null};addEvent(id,'tour_scheduled','Tour scheduled',`${fmtDate(c.tour.date)} · ${c.tour.time}`);closeOverlay();return true}
 function completeTour(id){let c=db.admissions[id];if(!admissionCanClose(c))return;c.tour.status='completed';c.tour.outcome=val('tour_outcome');if(c.tour.outcome==='Family not proceeding'){if(!persistAdmissionsClosure(id,'Withdrawn','Family not proceeding',{type:'tour',title:'Tour completed',detail:`${c.tour.outcome} · ${val('tour_note')}`}))return;}else addEvent(id,'tour','Tour completed',`${c.tour.outcome} · ${val('tour_note')}`);closeOverlay()}
 function sendApplication(id){let c=db.admissions[id];if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start};c.application.status='sent';addEvent(id,'application_sent','Application link sent','Secure WhatsApp link · expires in 7 days');closeOverlay()}
 function acceptApplication(id){let c=db.admissions[id];c.application.status='accepted';c.start=val('accept_start')||c.start;c.fee={amount:15000,due:'2026-09-21',verified:0,pending:[],status:'pending'};addEvent(id,'accepted','Application accepted',`${val('accept_class')} · ${fmtDate(c.start)}`);addEvent(id,'fee_invoice','Admission-fee invoice issued','LKR 15,000');closeOverlay()}
@@ -48830,7 +48830,7 @@ function mpsMedicationWorkspace(){
   const currentActions=current?`${auth.evidenceMethod==='signed_paper'?mpsUtilityAction('Download PDF',`mpsDownloadMedicationAuthorisationPdf('${childId}','${auth.id}')`,'download'):''}${canAdminister&&scheduledDue?btn('Record administration',`openModal('medication',{childId:'${childId}',authId:'${auth.id}'})`,'primary'):''}${canWrite?btn('Withdraw',`withdrawMedicationAuth()`,'secondary'):''}`:'';
   const details=auth?`${kv('Medication',esc(auth.medication||'Not recorded'))}${kv('Dose / instruction',esc(auth.instruction||'Not recorded'))}${mpsMedicationTriggerDetails(auth)}${auth.directions?kv('Important directions',esc(auth.directions)):''}${kv('Validity',auth.validFrom||auth.validUntil?`${esc(auth.validFrom?fmtDate(auth.validFrom):'Not recorded')} – ${esc(auth.validUntil?fmtDate(auth.validUntil):'Not recorded')}`:'Dates not recorded in this earlier authorisation')}${kv('Authorising Guardian',esc(auth.authorisedBy||'Not recorded'))}${auth.authoritySource?kv('Authority source',esc(auth.authoritySource)):''}${auth.receivedAt?kv('Signed form received',`${esc(auth.receivedByName||'Staff')} · ${esc(attendanceRecordedTime(auth.receivedAt))}`):''}`:'';
   const pendingDetails=pending&&pending!==auth?`<div class="medication-pending"><h4>Replacement awaiting signed form</h4>${kv('Medication',esc(pending.medication))}${kv('Dose / instruction',esc(pending.instruction))}${mpsMedicationTriggerDetails(pending)}${kv('Validity',`${esc(fmtDate(pending.validFrom))} – ${esc(fmtDate(pending.validUntil))}`)}</div>`:'';
-  const versions=auth?.history?.length?`<details><summary>Earlier authorisations</summary>${auth.history.map(item=>`<div class="medication-history-entry"><strong>${esc(item.medication||'Medication')}</strong> · ${esc(item.status||'Replaced')} · ${esc(item.instruction||'')} · ${esc(item.updated||'')}${item.evidenceMethod==='signed_paper'?mpsUtilityAction('Download PDF',`mpsDownloadMedicationAuthorisationPdf('${childId}','${item.id}')`,'download'):''}</div>`).join('')}</details>`:'';
+  const versions=auth?.history?.length?`<details><summary>Earlier authorisations</summary>${auth.history.map(item=>`<div class="medication-history-entry"><strong>${esc(item.medication||'Medication')}</strong> · ${esc(item.status||'Replaced')} · ${esc(item.instruction||'')} · ${esc(item.updated||'')}${item.authoritySource?` · Source: ${esc(item.authoritySource)}`:''}${item.evidenceMethod==='signed_paper'?mpsUtilityAction('Download PDF',`mpsDownloadMedicationAuthorisationPdf('${childId}','${item.id}')`,'download'):''}</div>`).join('')}</details>`:'';
   return `${healthChildSelector()}<div class="grid"><section id="medication-authorisation" tabindex="-1" class="span-7 card medication-authorisation-card"><div class="card-header"><div class="grow"><h3>${profileChildLink(childId)} · Medication</h3><p>${esc(status)}</p></div>${auth?badge(mpsMedicationCurrentLabel(auth),current?'green':'grey'):''}</div>${explanation}${reported}${details}${pendingDetails}${!auth&&requirement==='required'?'<p>No current medication authorisation exists for this child.</p>':''}<div class="medication-actions">${create}${pendingActions}${currentActions}${reviewNeed}</div>${versions}</section><section class="span-5 card"><h3>Administration history</h3>${history.length?history.slice().reverse().map(item=>`<div class="medication-administration-entry"><strong>${esc(item.outcome)}</strong><span>${esc(item.date?fmtDate(item.date):'Date not recorded')} · ${esc(item.time?staffTimeLabel(item.time):'Time not recorded')}</span><span>${esc(item.actualMedicineDose||[item.medication,item.authorisedInstruction].filter(Boolean).join(' · '))}</span>${item.scheduledFor?`<small>Scheduled for ${esc(fmtDate(item.scheduledFor.date))} · ${esc(staffTimeLabel(item.scheduledFor.time))}</small>`:''}${item.actor?.name?`<small>Recorded by ${esc(item.actor.name)}${item.at?` · ${esc(attendanceRecordedTime(item.at))}`:''}</small>`:''}${item.note?`<small>${esc(item.note)}</small>`:''}</div>`).join(''):'<div class="empty">No administration outcomes recorded for this child.</div>'}</section></div>`;
 }
 function mpsMedicationUnavailable(){return modal('Medication unavailable','',notice('Medication administration access and a current valid authorisation are required.','warn'),btn('Close','closeOverlay()','secondary'))}
@@ -48840,23 +48840,24 @@ function mpsMedicationAuthorisationModal(data){
   const guardians=mpsMedicationGuardians(childId);
   if(!guardians.length)return modal('Medication authorisation unavailable','',notice('Confirm a guardian with legal authority in the child’s Family record before recording medication authorisation.','warn'),btn('Close','closeOverlay()','secondary'));
   const guardianOptions=`<div class="field"><label for="ma_guardian">Authorising guardian</label><select id="ma_guardian"><option value="">Select authorised guardian</option>${guardians.map(link=>`<option value="${esc(link.guardianId)}" ${link.guardianId===auth?.guardianId?'selected':''}>${esc(db.people.guardians[link.guardianId].name)}</option>`).join('')}</select></div>`;
-  return modal(auth?'Prepare replacement authorisation':'Create medication authorisation','Prepare the exact signed form. It becomes current only after the signed original is received.',`${kv('Child',profileChildLink(childId))}${field('Medication',auth?.medication||'','text',false,'ma_medication')}${textArea('Exact dose / instruction',auth?.instruction||'','ma_instruction')}${mpsMedicationTriggerFields(auth)}${textArea('Important directions, if applicable',auth?.directions||'','ma_directions')}${field('Valid from',TODAY,'date',false,'ma_from')}${field('Valid until','','date',false,'ma_until')}${guardianOptions}${field('Instruction source / reference','','text',false,'ma_source')}${notice('The authorised Guardian signs the printed form. Preparing or downloading it does not authorise administration.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Prepare signed form','replaceMedicationAuth()','primary')}`);
+  return modal(auth?'Prepare replacement authorisation':'Create medication authorisation','Prepare the exact signed form. It becomes current only after the signed original is received.',`${kv('Child',profileChildLink(childId))}${field('Medication',auth?.medication||'','text',false,'ma_medication')}${textArea('Exact dose / instruction',auth?.instruction||'','ma_instruction')}${mpsMedicationTriggerFields(auth)}${textArea('Important directions, if applicable',auth?.directions||'','ma_directions')}${field('Valid from',TODAY,'date',false,'ma_from')}${field('Valid until','','date',false,'ma_until')}${guardianOptions}${notice('The authorised Guardian signs the printed form. Preparing or downloading it does not authorise administration.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Prepare signed form','replaceMedicationAuth()','primary')}`);
 }
 function mpsSaveMedicationAuthorisation(){
   const childId=ui().modal?.data?.childId||healthSelectedChild();
   if(!mpsMedicationCanWrite(childId)||mpsMedicationRequirement(childId)!=='required'&&!mpsMedicationAuthorisation(childId))return false;
   const guardianId=val('ma_guardian'),guardian=mpsMedicationGuardians(childId).find(link=>link.guardianId===guardianId);
-  const medication=val('ma_medication').trim(),instruction=val('ma_instruction').trim(),trigger=mpsMedicationFormTrigger(),directions=val('ma_directions').trim(),validFrom=val('ma_from'),validUntil=val('ma_until'),authoritySource=val('ma_source').trim();
+  const medication=val('ma_medication').trim(),instruction=val('ma_instruction').trim(),directions=val('ma_directions').trim(),validFrom=val('ma_from'),validUntil=val('ma_until');
   if(!guardian)return eliiraFieldError('ma_guardian','Choose an authorised Guardian.');
   if(!medication)return eliiraFieldError('ma_medication','Enter the medication.');
   if(!instruction)return eliiraFieldError('ma_instruction','Enter the exact dose and instruction.');
+  if(val('ma_trigger')==='scheduled')for(const input of byId('ma_schedule_times').querySelectorAll('.medication-schedule-time input[type=hidden]'))if(mpsTimeFieldValue(input.id)===null)return false;
+  const trigger=mpsMedicationFormTrigger();
   if(!trigger)return eliiraFieldError(!val('ma_trigger')?'ma_trigger':val('ma_trigger')==='scheduled'?'ma_schedule_0_hour':'ma_condition','Complete the authorised medication trigger.');
   if(!educationDate(validFrom))return eliiraFieldError('ma_from','Choose a valid start date.');
   if(!educationDate(validUntil)||validFrom>validUntil||validUntil<TODAY)return eliiraFieldError('ma_until','Choose a valid end date on or after the start date.');
-  if(!authoritySource)return eliiraFieldError('ma_source','Record the instruction source.');
   const previous=mpsMedicationAuthorisation(childId);
   if(previous?.pendingReplacement||previous?.status==='awaiting_signed_form')return false;
-  const prepared={id:'ma_'+crypto.randomUUID(),childId,childName:profileChildName(childId),preschoolName:mpsOrganisationName(),medication,status:'awaiting_signed_form',instruction,...trigger,directions,validFrom,validUntil,guardianId,authorisedBy:db.people.guardians[guardianId].name,authoritySource,authorityBasis:mpsFamilyLegalAuthorityBasis(childId),evidenceMethod:'signed_paper',preparedAt:mpsPreschoolBusinessNow().toISOString(),preparedBy:staffActor(),updated:TODAY};
+  const prepared={id:'ma_'+crypto.randomUUID(),childId,childName:profileChildName(childId),preschoolName:mpsOrganisationName(),medication,status:'awaiting_signed_form',instruction,...trigger,directions,validFrom,validUntil,guardianId,authorisedBy:db.people.guardians[guardianId].name,authorityBasis:mpsFamilyLegalAuthorityBasis(childId),evidenceMethod:'signed_paper',preparedAt:mpsPreschoolBusinessNow().toISOString(),preparedBy:staffActor(),updated:TODAY};
   if(previous){previous.pendingReplacement=prepared}else db.health.medAuth[childId]=prepared;
   if(!save()){if(previous)delete previous.pendingReplacement;else delete db.health.medAuth[childId];return false}
   closeOverlay();return true;
@@ -48894,12 +48895,12 @@ function mpsMedicationScheduledDoseChanged(){
 }
 function mpsRecordMedication(){
   const data=ui().modal?.data||{},childId=data.childId||healthSelectedChild(),current=mpsMedicationAuthorisation(childId),auth=data.authId?mpsMedicationVersion(childId,data.authId):current;
-  const outcome=val('med_outcome'),time=val('med_time'),actualMedicineDose=val('med_actual').trim(),note=val('med_note').trim(),administered=outcome==='Administered';
+  const outcome=val('med_outcome'),actualMedicineDose=val('med_actual').trim(),note=val('med_note').trim(),administered=outcome==='Administered';
   if(!mpsMedicationCanAdminister(childId)||!auth||auth.childId!==childId||administered&&!mpsMedicationValid(auth)||auth.triggerMode!=='scheduled'&&!mpsMedicationValid(auth)){
     showFeedback('Medication administration authority and a current valid authorisation are required.');return false;
   }
   if(!['Administered','Refused','Child absent','Not administered — other'].includes(outcome))return eliiraFieldError('med_outcome','Choose the actual outcome.');
-  if(mpsMedicationClockMinutes(time)===null)return eliiraFieldError('med_time_hour','Enter the actual time.');
+  const time=mpsTimeFieldValue('med_time');if(time===null)return false;
   if(administered&&!actualMedicineDose)return eliiraFieldError('med_actual','Record the medicine and dose actually given.');
   const scheduled=auth.triggerMode==='scheduled',key=scheduled?val('med_schedule_key'):null;
   const due=scheduled?mpsMedicationDueOccurrences().find(item=>item.key===key&&item.childId===childId&&item.authId===auth.id&&item.state!=='upcoming'):null;
@@ -52120,10 +52121,10 @@ recordEnquiryContactOutcome = function(id){
     let visitDate = '', visitTime = '', visitContact = '';
     if(scheduleNow){
       visitDate = val('enq_visit_date');
-      visitTime = val('enq_visit_time');
+      visitTime = mpsTimeFieldValue('enq_visit_time');
       visitContact = val('enq_visit_contact').trim() || c.guardian;
       if(!visitDate)return eliiraFieldError('enq_visit_date','Choose the Visit date.');
-      if(!visitTime)return eliiraFieldError('enq_visit_time_hour','Choose the Visit time.');
+      if(visitTime===null)return false;
     }
 
     c.followUp = null;
@@ -52597,6 +52598,7 @@ function saveCalendarEntry(){
   const date=val('evt_date');
   if(!title)return eliiraFieldError('evt_title','Enter a title for this event.');
   if(!date)return eliiraFieldError('evt_date','Choose a date for this event.');
+  const time=mpsTimeFieldValue('evt_time',true);if(time===null)return false;
   const choice=val('evt_visibility');
   const map={'Only me':'only_me','Head Teacher + me':'head_teacher','Classes…':'classes','All staff':'all_staff'};
   const visibility=map[choice]||'only_me';
@@ -52608,7 +52610,7 @@ function saveCalendarEntry(){
     id,
     title,
     date,
-    time:val('evt_time'),
+    time,
     note:val('evt_note').trim(),
     visibility,
     classroomIds:classNames,
@@ -53410,7 +53412,14 @@ function readEducationSettings(){const c=JSON.parse(JSON.stringify(educationConf
  if(educationConfig().classrooms.some(r=>activeEducationRoom(r.id)&&!activeEducationRoom(r.id,c)&&educationRoomInUse(r.id)))throw new Error('Move active classroom assignments and future plans before removing them.');
  if(c.levels.some(l=>!l.retired&&!c.classrooms.some(r=>r.levelId===l.id)))throw new Error('Keep at least one classroom for each level.');
  for(const p of c.plans){p.offered=byId('hours_'+p.id+'_offered').checked;if(p.offered===false&&daycarePlan(p.id).offered!==false){const reason=daycareDisableReason(p.id);if(reason)throw new Error(reason)}}
- for(const [id,h] of [['preschool',c.preschool],...c.plans.filter(p=>p.offered).map(p=>[p.id,p])]){h.start=val('hours_'+id+'_start');h.end=val('hours_'+id+'_end');if(!h.start||!h.end||h.start>=h.end)throw new Error('Enter valid start and end hours.');}
+ for(const [id,h] of [['preschool',c.preschool],...c.plans.filter(p=>p.offered).map(p=>[p.id,p])]){
+  for(const [suffix,key] of [['start','start'],['end','end']]){
+   const controlId='hours_'+id+'_'+suffix,state=mpsTimeFieldState(controlId);
+   if(!state.ok){const error=new Error(state.message);error.fieldId=state.fieldId;throw error}
+   h[key]=state.value;
+  }
+  if(h.start>=h.end){const error=new Error('Enter an end time after the start time.');error.fieldId='hours_'+id+'_end_hour';throw error}
+ }
  if(c.plans.some(p=>p.offered&&(p.start>c.preschool.start||p.end<c.preschool.end)))throw new Error('Daycare coverage must include the preschool session.');
  return c;
 }
@@ -53460,7 +53469,7 @@ mpsSavePreschoolSettings=function(section=null){
   const o=db.organization;
   let nextFees=null,nextEducation=null,nextCurriculum=null,nextSchoolYear=null;
   if(head){
-    try{nextEducation=readEducationSettings();nextCurriculum=readCurriculumSettings();nextSchoolYear=mpsReadSchoolTermSettings()}catch(error){if(error.levelId&&byId('level_range_'+error.levelId))eliiraFieldError('level_range_'+error.levelId,error.message);else if(!byId('school_term_error')||byId('school_term_error').hidden)showFeedback(error.message);return}
+    try{nextEducation=readEducationSettings();nextCurriculum=readCurriculumSettings();nextSchoolYear=mpsReadSchoolTermSettings()}catch(error){if(error.levelId&&byId('level_range_'+error.levelId))eliiraFieldError('level_range_'+error.levelId,error.message);else if(error.fieldId&&byId(error.fieldId))eliiraFieldError(error.fieldId,error.message);else if(!byId('school_term_error')||byId('school_term_error').hidden)showFeedback(error.message);return}
     const ids=['fee_admission','fee_due','fee_preschool','fee_standard','fee_extended','fee_grace','fee_late','fee_monthly_due_day'];
     const missing=ids.find(id=>!val(id).trim());if(missing){eliiraFieldError(missing,'Enter this fee or period.');return}
     const values=ids.map(id=>Number(val(id)));
@@ -55604,12 +55613,14 @@ function temporaryPickupInstructionModal(childId,id){
 function saveTemporaryPickupInstruction(childId,id){
   if(!canManageTemporaryPickup(childId))return;
   const existing=id?temporaryPickupInstructions(childId).find(x=>x.id===id):null;if(id&&!existing)return;
-  const name=val('tp_name').trim(),date=val('tp_date'),from=val('tp_from'),until=val('tp_until'),requestedBy=val('tp_requester').trim(),source=val('tp_source'),reference=val('tp_reference').trim();
+  const name=val('tp_name').trim(),date=val('tp_date'),requestedBy=val('tp_requester').trim(),source=val('tp_source'),reference=val('tp_reference').trim();
   if(!name)return eliiraFieldError('tp_name','Enter the collector name.');
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date))return eliiraFieldError('tp_date','Choose a valid date.');
   if(!requestedBy)return eliiraFieldError('tp_requester','Enter who requested or authorised this.');
   if(!['WhatsApp','Phone','In person'].includes(source))return eliiraFieldError('tp_source','Choose the request source.');
   if(!reference)return eliiraFieldError('tp_reference','Record the verification information.');
+  const from=mpsTimeFieldValue('tp_from',true);if(from===null)return false;
+  const until=mpsTimeFieldValue('tp_until',true);if(until===null)return false;
   if((!!from!==!!until)||(from&&from>=until))return eliiraFieldError(!from?'tp_from_hour':'tp_until_hour','Record both times with the end after the start, or leave both blank.');
   if(temporaryPickupInstructions(childId).some(p=>p.id!==id&&p.date===date)){showFeedback('An instruction is already recorded for this date. Edit that instruction instead.');return}
   const f=editableFamily(childId);f.temporaryPickups=f.temporaryPickups||[];
@@ -55727,8 +55738,8 @@ function attendanceArrivalCorrectionModal(childId){
 }
 function correctAttendanceArrival(childId){
   if(!attendanceCanCorrectArrival(childId))return;
-  const r=db.attendance[childId],to=val('attendance_corrected'),reason=val('attendance_reason').trim();
-  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(to))return eliiraFieldError('attendance_corrected_hour','Enter the correct arrival time.');
+  const r=db.attendance[childId],reason=val('attendance_reason').trim(),to=mpsTimeFieldValue('attendance_corrected');
+  if(to===null)return false;
   if(!reason)return eliiraFieldError('attendance_reason','Enter a reason for the correction.');
   if(val('attendance_original')!==r.checkIn){showFeedback('The arrival has changed since this form was opened. Close and reopen it to review the current time.');return}
   if(to===r.checkIn)return eliiraFieldError('attendance_corrected_hour','Choose a different arrival time.');
@@ -55850,8 +55861,8 @@ function attendanceCheckoutCorrectionModal(childId,date){
 }
 function correctAttendanceCheckout(childId,date){
   if(!attendanceCanCorrectCheckout(childId,date))return;
-  const r=attendanceCheckoutRecord(childId,date),to=val('checkout_corrected'),reason=val('checkout_reason').trim();
-  if(latePickupMinutes(to)===null)return eliiraFieldError('checkout_corrected_hour','Enter the correct checkout time.');
+  const r=attendanceCheckoutRecord(childId,date),reason=val('checkout_reason').trim(),to=mpsTimeFieldValue('checkout_corrected');
+  if(to===null)return false;
   if(!reason)return eliiraFieldError('checkout_reason','Enter a reason for the correction.');
   if(val('checkout_original')!==r.checkOut){showFeedback('Checkout has changed. Reopen the correction to review the current time.');return}
   if(to===r.checkOut)return eliiraFieldError('checkout_corrected_hour','Choose a different checkout time.');
@@ -55969,9 +55980,9 @@ function daycareMealModal(){
 }
 function saveDaycareMeal(){
  if(!allowed('daycare'))return;
- eliiraBeginValidation('meal_occurrence');const occurrence=val('meal_occurrence').trim(),time=val('meal_time');
+ eliiraBeginValidation('meal_occurrence');const occurrence=val('meal_occurrence').trim();
  if(!occurrence)return eliiraFieldError('meal_occurrence','Enter the meal or snack that occurred.');
- if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))return eliiraFieldError('meal_time_hour','Enter the approximate time.');
+ const time=mpsTimeFieldValue('meal_time');if(time===null)return false;
  const result=daycareSelectedOutcomes(DAYCARE_MEAL_OUTCOMES);if(result.error!==undefined)return;
  ensureDaycareEventState();db.daycare.mealRecords.push({id:daycareEventId('meal'),date:TODAY,occurrence,time,outcomes:result.outcomes,actor:staffActor(),at:new Date().toISOString()});closeOverlay();
 }
@@ -55990,10 +56001,10 @@ function daycareActivityModal(){
 }
 function toggleDaycareOtherActivity(){const field=byId('activity_other_field');if(field)field.hidden=val('activity_name')!=='Other'}
 function saveDaycareActivity(){
- if(!allowed('daycare'))return;eliiraBeginValidation('activity_name');const selected=val('activity_name'),other=val('activity_other').trim(),time=val('activity_time');
+ if(!allowed('daycare'))return;eliiraBeginValidation('activity_name');const selected=val('activity_name'),other=val('activity_other').trim();
  if(!selected)return eliiraFieldError('activity_name','Choose the activity that occurred.');
  if(selected==='Other'&&!other)return eliiraFieldError('activity_other','Describe the activity that occurred.');
- if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(time))return eliiraFieldError('activity_time_hour','Enter the approximate time.');
+ const time=mpsTimeFieldValue('activity_time');if(time===null)return false;
  const result=daycareSelectedOutcomes(DAYCARE_ACTIVITY_OUTCOMES,{notes:true});if(result.error!==undefined)return;
  const bookingByChild=new Map(daycareEventChildren().map(item=>[item.childId,item.booking])),groupIds=[...new Set(result.outcomes.map(item=>daycareGroupId(bookingByChild.get(item.childId))).filter(Boolean))];
  ensureDaycareEventState();db.daycare.activities.push({id:daycareEventId('activity'),date:TODAY,activityId:selected==='Other'?null:selected.toLowerCase().replace(/[^a-z0-9]+/g,'_'),title:selected==='Other'?other:selected,otherDescription:selected==='Other'?other:null,time,outcomes:result.outcomes,groupIds,actor:staffActor(),at:new Date().toISOString()});closeOverlay();
@@ -59527,7 +59538,7 @@ function mpsMedicationAuthorisationPdfBlob(childId,version){
   if(version.directions)row('Important directions',version.directions);
   row('Valid from / until',`${fmtDate(version.validFrom)} – ${fmtDate(version.validUntil)}`);
   row('Authorising Guardian',version.authorisedBy);
-  row('Instruction source / reference',version.authoritySource);
+  if(version.authoritySource)row('Instruction source / reference',version.authoritySource);
   if(y+245>height-90){push();reset()}
   const signatureY=Math.max(y+28,1330);
   ctx.strokeStyle='#cdded8';ctx.beginPath();ctx.moveTo(left,signatureY);ctx.lineTo(right,signatureY);ctx.stroke();
@@ -59962,14 +59973,43 @@ function mpsIncidentReviewBlocker(incident,followup){
   return '';
 }
 function mpsIncidentChildSelectionChanged(){
-  const count=document.querySelectorAll('[data-incident-child]:checked').length,wrap=byId('inc_contact_entry'),help=byId('inc_contact_entry_help');
+  const count=mpsIncidentSelectedChildIds().length,wrap=byId('inc_contact_entry'),help=byId('inc_contact_entry_help');
   if(wrap)wrap.hidden=count!==1;
   if(help)help.textContent=count===0?'Select an involved Child. A facility Incident with no Child has no Guardian contact.':count>1?'Record each child’s Guardian contact separately after saving.':'';
   if(count!==1&&byId('inc_contact'))byId('inc_contact').value='Not yet contacted';
 }
+function mpsIncidentSelectedChildIds(){return ui().modal?.name==='incident'&&Array.isArray(ui().modal.data?.selectedChildIds)?ui().modal.data.selectedChildIds:[]}
+function mpsIncidentChildClassroom(child){const label=childClass(child);return label&&label!=='Needs staff review'?label:'Classroom not recorded'}
+function mpsIncidentSelectedChildrenHtml(){
+  const ids=mpsIncidentSelectedChildIds(),children=new Map(healthScopedChildren().map(child=>[child.id,child]));
+  return ids.length?ids.filter(id=>children.has(id)).map(id=>`<span class="incident-selected-child"><span><strong>${esc(profileChildName(id))}</strong><small>${esc(mpsIncidentChildClassroom(children.get(id)))}</small></span><button type="button" data-child-id="${esc(id)}" onclick="mpsIncidentRemoveChild(this.dataset.childId)" aria-label="Remove ${esc(profileChildName(id))}">Remove</button></span>`).join(''):'<p>No children selected. A facility-only Incident can have none.</p>';
+}
+function mpsIncidentRenderSelectedChildren(){const selected=byId('inc_selected_children');if(selected)selected.innerHTML=mpsIncidentSelectedChildrenHtml()}
+function mpsIncidentRenderChildResults(){
+  const search=byId('inc_child_search'),results=byId('inc_child_results'),status=byId('inc_child_results_status');if(!search||!results||!status)return;
+  const query=search.value.trim().toLocaleLowerCase(),selected=new Set(mpsIncidentSelectedChildIds());
+  if(!query){results.innerHTML='';status.textContent='Type a name to find children.';return}
+  const matches=healthScopedChildren().filter(child=>[profileChildName(child.id),child.preferred].some(name=>String(name||'').toLocaleLowerCase().includes(query))).sort((a,b)=>profileChildName(a.id).localeCompare(profileChildName(b.id))||a.id.localeCompare(b.id));
+  results.innerHTML=matches.map(child=>`<button type="button" class="incident-child-result" data-child-id="${esc(child.id)}" onclick="mpsIncidentSelectChild(this.dataset.childId)" ${selected.has(child.id)?'disabled':''}><strong>${esc(profileChildName(child.id))}</strong><small>${esc(mpsIncidentChildClassroom(child))}${selected.has(child.id)?' · Selected':''}</small></button>`).join('');
+  status.textContent=!matches.length?'No matching children.':`${matches.length} matching child${matches.length===1?'':'ren'}.`;
+}
+function mpsIncidentSelectChild(id){
+  const child=healthScopedChildren().find(item=>item.id===id),selected=mpsIncidentSelectedChildIds();if(!child||selected.includes(id))return false;
+  selected.push(id);eliiraClearFieldError(byId('inc_child_search'));mpsIncidentRenderSelectedChildren();
+  const search=byId('inc_child_search');if(search){search.value='';search.focus()}
+  mpsIncidentRenderChildResults();mpsIncidentChildSelectionChanged();return true;
+}
+function mpsIncidentRemoveChild(id){
+  const selected=mpsIncidentSelectedChildIds(),index=selected.indexOf(id);if(index<0)return false;
+  selected.splice(index,1);mpsIncidentRenderSelectedChildren();mpsIncidentRenderChildResults();mpsIncidentChildSelectionChanged();byId('inc_child_search')?.focus();return true;
+}
+function mpsIncidentSearchKeydown(event){
+  if(event.key==='ArrowDown'){const first=byId('inc_child_results')?.querySelector('button:not(:disabled)');if(first){event.preventDefault();first.focus()}}
+  if(event.key==='Enter'){const first=byId('inc_child_results')?.querySelector('button:not(:disabled)');if(first){event.preventDefault();first.click()}}
+  if(event.key==='Escape'&&event.currentTarget.value){event.preventDefault();event.currentTarget.value='';mpsIncidentRenderChildResults()}
+}
 function mpsIncidentChildChoices(selected=[]){
-  const choices=healthScopedChildren();
-  return `<fieldset class="incident-children"><legend>Children involved</legend>${choices.length?choices.map(child=>`<label class="check-row"><input type="checkbox" data-incident-child onchange="mpsIncidentChildSelectionChanged()" value="${esc(child.id)}" ${selected.includes(child.id)?'checked':''}><span>${esc(profileChildName(child.id))}</span></label>`).join(''):'<p>No children are available in your Health scope.</p>'}<small id="incident_child_help">Select each child involved. A facility incident may have none.</small></fieldset>`;
+  return `<div class="field incident-children"><label for="inc_child_search">Search children by name…</label><input id="inc_child_search" type="search" autocomplete="off" aria-controls="inc_child_results" aria-describedby="inc_child_results_status" oninput="mpsIncidentRenderChildResults()" onkeydown="mpsIncidentSearchKeydown(event)"><div class="incident-selected-children"><strong>Children involved</strong><div id="inc_selected_children" aria-live="polite">${mpsIncidentSelectedChildrenHtml()}</div></div><p id="inc_child_results_status" role="status">Type a name to find children.</p><div id="inc_child_results" class="incident-child-results" role="group" aria-label="Matching children"></div></div>`;
 }
 function mpsIncidentDateValid(value){
   return /^\d{4}-\d{2}-\d{2}$/.test(value||'')&&!Number.isNaN(Date.parse(value))&&new Date(value).toISOString().slice(0,10)===value;
@@ -59998,11 +60038,13 @@ function mpsIncidentPhotosHtml(incident){
   return `<section class="incident-photo-section"><h3>Photos</h3><div class="incident-photo-grid">${photos.map((photo,index)=>`<figure data-incident-photo-id="${esc(photo.id)}"><img src="${esc(photo.data)}" alt="Incident photo ${index+1}"><figcaption>Photo ${index+1}</figcaption></figure>`).join('')}</div></section>`;
 }
 incidentModal=function(data={}){
-  const selected=healthScopedChildren().some(c=>c.id===(data.childId||healthSelectedChild()))?[data.childId||healthSelectedChild()]:[];
-  return modal('New incident','Care first; record objective facts as soon as safely practical.',
+  const state=ui().modal?.name==='incident'?(ui().modal.data||=data):data,contextChild=state.childId||healthSelectedChild();
+  const selected=Array.isArray(state.selectedChildIds)?state.selectedChildIds.filter(id=>healthScopedChildren().some(child=>child.id===id)):healthScopedChildren().some(child=>child.id===contextChild)?[contextChild]:[];
+  state.selectedChildIds=[...new Set(selected)];
+  return modal('New incident','Care first. Record what staff observed and did as soon as practical.',
     `${selectField('Category',incidentCategories,'Accident / Injury','inc_cat')}${mpsIncidentChildChoices(selected)}`+
     `<div class="form-grid incident-occurrence-fields">${field('Occurrence date',TODAY,'date',false,'inc_date')}${staffTimeField('Occurrence time',mpsMedicationLocalClock(),false,'inc_time')}</div>`+
-    `${field('Location','','text',false,'inc_location')}${textArea('What happened','','inc_what')}`+
+    `${field('Location','','text',false,'inc_location')}${textArea('What happened','','inc_what')}<p class="field-help incident-fact-help">Describe what was seen or reported, without guessing at a cause.</p>`+
     `${textArea('Injury / condition observed','','inc_condition')}${textArea('Immediate action / first aid','','inc_action')}${mpsIncidentPhotoInput()}`+
     `<div id="inc_contact_entry" ${selected.length===1?'':'hidden'}>${selectField('Guardian contact',['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'],'Not yet contacted','inc_contact')}</div><p id="inc_contact_entry_help" class="field-help">${selected.length===1?'':'Select an involved Child. A facility Incident with no Child has no Guardian contact.'}</p>`,
     `${btn('Cancel','closeOverlay()','secondary')}${btn('Save incident','saveIncident()','primary')}`);
@@ -60010,12 +60052,12 @@ incidentModal=function(data={}){
 saveIncident=async function(){
   if(!allowed('health'))return false;
   const category=val('inc_cat'),allowedChildren=new Set(healthScopedChildren().map(c=>c.id));
-  const childIds=[...new Set([...document.querySelectorAll('[data-incident-child]:checked')].map(e=>e.value))];
+  const childIds=[...new Set(mpsIncidentSelectedChildIds())];
   if(!incidentCategories.includes(category)||childIds.some(id=>!allowedChildren.has(id)))return false;
-  if(incidentCategoryNeedsChild(category)&&!childIds.length){const first=document.querySelector('[data-incident-child]');if(first&&!first.id)first.id='inc_child_first';return first?eliiraFieldError(first.id,'Select at least one child for this incident category.'):false}
-  const occurredOn=val('inc_date'),occurredAtTime=val('inc_time'),location=val('inc_location').trim(),what=val('inc_what').trim(),condition=val('inc_condition').trim(),action=val('inc_action').trim();
+  if(incidentCategoryNeedsChild(category)&&!childIds.length)return eliiraFieldError('inc_child_search','Select at least one child for this incident category.');
+  const occurredOn=val('inc_date'),location=val('inc_location').trim(),what=val('inc_what').trim(),condition=val('inc_condition').trim(),action=val('inc_action').trim();
   if(occurredOn&&!mpsIncidentDateValid(occurredOn))return eliiraFieldError('inc_date','Enter a valid occurrence date.');
-  if(occurredAtTime&&mpsMedicationClockMinutes(occurredAtTime)===null)return eliiraFieldError('inc_time_hour','Enter a valid occurrence time.');
+  const occurredAtTime=mpsTimeFieldValue('inc_time',category!=='Accident / Injury');if(occurredAtTime===null)return false;
   if(category==='Accident / Injury'&&!occurredOn)return eliiraFieldError('inc_date','Choose the occurrence date.');
   if(category==='Accident / Injury'&&!occurredAtTime)return eliiraFieldError('inc_time_hour','Enter the occurrence time.');
   if(category==='Accident / Injury')for(const [value,id,message] of [[location,'inc_location','Enter the location.'],[what,'inc_what','Record what happened.'],[condition,'inc_condition','Record the injury or condition observed.'],[action,'inc_action','Record the immediate action.']])if(!value)return eliiraFieldError(id,message);
@@ -60034,10 +60076,17 @@ function mpsIncidentDownloadActions(incident){
   const ids=incidentChildIds(incident),download=id=>btn(ids.length>1?`Download parent copy · ${esc(incident.childSnapshots?.find(snapshot=>snapshot.childId===id)?.name||profileChildName(id))}`:'Download incident PDF',`mpsDownloadIncidentPdf('${esc(incident.id)}'${id?`,'${esc(id)}'`:''})`,'secondary','sm');
   return `<div class="incident-pdf-actions">${ids.length?ids.map(download).join(''):download(null)}${ids.length>1?'<p class="incident-pdf-note">Check each parent copy for another child’s private details before sharing it.</p>':''}</div>`;
 }
+async function mpsCopyIncidentReference(id){
+  const incident=db.health.incidents.find(item=>item.id===id);
+  if(!mpsIncidentCanView(incident))return false;
+  try{await navigator.clipboard.writeText(incident.id);showFeedback('Incident reference copied.');return true}
+  catch(_error){showFeedback('Could not copy the reference. Select the reference to copy it.');return false}
+}
 function mpsIncidentDetailModal(incident){
   if(!mpsIncidentCanView(incident))return modal('Incident unavailable','',notice('This Incident record is not available.','warn'),btn('Close','closeOverlay()','secondary'));
   const occurred=incident.occurredOn?`${esc(fmtDate(incident.occurredOn))}${incident.occurredAtTime?` · ${esc(staffTimeLabel(incident.occurredAtTime))}`:''}`:'Not recorded on this earlier Incident';
-  const detail=`${kv('Incident reference',esc(incident.id))}${kv('Status',esc(incident.status||'Not recorded'))}${mpsIncidentDownloadActions(incident)}${kv('Category',esc(incident.category||'Not recorded'))}${kv('Children involved',incidentChildrenContext(incident))}${kv('Occurred',occurred)}${incident.location?kv('Location',esc(incident.location)):''}${kv('What happened',esc(incident.what||'Not recorded'))}${incident.condition?kv('Injury / condition observed',esc(incident.condition)):''}${kv('Immediate action / first aid',esc(incident.action||'Not recorded'))}${mpsIncidentPhotosHtml(incident)}${kv('Guardian contact',esc(mpsIncidentContactSummary(incident)))}${incident.followup?kv('Follow-up',esc(incident.followup)):''}${incident.actor?.name?kv('Recorded by',`${esc(incident.actor.name)}${incident.at?` · ${esc(attendanceRecordedTime(incident.at))}`:''}`):''}`;
+  const reference=`<span class="incident-reference"><code>${esc(incident.id)}</code>${btn('Copy reference','mpsCopyIncidentReference(ui().modal?.data?.id)','secondary','sm')}</span>`;
+  const detail=`${kv('Incident reference',reference)}${kv('Status',esc(incident.status||'Not recorded'))}${mpsIncidentDownloadActions(incident)}${kv('Category',esc(incident.category||'Not recorded'))}${kv('Children involved',incidentChildrenContext(incident))}${kv('Occurred',occurred)}${incident.location?kv('Location',esc(incident.location)):''}${kv('What happened',esc(incident.what||'Not recorded'))}${incident.condition?kv('Injury / condition observed',esc(incident.condition)):''}${kv('Immediate action / first aid',esc(incident.action||'Not recorded'))}${mpsIncidentPhotosHtml(incident)}${kv('Guardian contact',esc(mpsIncidentContactSummary(incident)))}${incident.followup?kv('Follow-up',esc(incident.followup)):''}${incident.actor?.name?kv('Recorded by',`${esc(incident.actor.name)}${incident.at?` · ${esc(attendanceRecordedTime(incident.at))}`:''}`):''}`;
   const open=incident.status!=='Closed',canReview=open&&mpsIncidentCanReview(incident),ids=incidentChildIds(incident);
   const contactOptions=['Choose outcome…','Called — spoke to guardian','Called — no answer','Informed in person',...(canReview&&incident.category!=='Uncollected Child'?['Contact not required']:[])];
   const target=ids.length>1?`<div class="field"><label for="inc_contact_child">Child whose Guardian was contacted</label><select id="inc_contact_child">${ids.map(id=>`<option value="${esc(id)}">${esc(incident.childSnapshots?.find(child=>child.childId===id)?.name||profileChildName(id))}</option>`).join('')}</select></div>`:ids.length?`<input type="hidden" id="inc_contact_child" value="${esc(ids[0])}">`:'';
@@ -60090,7 +60139,7 @@ modalView=function(m){
 };
 healthIncidents=function(){
   const incidents=db.health.incidents.filter(mpsIncidentCanView);
-  return `<div class="card"><div class="card-header"><div class="grow"><h3>Incident register</h3><p>Care first; factual record, guardian contact and follow-up.</p></div>${btn('New incident',"openModal('incident')",'primary','sm')}</div>${incidents.length?incidents.map(i=>`<div class="child-row" data-incident-id="${esc(i.id)}"><strong>${esc(i.category)}</strong><span>${badge(i.status,'amber')}</span><span>${incidentChildrenContext(i)}</span><span>${esc(i.what)}</span><span>${btn(i.status==='Closed'?'Closed':mpsIncidentCanReview(i)?'Review':'View',`openModal('incident-review',{id:'${esc(i.id)}'})`,'secondary','sm')}</span></div>`).join(''):'<div class="empty">No incidents recorded in this prototype state.</div>'}</div>`;
+  return `<div class="card incident-register"><div class="card-header"><div class="grow"><h3>Incident register</h3><p>Care first; factual record, guardian contact and follow-up.</p></div>${btn('New incident',"openModal('incident')",'primary','sm')}</div>${incidents.length?incidents.map(i=>`<div class="child-row incident-register-row" data-incident-id="${esc(i.id)}"><div class="incident-register-identity"><strong>${esc(i.category||'Incident')}</strong>${i.occurredOn?`<small>${esc(fmtDate(i.occurredOn))}</small>`:''}</div><span>${badge(i.status,'amber')}</span><span>${incidentChildrenContext(i)}</span><span class="incident-register-fact">${esc(i.what||'No factual description saved on this earlier Incident.')}</span><span>${btn(i.status==='Closed'?'Closed':mpsIncidentCanReview(i)?'Review':'View',`openModal('incident-review',{id:'${esc(i.id)}'})`,'secondary','sm')}</span></div>`).join(''):'<div class="empty">No incidents recorded in this prototype state.</div>'}</div>`;
 };
 function mpsSaveIncidentReview(id,closeRequested=false){
   const index=db.health.incidents.findIndex(item=>item.id===id),incident=db.health.incidents[index];
@@ -60172,21 +60221,29 @@ async function mpsIncidentPdfBlob(incident,childId=null,generatedAt=mpsPreschool
     ctx.fillStyle='#173d3b';ctx.font='bold 21px Arial, sans-serif';ctx.fillText(value,left+255,y);y+=37;
   }y+=18;
   for(const field of doc.fields){
-    const lines=wrap(field.value,'21px Arial, sans-serif',right-left);ensure(85);
+    const lines=wrap(field.value,'21px Arial, sans-serif',right-left);
+    if((field.label==='Follow-up'||field.label==='Recorded by'&&!doc.fields.some(item=>item.label==='Follow-up'))&&doc.acknowledgement&&!photoImages.length){
+      const finalFields=doc.fields.slice(doc.fields.indexOf(field));
+      const remaining=finalFields.reduce((total,item)=>total+47+27*wrap(item.value,'21px Arial, sans-serif',right-left).length,245);
+      if(y+remaining>bottom&&remaining<bottom-224){push();start()}
+    }
+    ensure(74);
     ctx.fillStyle='#5e706d';ctx.font='bold 18px Arial, sans-serif';ctx.fillText(field.label,left,y+18);y+=34;
     ctx.fillStyle='#1c302f';ctx.font='21px Arial, sans-serif';
     lines.forEach(line=>{
       if(y+38>bottom){push();start();ctx.fillStyle='#5e706d';ctx.font='bold 18px Arial, sans-serif';ctx.fillText(`${field.label} (continued)`,left,y+18);y+=40;ctx.fillStyle='#1c302f';ctx.font='21px Arial, sans-serif'}
       ctx.fillText(line,left,y+19);y+=27;
-    });y+=13;
-    ctx.strokeStyle='#e0e9e5';ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();y+=10;
+    });y+=9;
+    ctx.strokeStyle='#e0e9e5';ctx.beginPath();ctx.moveTo(left,y);ctx.lineTo(right,y);ctx.stroke();y+=4;
   }
   if(photoImages.length){
     const first=photoImages[0].photo,firstScale=Math.min((right-left)/first.width,670/first.height,1),firstHeight=Math.max(1,Math.round(first.height*firstScale));
     ensure(firstHeight+110);y+=24;ctx.fillStyle='#173d3b';ctx.font='bold 25px Arial, sans-serif';ctx.fillText('PHOTOS',left,y);y+=34;
     for(let index=0;index<photoImages.length;index++){
       const {photo,image}=photoImages[index],maxWidth=right-left,maxHeight=670,scale=Math.min(maxWidth/photo.width,maxHeight/photo.height,1),drawWidth=Math.max(1,Math.round(photo.width*scale)),drawHeight=Math.max(1,Math.round(photo.height*scale));
-      if(y+drawHeight+52>bottom){push();start();ctx.fillStyle='#173d3b';ctx.font='bold 25px Arial, sans-serif';ctx.fillText(index?'PHOTOS (CONTINUED)':'PHOTOS',left,y);y+=38}
+      const finalPhotoReserve=doc.acknowledgement&&index===photoImages.length-1?245:0;
+      const keepWithAcknowledgement=finalPhotoReserve&&y+drawHeight+52+finalPhotoReserve>bottom&&drawHeight+52+finalPhotoReserve<bottom-224;
+      if(keepWithAcknowledgement||y+drawHeight+52>bottom){push();start();ctx.fillStyle='#173d3b';ctx.font='bold 25px Arial, sans-serif';ctx.fillText(index?'PHOTOS (CONTINUED)':'PHOTOS',left,y);y+=38}
       ctx.drawImage(image,left,y,drawWidth,drawHeight);y+=drawHeight+8;
       ctx.fillStyle='#61736f';ctx.font='17px Arial, sans-serif';ctx.fillText(`Photo ${index+1}`,left,y+18);y+=44;
     }
@@ -60340,13 +60397,36 @@ staffTimeField=function(label,value='',disabled=false,id='',context=''){
  const match=/^([01]\d|2[0-3]):([0-5]\d)$/.exec(String(value));
  const hour=match?String(Number(match[1])%12||12):'',minute=match?match[2]:'',period=match&&Number(match[1])>=12?'PM':'AM';
  const controlId=id||`staff_time_${crypto.randomUUID().replaceAll('-','')}`;
- return `<div class="field"><label for="${controlId}_hour">${esc(label)}</label><div class="staff-time-segments" role="group" aria-label="${esc([context,label].filter(Boolean).join(' '))}"><input id="${controlId}" type="hidden" value="${esc(value)}" ${disabled?'disabled':''}><input id="${controlId}_hour" type="number" inputmode="numeric" min="1" max="12" placeholder="Hour" aria-label="Hour" value="${hour}" ${disabled?'disabled':''} oninput="mpsTimeSegmentsChanged(this,event)" onchange="mpsTimeSegmentsChanged(this,event)"><span aria-hidden="true">:</span><input id="${controlId}_minute" type="number" inputmode="numeric" min="0" max="59" placeholder="Min" aria-label="Minute" value="${minute}" ${disabled?'disabled':''} oninput="mpsTimeSegmentsChanged(this,event)" onchange="mpsTimeSegmentsChanged(this,event)"><select id="${controlId}_period" aria-label="AM or PM" ${disabled?'disabled':''} onchange="mpsTimeSegmentsChanged(this,event)"><option ${period==='AM'?'selected':''}>AM</option><option ${period==='PM'?'selected':''}>PM</option></select></div></div>`;
+ return `<div class="field"><label for="${controlId}_hour">${esc(label)}</label><div class="staff-time-segments" role="group" aria-label="${esc([context,label].filter(Boolean).join(' '))}"><input id="${controlId}" type="hidden" value="${esc(value)}" ${disabled?'disabled':''}><input id="${controlId}_hour" type="text" inputmode="numeric" autocomplete="off" placeholder="Hour" aria-label="Hour" aria-describedby="${controlId}_time_feedback" value="${hour}" ${disabled?'disabled':''} oninput="mpsTimeSegmentsChanged(this,event)" onchange="mpsTimeSegmentsChanged(this,event)"><span aria-hidden="true">:</span><input id="${controlId}_minute" type="text" inputmode="numeric" autocomplete="off" placeholder="Min" aria-label="Minute" aria-describedby="${controlId}_time_feedback" value="${minute}" ${disabled?'disabled':''} oninput="mpsTimeSegmentsChanged(this,event)" onchange="mpsTimeSegmentsChanged(this,event)"><select id="${controlId}_period" aria-label="AM or PM" ${disabled?'disabled':''} onchange="mpsTimeSegmentsChanged(this,event)"><option ${period==='AM'?'selected':''}>AM</option><option ${period==='PM'?'selected':''}>PM</option></select></div><div id="${controlId}_time_feedback" class="staff-time-feedback" data-time-feedback role="status" hidden></div></div>`;
 };
+function mpsTimeSegmentState(id,optional=false){
+ const hourInput=byId(id+'_hour'),minuteInput=byId(id+'_minute'),periodInput=byId(id+'_period');
+ if(!hourInput||!minuteInput||!periodInput)return {ok:false,fieldId:id+'_hour',message:'Enter a valid time.'};
+ const hour=hourInput.value.trim(),minute=minuteInput.value.trim(),period=periodInput.value;
+ if(!hour&&!minute)return optional?{ok:true,value:''}:{ok:false,fieldId:id+'_hour',message:'Enter the hour and minute.',incomplete:true};
+ if(hour&&!/^\d{1,2}$/.test(hour)||hour&&(+hour<1||+hour>12))return {ok:false,fieldId:id+'_hour',message:'Enter an hour from 1 to 12.'};
+ if(minute&&!/^\d{1,2}$/.test(minute)||minute&&+minute>59)return {ok:false,fieldId:id+'_minute',message:'Enter minutes from 00 to 59.'};
+ if(!hour||!minute)return {ok:false,fieldId:!hour?id+'_hour':id+'_minute',message:'Enter both hour and minute.',incomplete:true};
+ if(!['AM','PM'].includes(period))return {ok:false,fieldId:id+'_period',message:'Choose AM or PM.'};
+ return {ok:true,value:`${String((+hour%12)+(period==='PM'?12:0)).padStart(2,'0')}:${minute.padStart(2,'0')}`};
+}
+function mpsTimeFieldState(id,optional=false){
+ const state=mpsTimeSegmentState(id,optional),hidden=byId(id);
+ if(!state.ok)return state;
+ return hidden?.value===state.value?state:{ok:false,fieldId:id+'_hour',message:'Review this time before saving.'};
+}
+function mpsTimeFieldValue(id,optional=false){
+ const state=mpsTimeFieldState(id,optional);
+ if(state.ok)return state.value;
+ const feedback=byId(id)?.closest('.field')?.querySelector('[data-time-feedback]');if(feedback)feedback.hidden=true;
+ eliiraFieldError(state.fieldId,state.message);return null;
+}
 function mpsTimeSegmentsChanged(part,event){
- const group=part.closest('.staff-time-segments'),hourInput=group.querySelector('[id$="_hour"]'),minuteInput=group.querySelector('[id$="_minute"]'),periodInput=group.querySelector('[id$="_period"]'),hidden=group.querySelector('input[type="hidden"]');
- const h=Number(hourInput.value),m=Number(minuteInput.value),valid=hourInput.value!==''&&minuteInput.value!==''&&Number.isInteger(h)&&h>=1&&h<=12&&Number.isInteger(m)&&m>=0&&m<=59;
- hidden.value=valid?`${String(h%12+(periodInput.value==='PM'?12:0)).padStart(2,'0')}:${String(m).padStart(2,'0')}`:'';
- if(valid){if(event?.type==='change')minuteInput.value=String(m).padStart(2,'0');eliiraClearFieldError(hourInput);eliiraClearFieldError(minuteInput)}
+ const group=part.closest('.staff-time-segments'),hidden=group.querySelector('input[type="hidden"]'),state=mpsTimeSegmentState(hidden.id,true),feedback=group.parentElement.querySelector('[data-time-feedback]');
+ hidden.value=state.ok?state.value:'';
+ if(state.ok&&state.value&&event?.type==='change')byId(hidden.id+'_minute').value=state.value.slice(3);
+ if(event?.type==='input'||part.tagName==='SELECT')for(const input of [byId(hidden.id+'_hour'),byId(hidden.id+'_minute'),byId(hidden.id+'_period')])eliiraClearFieldError(input);
+ if(feedback){feedback.textContent=state.ok||state.incomplete&&event?.type!=='change'?'':state.message;feedback.hidden=!feedback.textContent}
  hidden.dispatchEvent(new Event('change',{bubbles:true}));
 }
 admissionVisitTimeField=function(value){return staffTimeField('Visit time',value,false,'tour_time')};
