@@ -47819,6 +47819,16 @@ function daycarePlan(id){return educationConfig().plans.find(p=>p.id===id)}
 function offeredDaycarePlans(){return educationConfig().plans.filter(p=>p.offered!==false)}
 function offeredDaycarePlan(id){return offeredDaycarePlans().find(p=>p.id===id)}
 function careLabel(id,window=false){if(id===null)return 'Preschool only';const p=daycarePlan(id);return p?`${p.name}${window?' · '+staffTimeLabel(p.start)+'–'+staffTimeLabel(p.end):''}`:'Needs staff review'}
+// Presentation only: a Daycare choice is an add-on to Preschool. Keep saved
+// wording (including older programme names) and never infer an unknown plan.
+function agreedServiceDisplay(saved,planId){
+ const label=String(saved||'').trim();
+ if(label==='Preschool only'||label==='Preschool')return 'Preschool only';
+ if(!label)return planId===null?'Preschool only':'Needs staff review';
+ if(label==='Needs staff review'||label.includes(' + ')||/^(Baby Class|Upper Class)$/.test(label))return label;
+ if(planId!==null&&planId!==undefined&&daycarePlan(planId))return `Preschool + ${label}`;
+ return ['Standard Daycare','Extended Daycare'].includes(label)?`Preschool + ${label}`:label;
+}
 function careSelect(id,value){return `<div class="field"><label for="${id}">Care choice</label><select id="${id}">${value!==null&&!offeredDaycarePlan(value)?'<option value="unresolved" selected>Choose care…</option>':''}<option value="" ${value===null?'selected':''}>Preschool only</option>${offeredDaycarePlans().map(p=>`<option value="${p.id}" ${value===p.id?'selected':''}>${esc(careLabel(p.id,true))}</option>`).join('')}</select></div>`}
 function careInput(id){const value=val(id);return value===''?null:offeredDaycarePlan(value)?value:undefined}
 function educationRoomSelect(id,value,rooms=educationConfig().classrooms,onchange=''){return `<div class="field"><label for="${id}">Classroom</label><select id="${id}" ${onchange?`onchange="${onchange}"`:''}><option value="">Select classroom…</option>${rooms.filter(r=>activeEducationRoom(r.id)).map(r=>`<option value="${esc(r.id)}" ${r.id===value?'selected':''}>${esc(classroomLabel(r.id,true))}</option>`).join('')}</select></div>`}
@@ -47856,7 +47866,7 @@ function daycareBookingSelect(value='standard'){const plans=offeredDaycarePlans(
 function amendCareModal(id){const b=Object.values(db.daycare.bookings).find(b=>b.id===id);if(!allowed('daycare')||!b||b.date<=TODAY)return modal('Amend coverage','',notice('Only future authorised bookings can be amended.','warn'),btn('Close','closeOverlay()'));return modal('Amend coverage','',kv('Child',esc(profileChildName(b.childId)))+kv('Currently authorised',esc(bookingCoverageLabel(b)))+daycareBookingSelect(b.daycarePlanId)+textArea('Reason','','amend_care_reason'),btn('Cancel','closeOverlay()')+btn('Confirm amendment',`amendCareBooking('${id}')`,'primary'))}
 function amendCareBooking(id){const b=Object.values(db.daycare.bookings).find(b=>b.id===id),planId=val('db_care'),reason=val('amend_care_reason').trim();if(!allowed('daycare')||!b||b.date<=TODAY||!currentChildrenInScope().some(c=>c.id===b.childId))return;if(!(planId==='extension'||offeredDaycarePlan(planId))){eliiraFieldError('db_care','Select offered care.');return}if(!reason){eliiraFieldError('amend_care_reason','Record the reason.');return}b.history=b.history||[];b.history.push({at:new Date().toISOString(),actor:staffActor(),reason,before:{care:b.care,coverage:b.coverage||null,daycarePlanId:b.daycarePlanId}});b.daycarePlanId=planId;b.care=planId==='extension'?'One-day Late Care extension':careLabel(planId);b.coverage=bookingCoverage(planId);save();closeOverlay()}
 function futureCareBookings(){const rows=Object.values(db.daycare.bookings).filter(b=>b.date>TODAY&&currentChildrenInScope().some(c=>c.id===b.childId));return rows.length?`<h3>Upcoming bookings</h3>${rows.map(b=>`<div class="card"><strong>${esc(profileChildName(b.childId))}</strong>${kv('Date',fmtDate(b.date))}${kv('Authorised coverage',esc(bookingCoverageLabel(b)))}${btn('Amend coverage',`openModal('amend-care',{id:'${b.id}'})`,'secondary','sm')}</div>`).join('')}`:''}
-function admissionCareLabel(c){return c.closed||c.migrationHistory?c.service:careLabel(c.daycarePlanId)}
+function admissionCareLabel(c){return c.closed||c.migrationHistory?c.service:c.careReview?'Needs staff review':agreedServiceDisplay(careLabel(c.daycarePlanId),c.daycarePlanId)}
 
 function todayLearningSafety(){const children=learningChildren(),child=children.find(c=>db.health.profiles[c.id]);return child?`<div class="card"><h3>Persistent safety context</h3>${childHealthContext(child.id)}</div>`:''}
 
@@ -48298,6 +48308,14 @@ function openDrawer(name,data=null){ui().drawer={name,data};save();render()}
 function closeOverlay(){ui().modal=null;ui().drawer=null;save();render()}
 function setAdmissionCase(id){ui().admissionsCase=id;ui().admissionsTab='overview';save();render()}
 function setAdmissionTab(tab){ui().admissionsTab=tab;save();render()}
+function mpsRevealSelectedAdmissionTab(){
+ const strip=document.querySelector('.case-workspace>.tabs');
+ const active=strip?.querySelector('.tab.active');
+ if(!active)return;
+ const bounds=strip.getBoundingClientRect(),selected=active.getBoundingClientRect();
+ if(selected.right>bounds.right)strip.scrollLeft+=selected.right-bounds.right;
+ else if(selected.left<bounds.left)strip.scrollLeft+=selected.left-bounds.left;
+}
 function setLessonTab(tab){if(!['week','evidence'].includes(tab))return;ui().lessonTab=tab;save();render()}
 function setHealthTab(tab){ui().healthTab=tab;save();render()}
 function healthScopedChildren(){return Object.values(db.people?.children||{}).filter(c=>canViewChildHealth(c.id))}
@@ -48320,7 +48338,11 @@ function mpsUtilityAction(label,action,icon='file-text'){
 }
 function allowed(route){let r=routes[route];if(!r||!r.bundles)return true;return r.bundles.some(has)}
 function navButton(route){let r=routes[route];let active=ui().route===route;return `<button class="nav-item ${active?'active':''}" onclick="openWorkspace('${route}')"><span class="ico">${mpsLineIcon(r.icon)}</span>${r.label}${route==='today'&&todayActions().length?`<span class="nav-badge">${todayActions().length}</span>`:''}</button>`}
-function navList(){let work=['today','admissions','attendance','daycare','lessons','lesson-today','reports','health','billing','media'];let manage=['children','staff','calendar'].filter(r=>routes[r]);return `<div class="nav-group"><div class="nav-label">Work</div>${work.filter(allowed).map(navButton).join('')}</div><div class="nav-group"><div class="nav-label">Manage</div>${manage.filter(allowed).map(navButton).join('')}</div>`}
+const mpsWorkNavOrder=['today','admissions','attendance','daycare','lessons','lesson-today','reports','health','billing','media'];
+const mpsManageNavOrder=['children','staff','calendar','preschool-settings'];
+function mpsAvailableNavRoutes(order){return order.filter(r=>routes[r]&&allowed(r))}
+function mpsSidebarRouteOrder(){return mpsAvailableNavRoutes([...mpsWorkNavOrder,...mpsManageNavOrder])}
+function navList(){return `<div class="nav-group"><div class="nav-label">Work</div>${mpsAvailableNavRoutes(mpsWorkNavOrder).map(navButton).join('')}</div><div class="nav-group"><div class="nav-label">Manage</div>${mpsAvailableNavRoutes(mpsManageNavOrder).map(navButton).join('')}</div>`}
 function mobileNav(){let pref=['today','attendance','lessons','daycare','admissions','billing','media','staff'];let xs=pref.filter(allowed).slice(0,5);return `<div class="mobile-nav">${xs.map(r=>`<button class="${ui().route===r||r==='lessons'&&ui().route==='lesson-today'?'active':''}" onclick="openWorkspace('${r}')"><span class="mi">${mpsLineIcon(routes[r].icon)}</span>${routes[r].label.split(' ')[0]}</button>`).join('')}</div>`}
 function personaSelect(){return `<div class="prototype-persona"><span>Prototype persona</span><select onchange="switchPersona(this.value)">${Object.values(db.personas).map(p=>`<option value="${p.id}" ${p.id===ui().persona?'selected':''}>${p.name}</option>`).join('')}</select></div>`}
 function switchPersona(id){ui().persona=id;let r=ui().route;if(!allowed(r)&&r!=='parent-application'&&r!=='parent-onboarding')ui().route='today';save();render()}
@@ -48338,7 +48360,7 @@ function mpsReviewSwitchStaff(id){
  const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
  save();render();return true;
 }
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=9a74887474fd" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=9a74887474fd" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=de8ca5d3d48b" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=de8ca5d3d48b" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -48648,7 +48670,11 @@ function modalView(m){let n=m.name,d=m.data||{};
   if(n==='send-application'){let c=db.admissions[d.caseId];return modal('Send secure application','No parent account required.',`${kv('Recipient',`${c.guardian} · ${c.phone}`)}${kv('Expires','7 days from generation')}${kv('Prefill','Enquiry + Tour information')}${field('Secure link',`https://apply.mps.example/a/${c.id.toUpperCase()}-6V2K`,'text',true)}${textArea('Prepared WhatsApp message',`Hi ${c.guardian.split(' ')[0]}, thank you for visiting ${mpsOrganisationName()}. Please use this secure link to review the details we already have and submit ${c.childName.split(' ')[0]}’s application.`,'app_message')}${notice('Manual WhatsApp records Sent only — not Delivered or Read.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Copy & mark Sent',`sendApplication('${c.id}')`,'primary')}`)}
   if(n==='accept-application'){let c=db.admissions[d.caseId];return modal('Accept application','Acceptance freezes the placement facts for conversion.',`${selectField('Programme / class',['Baby Class','Upper Class'],c.service.includes('Upper')?'Upper Class':'Baby Class','accept_class')}${field('Start date',c.start,'date',false,'accept_start')}${notice('Accepted is not Enrolled. The admission-fee gate must be satisfied or waived before conversion.','warn')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Accept',`acceptApplication('${c.id}')`,'primary')}`)}
   if(n==='waitlist-application'){return modal('Waitlist application','Keep the application active without pretending a place has been accepted.',`${field('Waitlist note','Awaiting staff review.','text',false,'wait_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Waitlist',`waitlistApplication('${d.caseId}')`,'primary')}`)}
-  if(n==='decline-application'){return modal('Decline application','Record the real non-conversion reason.',`${selectField('Reason',lostReasons,'Requested start or service not offered','decline_reason')}${textArea('Optional factual note','','decline_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Decline',`declineApplication('${d.caseId}')`,'danger')}`)}
+  if(n==='decline-application'){
+    const c=db.admissions[d.caseId];
+    if(!c||!admissionCanClose(c)||c.application?.status!=='submitted')return modal('Decline unavailable','',notice('This Application cannot be declined here.','warn'),btn('Close','closeOverlay()','secondary'));
+    return modal('Decline application',`Confirm that you want to decline ${esc(c.childName)}’s Application.`,`${selectField('Reason',lostReasons,'Requested start or service not offered','decline_reason')}${textArea('Optional factual note','','decline_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Confirm Decline',`declineApplication('${c.id}')`,'danger')}`);
+  }
   if(n==='withdraw-application'){return modal('Record family withdrawal','The family chose to withdraw before enrolment.',`${selectField('Reason',['Family postponed preschool decision','No longer interested','Chose another preschool','Other'],'Family postponed preschool decision','withdraw_reason')}${textArea('Optional factual note','','withdraw_note')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record withdrawal',`withdrawApplication('${d.caseId}')`,'danger')}`);}
   if(n==='record-admission-payment'){let c=db.admissions[d.caseId],out=feeOutstanding(c.fee);return modal('Record admission-fee payment','Record what the family says was paid. It remains Pending Verification until an authorised real-source check.',`${kv('Family',c.childName)}${kv('Outstanding',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method')}${field('Amount',String(out),'number',false,'adm_record_amount')}${field('Reference','','text',false,'adm_record_reference')}${field('Optional evidence filename','','text',false,'adm_record_evidence')}${notice('A screenshot/file is optional. Verification against the real bank/cash source is still required.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record payment',`recordAdmissionPayment('${c.id}')`,'primary')}`)}
   if(n==='verify-admission-payment'){let c=db.admissions[d.caseId],p=c.fee.pending.find(x=>x.id===d.paymentId);return modal('Verify admission-fee payment','Check the real source before marking Verified.',`${kv('Family',c.childName)}${kv('Method',p.method)}${kv('Amount',money(p.amount))}${kv('Reference',p.reference)}${selectField('Verification method',['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'],'Bank app/account checked','adm_verification')}${notice('The optional screenshot is not the control. The authorised real-source check is.','info')}`,`${btn('Reject','closeOverlay()','secondary')}${btn('Verify payment',`verifyAdmissionPayment('${c.id}','${p.id}')`,'primary')}`)}
@@ -48840,7 +48866,7 @@ function mpsMedicationAuthorisationModal(data){
   const guardians=mpsMedicationGuardians(childId);
   if(!guardians.length)return modal('Medication authorisation unavailable','',notice('Confirm a guardian with legal authority in the child’s Family record before recording medication authorisation.','warn'),btn('Close','closeOverlay()','secondary'));
   const guardianOptions=`<div class="field"><label for="ma_guardian">Authorising guardian</label><select id="ma_guardian"><option value="">Select authorised guardian</option>${guardians.map(link=>`<option value="${esc(link.guardianId)}" ${link.guardianId===auth?.guardianId?'selected':''}>${esc(db.people.guardians[link.guardianId].name)}</option>`).join('')}</select></div>`;
-  return modal(auth?'Prepare replacement authorisation':'Create medication authorisation','Prepare the exact signed form. It becomes current only after the signed original is received.',`${kv('Child',profileChildLink(childId))}${field('Medication',auth?.medication||'','text',false,'ma_medication')}${textArea('Exact dose / instruction',auth?.instruction||'','ma_instruction')}${mpsMedicationTriggerFields(auth)}${textArea('Important directions, if applicable',auth?.directions||'','ma_directions')}${field('Valid from',TODAY,'date',false,'ma_from')}${field('Valid until','','date',false,'ma_until')}${guardianOptions}${notice('The authorised Guardian signs the printed form. Preparing or downloading it does not authorise administration.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Prepare signed form','replaceMedicationAuth()','primary')}`);
+  return modal(auth?'Prepare replacement authorisation':'Create medication authorisation','Prepare the exact signed form. It becomes current only after the signed original is received.',`<div class="field medication-child-context"><span class="medication-context-label">Child</span><div class="medication-child-name">${profileChildLink(childId)}</div></div>${field('Medication',auth?.medication||'','text',false,'ma_medication')}${textArea('Exact dose / instruction',auth?.instruction||'','ma_instruction')}${mpsMedicationTriggerFields(auth)}${textArea('Important directions, if applicable',auth?.directions||'','ma_directions')}${field('Valid from',TODAY,'date',false,'ma_from')}${field('Valid until','','date',false,'ma_until')}${guardianOptions}${notice('The authorised Guardian signs the printed form. Preparing or downloading it does not authorise administration.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Prepare signed form','replaceMedicationAuth()','primary')}`);
 }
 function mpsSaveMedicationAuthorisation(){
   const childId=ui().modal?.data?.childId||healthSelectedChild();
@@ -49958,7 +49984,8 @@ function mobileRouteOrder(){
 function mobileSecondaryRoutes(){
   const all=mobileRouteOrder();
   const secondary=all.length<=5?all.filter(r=>r==='lessons'):all.slice(4);
-  return secondary.includes('lessons')?['lessons',...secondary.filter(r=>r!=='lessons')]:secondary;
+  const sidebar=mpsSidebarRouteOrder();
+  return [...sidebar.filter(r=>secondary.includes(r)),...secondary.filter(r=>!sidebar.includes(r))];
 }
 mobileNav=function(){
   const all=mobileRouteOrder();
@@ -50664,7 +50691,7 @@ admissionApplication = function(c){
       ${kv('DOB',esc(snap.dob||c.dob))}
       ${kv('Guardian',esc(snap.guardian||c.guardian))}
       ${kv('Phone',esc(snap.phone||c.phone))}
-      ${kv('Requested service',esc(snap.service||c.service))}
+      ${kv('Requested service',esc(agreedServiceDisplay(snap.service||c.service,snap.daycarePlanId)))}
       ${kv('Desired start',fmtDate(snap.start||c.start))}
       ${a.snapshot?.data?.note?kv('Historical parent-submitted note',`${esc(a.snapshot.data.note)} ${prov('Parent submitted','parent')}`):''}
 
@@ -51338,7 +51365,7 @@ admissionApplication=function(c){
     <div class="section-title">Child & requested place</div>
     ${kv('Child',`${esc(snap.childName||c.childName)} ${prov(a.snapshot?'Parent submitted':'MPS reused',a.snapshot?'parent':'reused')}`)}
     ${kv('DOB',esc(snap.dob||c.dob))}${kv('Guardian',esc(snap.guardian||c.guardian))}${kv('Phone',esc(snap.phone||c.phone))}
-    ${kv('Requested service',esc(snap.service||c.service))}${kv('Desired start',fmtDate(snap.start||c.start))}
+    ${kv('Requested service',esc(agreedServiceDisplay(snap.service||c.service,snap.daycarePlanId)))}${kv('Desired start',fmtDate(snap.start||c.start))}
     ${a.snapshot?.data?.note?kv('Historical parent-submitted note',`${esc(a.snapshot.data.note)} ${prov('Parent submitted','parent')}`):''}
     <div class="section-title">Admissions context</div>
     ${kv('Lead source',`${esc(c.source||'—')} ${prov('Admissions history','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}
@@ -51903,7 +51930,7 @@ function mpsAdmissionFeeBillingRows(){
   return Object.values(db.admissions).filter(c=>c?.application?.status==='accepted'&&!c?.enrolment&&!c?.closed).map(c=>{
     if(!c.fee){
       const inv=mpsAdmissionFeeDraft(c);if(!inv)return `<div class="card flat" data-admission-fee-case="${esc(c.id)}"><h3>Admission fee invoice needed · ${esc(c.childName)}</h3>${btn('Prepare draft',`mpsReprepareAdmissionFeeDraft('${c.id}')`,'secondary','sm')}</div>`;
-      return `<div class="card flat" style="margin-bottom:10px" data-admission-fee-case="${esc(c.id)}"><div class="card-header"><div class="grow"><h3>Admission fee invoice to issue · ${esc(c.childName)}</h3><p>${esc(inv.service)} · ${money(inv.policySnapshot.amount)} · due ${fmtDate(inv.due)}</p></div>${badge('Draft','blue')}</div>${btn('Review & issue',`openAdmissionFeeBilling('${c.id}')`,'primary','sm')}</div>`;
+      return `<div class="card flat" style="margin-bottom:10px" data-admission-fee-case="${esc(c.id)}"><div class="card-header"><div class="grow"><h3>Admission fee invoice to issue · ${esc(c.childName)}</h3><p>${esc(agreedServiceDisplay(inv.service,c.application?.acceptedPlacement?.daycarePlanId))} · ${money(inv.policySnapshot.amount)} · due ${fmtDate(inv.due)}</p></div>${badge('Draft','blue')}</div>${btn('Review & issue',`openAdmissionFeeBilling('${c.id}')`,'primary','sm')}</div>`;
     }
     const f=c.fee,inv=mpsAdmissionFeeInvoice(c),payments=mpsAdmissionFeePayments(c),effective=mpsAdmissionEffectiveFeeStatus(f),out=feeOutstanding(f);
     const paymentRows=payments.map(p=>`<div class="child-row"><strong>${money(p.amount)} · ${esc(p.method)}</strong><span>${badge(p.status,p.status==='pending'?'amber':'green')}</span><span class="hide-mobile">${fmtDate(p.paymentDate)} · ${esc(p.reference||'No reference')}</span><span>${p.status==='pending'?btn('Verify',`openModal('verify-admission-payment',{caseId:'${c.id}',paymentId:'${p.id}'})`,'primary','sm'):'✓'}</span></div>`).join('');
@@ -52018,7 +52045,7 @@ modalView=function(m){
   const n=m?.name,d=m?.data||{};
   if(n==='accept-application'){
     const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
-    return modal('Accept application','Confirm the existing agreed placement.',`${placementSummary(c.confirmedPlacement)}${kv('Agreed care',esc(careLabel(c.daycarePlanId,true)))}${kv('Agreed start date',fmtDate(c.start))}${notice('Accepted is not Enrolled. The admission-fee gate must be satisfied or waived before conversion.','warn')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Accept application',`acceptApplication('${c.id}')`,'primary')}`);
+    return modal('Accept application','Confirm the existing agreed placement.',`${placementSummary(c.confirmedPlacement)}${kv('Agreed care',esc(agreedServiceDisplay(careLabel(c.daycarePlanId,true),c.daycarePlanId)))}${kv('Agreed start date',fmtDate(c.start))}${notice('Accepted is not Enrolled. The admission-fee gate must be satisfied or waived before conversion.','warn')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Accept application',`acceptApplication('${c.id}')`,'primary')}`);
   }
   if(n==='send-application'){
     const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
@@ -52030,7 +52057,7 @@ modalView=function(m){
     const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
     const inv=mpsAdmissionFeeDraft(c);if(!inv||!has('Accounts')||c.closed)return modal('Admission fee','',notice('No admission-fee draft is available to issue.','info'),btn('Close','closeOverlay()','secondary'));
     const q=inv.policySnapshot;
-    return modal('Review admission-fee invoice','',`${invoiceRelatedContext(inv)}${invoiceRecipientContext(inv)}${kv('Child',esc(c.childName))}${kv('Agreed service',esc(inv.service))}${kv('Admission fee',mpsFeeDisplay(q.amount,q.currencyDisplay||q.currency))}${kv('Due date',fmtDate(q.due))}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Issue invoice',`issueAdmissionFee('${c.id}')`,'primary')}`);
+    return modal('Review admission-fee invoice','',`${invoiceRelatedContext(inv)}${invoiceRecipientContext(inv)}${kv('Child',esc(c.childName))}${kv('Agreed service',esc(agreedServiceDisplay(inv.service,c.application?.acceptedPlacement?.daycarePlanId)))}${kv('Admission fee',mpsFeeDisplay(q.amount,q.currencyDisplay||q.currency))}${kv('Due date',fmtDate(q.due))}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Issue invoice',`issueAdmissionFee('${c.id}')`,'primary')}`);
   }
   if(n==='create-enrolment'){
     const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
@@ -54829,19 +54856,19 @@ function currentFamilyCommunicationSnapshots(inv){
 function invoiceRecipientContext(inv){
   const issued=inv.status!=='draft';
   const rows=issued?(inv.recipientSnapshot||[]):currentFamilyCommunicationSnapshots(inv);
-  const label=inv.category==='admission_fee'&&(!db.admissions?.[inv.admissionsCaseId]?.enrolment||rows.some(x=>x.admissionsCaseId))?'Admissions contact':'Family communications';
+  const label=inv.category==='admission_fee'&&(!db.admissions?.[inv.admissionsCaseId]?.enrolment||rows.some(x=>x.admissionsCaseId))?'Parent / Guardian contact':'Family communications';
   if(issued&&!rows.length){
     const c=db.admissions?.[inv.admissionsCaseId];
     const current=c&&!c.enrolment?admissionsFamilyContactSnapshot(c.id):[];
-    return kv('Recipient at issue','Not recorded on this earlier invoice')+(current.length?kv('Current Admissions contact',esc(current.map(x=>x.name).join(', '))):'');
+    return kv('Recipient at issue','Not recorded on this earlier invoice')+(current.length?kv('Current Parent / Guardian contact',esc(current.map(x=>x.name).join(', '))):'');
   }
-  return kv(issued&&label==='Family communications'?'Family communications at issue':label,rows.length?recipientSnapshotDisplay(rows):label==='Admissions contact'?'No eligible Admissions contact recorded':'Choose an authorised guardian in Family communications');
+  return kv(issued&&label==='Family communications'?'Family communications at issue':label,rows.length?recipientSnapshotDisplay(rows):label==='Parent / Guardian contact'?'No eligible Parent / Guardian contact recorded':'Choose an authorised guardian in Family communications');
 }
 function openBillingInvoice(id){if(!allowed('billing')||!db.billing?.invoices?.[id])return;setRoute('billing');openModal('invoice-detail',{id})}
 function openInvoiceAdmissionCase(id){if(!allowed('admissions')||!db.admissions?.[id])return;ui().admissionsStageFilter='All';ui().admissionsCase=id;ui().admissionsTab='payments';setRoute('admissions')}
 function invoiceRelatedContext(inv){
   const c=inv.admissionsCaseId?db.admissions?.[inv.admissionsCaseId]:null;
-  if(c&&!c.enrolment)return kv('Related to',`Admission case · ${esc(c.childName)}${allowed('admissions')?' · '+btn('Open Admissions case',`openInvoiceAdmissionCase('${esc(c.id)}')`,'secondary','sm'):''}`);
+  if(c&&!c.enrolment&&inv.category==='admission_fee')return kv('Related to',`Admissions Application · ${esc(inv.childName||c.childName)}${allowed('admissions')?' · '+btn('Open Admissions case',`openInvoiceAdmissionCase('${esc(c.id)}')`,'secondary','sm'):''}`);
   const childId=profileChildId(inv.childId);
   return kv('Related to',`Child · ${esc(inv.childName||profileChildName(inv.childId))}${childId&&canOpenChildProfile(childId)?' · '+btn('Open child profile',`openChildProfile('${esc(childId)}')`,'secondary','sm'):''}`);
 }
@@ -55065,14 +55092,30 @@ function guardianProfileModal(linkId){
 }
 function canViewStaffSensitive(id){return currentPersona().id===id||has('Head Teacher')}
 function canEditStaffProfile(id){return !!mpsAccount(id)&&canViewStaffSensitive(id)}
-function staffProfileComplete(a){const p=a?.profile||{};return !!(a?.name&&profileAge(p.dob)!==null&&p.gender&&p.mobile&&p.address&&p.emergency?.name&&p.emergency?.relationship&&p.emergency?.phone&&mpsNormalisePhone(p.mobile,p.phoneCountry||mpsDefaultPhoneCountry()).ok&&mpsNormalisePhone(p.emergency.phone,p.phoneCountry||mpsDefaultPhoneCountry()).ok)}
+function staffPhoneCountryValid(code){return mpsPhoneCountryOptions().some(option=>option.code===code)}
+function staffEmergencyPhoneCountry(p){
+  if(p.emergency?.phoneCountry)return p.emergency.phoneCountry;
+  // Older profiles have no separate country. Infer only from an explicit saved
+  // international number; otherwise use the configured tenant default.
+  const phone=String(p.emergency?.phone||'');
+  const match=mpsPhoneCountryOptions().filter(option=>phone.startsWith(option.dial)).sort((a,b)=>b.dial.length-a.dial.length)[0];
+  return match?.code||mpsDefaultPhoneCountry();
+}
+function staffProfileComplete(a){const p=a?.profile||{},mobileCountry=p.phoneCountry||mpsDefaultPhoneCountry(),emergencyCountry=staffEmergencyPhoneCountry(p);return !!(a?.name&&profileAge(p.dob)!==null&&p.gender&&p.gender!=='Select…'&&p.mobile&&p.address&&p.emergency?.name&&p.emergency?.relationship&&p.emergency.relationship!=='Select…'&&p.emergency?.phone&&staffPhoneCountryValid(mobileCountry)&&staffPhoneCountryValid(emergencyCountry)&&mpsNormalisePhone(p.mobile,mobileCountry).ok&&mpsNormalisePhone(p.emergency.phone,emergencyCountry).ok)}
 function openStaffProfile(id){if(!mpsAccount(id))return;ui().profileStaff=id;ui().staffProfileSection='Profile';setRoute('staff')}
 function staffResponsibilities(a){return (a?.bundles||[]).join(' · ')||'No responsibilities assigned'}
 function staffTeachingClassrooms(a){return staffClassrooms(a).map(id=>classroomLabel(id,true)).join(' · ')||'No teaching classrooms assigned'}
 function staffAccountState(a){if(a?.status==='inactive')return 'Inactive';if(a?.status!=='pending_profile')return 'Active';return mpsIdentity(a)?.emailVerified?'Profile setup pending':'Invitation pending'}
 function staffRosterAttention(a){if(a.status==='inactive')return '';const identity=mpsIdentity(a);if(!identity)return notice('Sign-in is not configured.','warn');if(a.status==='pending_profile'||!identity.emailVerified)return notice(esc(a.status==='pending_profile'?staffAccountState(a):'Invitation pending'),'warn');return !staffProfileComplete(a)?notice('Profile information needs attention.','warn'):''}
 function staffWorkSummary(a){return `<section class="staff-profile-block"><h3>Work</h3>${kv('Responsibilities',esc(staffResponsibilities(a)))}${kv('Teaching classrooms',esc(staffTeachingClassrooms(a)))}</section>`}
-function staffProfileForm(a){const p=a.profile||{};return `<div class="staff-profile-form">${staffWorkSummary(a)}<section class="staff-profile-block"><h3>Personal details</h3><div class="form-grid">${field('Full name',a.name,'text',false,'sp_name')}${field('Date of birth',p.dob||'','date',false,'sp_dob')}${field('Gender',p.gender||'','text',false,'sp_gender')}</div></section><section class="staff-profile-block"><h3>Contact details</h3><div class="form-grid">${mpsPhoneCountrySelect('sp_country',p.phoneCountry)}${field('Mobile',p.mobile||'','tel',false,'sp_mobile')}${field('Home address',p.address||'','text',false,'sp_address')}</div></section><section class="staff-profile-block"><h3>Emergency contact</h3><div class="form-grid">${field('Name',p.emergency?.name||'','text',false,'sp_em_name')}${field('Relationship',p.emergency?.relationship||'','text',false,'sp_em_relationship')}${field('Phone',p.emergency?.phone||'','tel',false,'sp_em_phone')}</div></section><section class="staff-profile-block"><h3>Qualifications</h3>${textArea('Qualifications (if applicable)',p.qualifications||'','sp_qualifications')}</section>${btn('Save profile',`saveStaffProfile('${a.id}')`,'primary')}</div>`}
+const STAFF_GENDER_OPTIONS=['Male','Female'];
+const STAFF_EMERGENCY_RELATIONSHIPS=['Parent','Spouse','Friend','Other'];
+function staffProfileSelect(label,id,current,options){
+  const historical=current&&!options.includes(current);
+  return `<div class="field"><label for="${id}">${esc(label)}</label><select id="${id}"><option value="">Select…</option>${options.map(option=>`<option value="${esc(option)}" ${option===current?'selected':''}>${esc(option)}</option>`).join('')}${historical?`<option value="${esc(current)}" selected disabled>${esc(current)} (saved value)</option>`:''}</select></div>`;
+}
+function staffProfileChoiceValid(value,options,existing){return value!=='Select…'&&(options.includes(value)||!!existing&&value===existing)}
+function staffProfileForm(a){const p=a.profile||{};return `<div class="staff-profile-form">${staffWorkSummary(a)}<section class="staff-profile-block"><h3>Personal details</h3><div class="form-grid">${field('Full name',a.name,'text',false,'sp_name')}${field('Date of birth',p.dob||'','date',false,'sp_dob')}${staffProfileSelect('Gender','sp_gender',p.gender||'',STAFF_GENDER_OPTIONS)}</div></section><section class="staff-profile-block"><h3>Contact details</h3><div class="form-grid">${mpsPhoneCountrySelect('sp_country',p.phoneCountry,'Mobile phone region')}${field('Mobile',p.mobile||'','tel',false,'sp_mobile')}${field('Home address',p.address||'','text',false,'sp_address')}</div></section><section class="staff-profile-block"><h3>Emergency contact</h3><div class="form-grid">${field('Name',p.emergency?.name||'','text',false,'sp_em_name')}${staffProfileSelect('Relationship','sp_em_relationship',p.emergency?.relationship||'',STAFF_EMERGENCY_RELATIONSHIPS)}${mpsPhoneCountrySelect('sp_em_country',staffEmergencyPhoneCountry(p),'Emergency phone region')}${field('Phone',p.emergency?.phone||'','tel',false,'sp_em_phone')}</div></section><section class="staff-profile-block"><h3>Qualifications</h3>${textArea('Qualifications (if applicable)',p.qualifications||'','sp_qualifications')}</section>${btn('Save profile',`saveStaffProfile('${a.id}')`,'primary')}</div>`}
 function staffProfilePhotoEditor(a){
   const photo=a.profile?.photo;if(!canEditStaffProfile(a.id))return personPhoto(photo,a.name);
   const action=photo?'Replace':'Upload';
@@ -55086,18 +55129,22 @@ function removeStaffProfilePhoto(id){
   render();for(const [key,value] of Object.entries(draft)){const el=document.getElementById(key);if(el)el.value=value}showFeedback('Photo removed.');
 }
 function saveStaffProfile(id){
-  if(!canEditStaffProfile(id))return;const beforeDb=JSON.parse(JSON.stringify(db));const a=mpsAccount(id);const p={...(a.profile||{}),phoneCountry:val('sp_country'),dob:val('sp_dob'),gender:val('sp_gender'),mobile:val('sp_mobile').trim(),address:val('sp_address').trim(),emergency:{name:val('sp_em_name').trim(),relationship:val('sp_em_relationship').trim(),phone:val('sp_em_phone').trim()},qualifications:val('sp_qualifications').trim()};
+  if(!canEditStaffProfile(id))return;const beforeDb=JSON.parse(JSON.stringify(db));const a=mpsAccount(id);const p={...(a.profile||{}),phoneCountry:val('sp_country'),dob:val('sp_dob'),gender:val('sp_gender'),mobile:val('sp_mobile').trim(),address:val('sp_address').trim(),emergency:{...(a.profile?.emergency||{}),name:val('sp_em_name').trim(),relationship:val('sp_em_relationship').trim(),phoneCountry:val('sp_em_country'),phone:val('sp_em_phone').trim()},qualifications:val('sp_qualifications').trim()};
   const next={...a,name:val('sp_name').trim(),profile:p};
   eliiraBeginValidation('sp_name');
   if(!next.name)return eliiraFieldError('sp_name','Enter the full name.');
   if(profileAge(p.dob)===null)return eliiraFieldError('sp_dob','Enter a valid date of birth.');
-  if(!p.gender||p.gender==='Select…')return eliiraFieldError('sp_gender','Enter the gender.');
+  if(!p.gender)return eliiraFieldError('sp_gender','Choose the gender.');
+  if(!staffProfileChoiceValid(p.gender,STAFF_GENDER_OPTIONS,a.profile?.gender))return eliiraFieldError('sp_gender','Choose an available gender option.');
   if(!p.mobile)return eliiraFieldError('sp_mobile','Enter the mobile number.');
   if(!p.address)return eliiraFieldError('sp_address','Enter the home address.');
   if(!p.emergency.name)return eliiraFieldError('sp_em_name','Enter the emergency contact name.');
-  if(!p.emergency.relationship)return eliiraFieldError('sp_em_relationship','Enter the emergency contact relationship.');
+  if(!p.emergency.relationship)return eliiraFieldError('sp_em_relationship','Choose the emergency contact relationship.');
+  if(!staffProfileChoiceValid(p.emergency.relationship,STAFF_EMERGENCY_RELATIONSHIPS,a.profile?.emergency?.relationship))return eliiraFieldError('sp_em_relationship','Choose an available relationship option.');
   if(!p.emergency.phone)return eliiraFieldError('sp_em_phone','Enter the emergency contact phone number.');
-  const phone=mpsNormalisePhone(p.mobile,val('sp_country')),em=mpsNormalisePhone(p.emergency.phone,val('sp_country'));p.phoneCountry=val('sp_country');
+  if(!staffPhoneCountryValid(p.phoneCountry))return eliiraFieldError('sp_country','Choose a mobile phone region.');
+  if(!staffPhoneCountryValid(p.emergency.phoneCountry))return eliiraFieldError('sp_em_country','Choose an emergency phone region.');
+  const phone=mpsNormalisePhone(p.mobile,p.phoneCountry),em=mpsNormalisePhone(p.emergency.phone,p.emergency.phoneCountry);
   if(!phone.ok)return eliiraFieldError('sp_mobile',phone.error);
   if(!em.ok)return eliiraFieldError('sp_em_phone',em.error);
   p.mobile=phone.value;p.emergency.phone=em.value;a.name=next.name;a.profile=p;profileAudit(p,'Staff profile updated');mpsEnsurePersonaForAccount(a);if(!save()){db=beforeDb;return}render();showFeedback('Profile saved.');
@@ -55224,7 +55271,8 @@ function activateProfileStaff(id){
   const a=mpsAccount(id);if(!mpsCurrentIsAccountAdmin()||!a||a.status!=='pending_profile')return;
   if(!staffProfileComplete(a)){showFeedback('Complete the required staff profile before activation.');return}
   if(!mpsIdentity(a)?.emailVerified){showFeedback('The staff member must accept their email invitation before activation.');return}
-  a.status='active';mpsEnsurePersonaForAccount(a);db.staff.history.push({actor:staffActor(),at:new Date().toISOString(),text:`${a.username} activated after profile completion`});save();render();
+  const beforeDb=JSON.parse(JSON.stringify(db));
+  a.status='active';mpsEnsurePersonaForAccount(a);db.staff.history.push({actor:staffActor(),at:new Date().toISOString(),text:`${a.username} activated after profile completion`});if(!save()){db=beforeDb;return}render();
 }
 // Pending accounts may use only their own profile in the prototype setup preview.
 const _profileAllowed=allowed;
@@ -56969,11 +57017,6 @@ function mpsCanOpenPreschoolSettings(){return !ui().signedOut&&(mpsCurrentIsAcco
 const _settingsAllowed=allowed;
 allowed=function(route){return route==='preschool-settings'?mpsCanOpenPreschoolSettings()&&_settingsAllowed('calendar'):_settingsAllowed(route)};
 
-const _settingsNavList=navList;
-navList=function(){
-  const html=_settingsNavList();
-  return allowed('preschool-settings')?html.replace(navButton('calendar'),navButton('calendar')+navButton('preschool-settings')):html;
-};
 const _settingsMobileRouteOrder=mobileRouteOrder;
 mobileRouteOrder=function(){const all=_settingsMobileRouteOrder();if(allowed('preschool-settings'))all.splice(all.indexOf('calendar')+1,0,'preschool-settings');return all};
 
@@ -58505,7 +58548,7 @@ function billingDetailContext(inv){
     +kv('Due date',inv.due?esc(fmtDate(inv.due)):'Not set yet')
     +(inv.status==='cancelled'&&inv.cancelled?kv('Cancellation reason',esc(inv.cancelled.reason)):'')
     +(inv.status==='discarded'&&inv.discarded?kv('Discarded',esc(billingDetailWhen(inv.discarded.at)))+kv('Discarded by',esc(staffHistoryActor(inv.discarded)||'Not recorded'))+kv('Reason',esc(inv.discarded.reason)):'')
-    +(inv.category==='admission_fee'&&inv.service?kv('Agreed service',esc(inv.service)):'')
+    +(inv.category==='admission_fee'&&inv.service?kv('Agreed service',esc(agreedServiceDisplay(inv.service,db.admissions?.[inv.admissionsCaseId]?.application?.acceptedPlacement?.daycarePlanId))):'')
     +(inv.category==='item_charge'?kv('Source','Saved child item'+itemLink):'');
 }
 function billingDetailBalance(inv){
@@ -58557,7 +58600,7 @@ function billingDetailView(inv,issueRoute=false){
     return billingDetailRow(label,billingMoney(line.amount,inv));
   }).join('');
   const body=billingErrorMarkup()+latePickupBillingAlerts(inv)
-    +billingDetailSection('Invoice context',billingDetailContext(inv))
+    +billingDetailSection('Invoice details',billingDetailContext(inv))
     +billingDetailSection('Invoice items',items)
     +billingDetailSection('Balance',billingDetailBalance(inv))
     +(events?billingDetailSection('Payments & adjustments',events):'')
@@ -58843,7 +58886,7 @@ function mpsTodayHomeExceptions(){
 }
 renderToday=function(){
  const p=currentPersona();
- const header=`<div class="page-head today-home-head"><div class="left"><h2>Today</h2><p>${esc(mpsTodayHomeDate())}</p></div>${allowed('calendar')?`<div class="page-actions">${btn('Calendar',"setRoute('calendar')",'secondary','sm')}</div>`:''}</div>`;
+ const header=`<div class="page-head today-home-head"><div class="left"><h2>Today</h2><p>${esc(mpsTodayHomeDate())}</p></div></div>`;
  if(!['Head Teacher','Class Teacher','Assistant Teacher','Daycare','Admissions'].some(has)){
   // Keep narrower personas' source-specific content and permission boundaries.
   return mpsTodayHomePrevious().replace(/<div class="page-head"><div class="left">.*?<\/div>(?:<div class="page-actions">.*?<\/div>)?<\/div>/s,header);
@@ -59219,11 +59262,13 @@ function mpsCanReceiveSignedApplication(c){
 }
 function mpsSignedApplicationReceiptModal(c){
   if(!mpsCanReceiveSignedApplication(c))return modal('Signed Parent Application','',notice('This receipt cannot be recorded here.','warn'),btn('Close','closeOverlay()','secondary'));
-  const version=mpsSignedApplicationVersion(c),legalReady=mpsFamilyLegalState(c).ready;
+  const version=mpsSignedApplicationVersion(c),legal=mpsFamilyLegalState(c),legalReady=legal.ready;
   const choices=mpsSignedApplicationSignerCandidates(c).filter(g=>!legalReady||mpsSignedApplicationSignerEligible(c,g.id));
   const select=`<div class="field"><label for="signed_application_signer">Guardian who signed</label><select id="signed_application_signer"><option value="">Select Guardian…</option>${choices.map(g=>`<option value="${esc(g.id)}">${esc(g.name)} · ${esc(g.relationship||'Guardian')}</option>`).join('')}</select></div>`;
   const checks=`<label class="check-row"><input id="signed_application_paper" type="checkbox"> The signed original is in the child's physical file</label><label class="check-row"><input id="signed_application_version" type="checkbox"> It matches this Application version</label><label class="check-row"><input id="signed_application_signature" type="checkbox"> I checked the Guardian signature</label>`;
-  return modal('Mark signed Application received',`Application version ${esc(version.id)}`,select+checks+notice('If legal arrangements are awaiting review, receipt can be saved now. Ready to Start remains blocked until the signer’s authority is confirmed.','info'),btn('Cancel','closeOverlay()','secondary')+btn('Mark received',`mpsMarkSignedApplicationReceived('${esc(c.id)}')`,'primary'));
+  const context=`Application for ${esc(version.data?.childName||c.childName)} · Submitted ${esc(attendanceRecordedTime(version.submittedAt))}`;
+  const legalNotice=legal.needed&&!legalReady?notice('If legal arrangements are awaiting review, receipt can be saved now. Ready to Start remains blocked until the signer’s authority is confirmed.','info'):'';
+  return modal('Mark signed Application received',context,select+checks+legalNotice,btn('Cancel','closeOverlay()','secondary')+btn('Mark received',`mpsMarkSignedApplicationReceived('${esc(c.id)}')`,'primary'));
 }
 function mpsMarkSignedApplicationReceived(caseId){
   const c=db.admissions?.[caseId];if(!mpsCanReceiveSignedApplication(c))return false;
@@ -59460,7 +59505,7 @@ function mpsMedicationReceiptModal(data){
   if(!mpsMedicationCanWrite(childId)||version?.status!=='awaiting_signed_form'||!mpsMedicationGuardians(childId).some(link=>link.guardianId===version.guardianId))
     return modal('Signed medication form unavailable','',notice('A prepared form and a currently authorised Guardian are required.','warn'),btn('Close','closeOverlay()','secondary'));
   return modal('Mark signed form received',`Medication authorisation · ${esc(version.id)}`,
-    `${kv('Child',profileChildLink(childId))}${kv('Medication',esc(version.medication))}${kv('Authorising Guardian',esc(version.authorisedBy))}`+
+    `<div class="medication-receipt-context">${kv('Child',profileChildLink(childId))}${kv('Medication',esc(version.medication))}${kv('Authorising Guardian',esc(version.authorisedBy))}</div>`+
     `<label class="check-row"><input id="ma_paper_received" type="checkbox"> The signed paper original is in the child’s physical file</label>`+
     `<label class="check-row"><input id="ma_exact_version" type="checkbox"> It matches this medication authorisation version</label>`+
     `<label class="check-row"><input id="ma_guardian_signature" type="checkbox"> I checked the authorised Guardian’s signature</label>`,
@@ -59604,7 +59649,7 @@ function mpsMedicationLocalStamp(at){
 function mpsMedicationScheduleSummary(authorisation){
   const schedule=authorisation?.schedule;
   if(authorisation?.triggerMode!=='scheduled'||!Array.isArray(schedule?.times))return '';
-  const times=schedule.times.map(staffTimeLabel).join(', '),days=schedule.weekdays?.length?schedule.weekdays.join(', '):'every day the child attends';
+  const times=schedule.times.map(staffTimeLabel).join(', '),days=schedule.weekdays?.length?`selected weekdays when the child attends preschool: ${schedule.weekdays.join(', ')}`:'every day the child attends preschool';
   return `${times} · ${days}`;
 }
 function mpsMedicationTriggerDetails(authorisation){
@@ -59616,7 +59661,7 @@ function mpsMedicationTriggerFields(authorisation){
   const mode=authorisation?.triggerMode||'',times=authorisation?.schedule?.times?.length?authorisation.schedule.times:[''],days=authorisation?.schedule?.weekdays||[];
   const choice=`<div class="field"><label for="ma_trigger">How should this medication be given?</label><select id="ma_trigger" onchange="mpsMedicationTriggerChanged()"><option value="">Choose…</option><option value="scheduled" ${mode==='scheduled'?'selected':''}>At scheduled time(s)</option><option value="as_needed" ${mode==='as_needed'?'selected':''}>As needed when a condition occurs</option></select></div>`;
   const timeRows=times.map((time,index)=>mpsMedicationScheduleTimeField(index,time)).join('');
-  const schedule=`<div id="ma_schedule_fields" class="medication-trigger-fields" ${mode==='scheduled'?'':'hidden'}><div id="ma_schedule_times" class="medication-schedule-times">${timeRows}</div>${btn('Add another time','mpsMedicationAddScheduleTime()','secondary','sm')}<div class="field"><label for="ma_repeat">Repeat</label><select id="ma_repeat" onchange="mpsMedicationRepeatChanged()"><option value="attendance" ${days.length?'':'selected'}>Every day the child attends</option><option value="selected" ${days.length?'selected':''}>Selected weekdays</option></select></div><div id="ma_weekdays" class="medication-weekdays" ${days.length?'':'hidden'}><span>Applicable days</span><div>${mpsMedicationWeekdays.map(day=>`<label><input type="checkbox" value="${day}" ${days.includes(day)?'checked':''}> ${day}</label>`).join('')}</div></div></div>`;
+  const schedule=`<div id="ma_schedule_fields" class="medication-trigger-fields" ${mode==='scheduled'?'':'hidden'}><div id="ma_schedule_times" class="medication-schedule-times">${timeRows}</div>${btn('Add another time','mpsMedicationAddScheduleTime()','secondary','sm')}<div class="field"><label for="ma_repeat">Repeat</label><select id="ma_repeat" onchange="mpsMedicationRepeatChanged()"><option value="attendance" ${days.length?'':'selected'}>Every day</option><option value="selected" ${days.length?'selected':''}>Selected weekdays</option></select></div><div id="ma_weekdays" class="medication-weekdays" ${days.length?'':'hidden'}><span>Applicable days</span><div>${mpsMedicationWeekdays.map(day=>`<label><input type="checkbox" value="${day}" ${days.includes(day)?'checked':''}> ${day}</label>`).join('')}</div></div></div>`;
   const condition=`<div id="ma_condition_fields" class="medication-trigger-fields" ${mode==='as_needed'?'':'hidden'}>${textArea('Authorised condition / symptoms',authorisation?.authorisedCondition||'','ma_condition')}</div>`;
   return choice+schedule+condition;
 }
@@ -60535,8 +60580,8 @@ function mpsBatch2SiblingContext(childId){
  return `<section class="family-siblings"><h4>Siblings</h4>${siblings.length?siblings.map(s=>{
   // Link only an explicit stable identity already saved with this sibling.
   const linked=s.childId&&db.people.children[s.childId]&&canViewChild(s.childId)?profileChildLink(s.childId):'';
-  return `<div class="family-sibling-row">${linked||`<strong>${esc(s.relationship||'Sibling')}</strong>`}${linked?`<span>${esc(s.relationship||'Sibling')}</span>`:''}<span>${s.dob?esc(fmtDate(s.dob)):'Date of birth not recorded'}</span>${linked?'':'<small>Family context only</small>'}</div>`;
- }).join(''):'<p>No siblings recorded in the submitted Application.</p>'}<small>From the submitted Application</small></section>`;
+  return `<div class="family-sibling-row">${linked||`<strong>${esc(s.relationship||'Sibling')}</strong>`}${linked?`<span>${esc(s.relationship||'Sibling')}</span>`:''}<span>${s.dob?esc(fmtDate(s.dob)):'Date of birth not recorded'}</span></div>`;
+ }).join(''):'<p>No siblings recorded in the submitted Application.</p>'}</section>`;
 }
 const mpsBatch2FamilyPeopleList=familyPeopleList;
 familyPeopleList=function(childId){return mpsBatch2FamilyPeopleList(childId)+mpsBatch2SiblingContext(childId)};
@@ -60544,27 +60589,27 @@ familyPeopleList=function(childId){return mpsBatch2FamilyPeopleList(childId)+mps
 function mpsBatch2CareFacts(childId){
  if(!canViewChildHealth(childId))return [];
  const h=db.health.profiles?.[childId],parts=[];
- if(h?.allergies&&!/^(none|no allergies|not recorded)/i.test(h.allergies))parts.push(`Allergy: ${h.allergies}`);
+ if(h?.allergies&&!/^(none|no allergies|not recorded)/i.test(h.allergies))parts.push({label:'Allergy',value:h.allergies});
  const dietary=String(h?.dietaryRestrictions||'').trim();
- if(dietary&&!/^(none(?: declared)?|no(?: dietary restrictions?)?(?: declared)?|not recorded)$/i.test(dietary))parts.push(`Dietary restriction: ${dietary}`);
- const auth=db.health.medAuth?.[childId];if(auth?.status==='current'&&auth.medication)parts.push(`Medication: ${auth.medication}`);
- if(h?.conditions&&!/^(none|no conditions|not recorded)/i.test(h.conditions))parts.push(`Condition: ${h.conditions}`);
+ if(dietary&&!/^(none(?: declared)?|no(?: dietary restrictions?)?(?: declared)?|not recorded)$/i.test(dietary))parts.push({label:'Dietary restriction',value:dietary});
+ const auth=db.health.medAuth?.[childId];if(auth?.status==='current'&&auth.medication)parts.push({label:'Medication',value:auth.medication});
+ if(h?.conditions&&!/^(none|no conditions|not recorded)/i.test(h.conditions))parts.push({label:'Condition',value:h.conditions});
  return parts;
 }
-daycareSafetyContext=function(childId){
+daycareSafetyContext=function(childId,open=false){
  const facts=mpsBatch2CareFacts(childId);if(!facts.length)return '';
  const auth=db.health.medAuth?.[childId];
  const healthAction=auth?.status==='current'&&auth.medication?btn('Open medication',`openMedicationForChild('${childId}')`,'secondary','sm'):btn('Open Health',`openHealthForChild('${childId}')`,'secondary','sm');
- return `<details class="daycare-safety-compact"><summary>Care safety · ${facts.length} ${facts.length===1?'note':'notes'}</summary><div>${facts.map(fact=>`<p>${esc(fact)}</p>`).join('')}${allowed('health')?healthAction:''}</div></details>`;
+ return `<details class="daycare-safety-compact"${open?' open':''}><summary>Care safety · ${facts.length} ${facts.length===1?'note':'notes'}</summary><div>${facts.map(fact=>`<p><strong>${esc(fact.label)}:</strong> ${esc(fact.value)}</p>`).join('')}${allowed('health')?`<div class="daycare-safety-actions">${healthAction}</div>`:''}</div></details>`;
 };
 // The old Teaching card carried one large persistent Health card even with nobody here.
 todayLearningSafety=function(){return ''};
 function mpsBatch2TodayCareContext(){
  if(!allowed('health')||['Closed','Closed Day'].includes(operatingStatusForDate(TODAY).text))return '';
- const ids=attendanceRoster().filter(row=>['present','not_marked'].includes(row.status)).map(row=>row.id);
+ const ids=attendanceRoster().filter(row=>row.status==='present').map(row=>row.id);
  const rows=ids.map(id=>({id,facts:mpsBatch2CareFacts(id)})).filter(item=>item.facts.length);
  if(!rows.length)return '';
- return `<details class="today-care-summary"><summary>Care & safety today · ${rows.length} ${rows.length===1?'child':'children'}</summary><div>${rows.map(({id,facts})=>`<p>${profileChildLink(id)} <span>${esc(facts.join(' · '))}</span></p>`).join('')}</div></details>`;
+ return `<details class="today-care-summary"><summary>Care & safety today · ${rows.length} ${rows.length===1?'child':'children'}</summary><div class="today-care-entries">${rows.map(({id,facts})=>`<div class="today-care-entry">${attendanceChildIdentity(id,profileChildName(id))}<dl>${facts.map(fact=>`<div class="today-care-fact"><dt>${esc(fact.label)}</dt><dd>${esc(fact.value)}</dd></div>`).join('')}</dl></div>`).join('')}</div></details>`;
 }
 const mpsBatch2RenderToday=renderToday;
 renderToday=function(){
@@ -60610,6 +60655,20 @@ billingPriorityExceptions=function(){
 };
 
 const mpsBatch2RenderDaycare=renderDaycare;
+function mpsFilterDaycareRoster(){
+ const input=byId('daycare_roster_search'),select=byId('daycare_roster_status'),list=byId('daycare_roster_list');
+ if(!input||!select||!list)return;
+ const query=input.value.trim().toLocaleLowerCase(),status=select.value,rows=[...list.querySelectorAll('.daycare-today-child')];
+ let shown=0;
+ rows.forEach(row=>{const match=(!query||row.dataset.childName.toLocaleLowerCase().includes(query))&&(!status||row.dataset.attendanceState===status);row.hidden=!match;if(match)shown++});
+ const filtered=!!(query||status),result=byId('daycare_roster_result'),clear=byId('daycare_roster_clear');
+ result.hidden=!filtered;result.textContent=shown?`${shown} of ${rows.length} ${rows.length===1?'child':'children'} shown`:'No children match this search or status.';
+ clear.hidden=!filtered;
+}
+function mpsClearDaycareRosterFilters(){
+ const input=byId('daycare_roster_search'),select=byId('daycare_roster_status');if(!input||!select)return;
+ input.value='';select.value='';mpsFilterDaycareRoster();input.focus();
+}
 renderDaycare=function(){
  if(ui().daycareTab==='week')return mpsBatch2RenderDaycare();
  ensureDaycareEventState();
@@ -60621,12 +60680,15 @@ renderDaycare=function(){
  const closed=['Closed','Closed Day'].includes(operatingStatusForDate(TODAY).text);
  const empty=closed?'Daycare is closed today.':!allCurrent.length?'No children are eligible for Daycare yet.':!eligible.length?'No children are available in your Daycare scope.':'No daycare children expected today.';
  const tabs=`<div class="tabs daycare-tabs" role="tablist" aria-label="Daycare views"><button class="tab active" role="tab" aria-selected="true" onclick="setDaycareTab('today')">Today</button><button class="tab" role="tab" aria-selected="false" onclick="setDaycareTab('week')">Care week</button></div>`;
+ const states=new Set();
  const children=roster.map(b=>{
   const id=profileChildId(b.childId)||b.childId,att=attendanceCurrentRecord(id),here=presentIds.has(id),state=here?'Present':att?.status==='checked_out'?'Checked out':att?.status==='absent'?'Absent':'Not checked in';
+  states.add(state);
   const care=b.recurring?daycareGroupLabel(daycareGroupId(b)):b.care||'One-day care';
   const window=b.coverage?.start&&b.coverage?.end?`${staffTimeLabel(b.coverage.start)}–${staffTimeLabel(b.coverage.end)}`:'';
   const careContext=/\d{1,2}:\d{2}/.test(care)?care:window?`${care} · ${window}`:`${care} · Time not recorded`;
-  return `<article class="daycare-today-child" data-child-id="${esc(id)}"><div class="daycare-today-child-head"><div class="daycare-today-identity">${attendanceChildIdentity(id,profileChildName(id,b.childName))}</div>${badge(state,here?'green':'grey')}</div><p class="daycare-today-window">${esc(careContext)}</p>${daycareSafetyContext(id)}${daycarePickupContext(id)}${here?`${daycareChildRecordSummary(id)}<details class="daycare-today-child-actions"><summary>More actions</summary>${btn('Add care note',`openModal('daycare-note',{childId:'${id}'})`,'secondary','sm')}</details>`:''}</article>`;
+  const name=profileChildName(id,b.childName),safety=mpsBatch2CareFacts(id),pickup=daycarePickupContext(id);
+  return `<article class="daycare-today-child" data-child-id="${esc(id)}" data-child-name="${esc(name)}" data-attendance-state="${esc(state)}"><details class="daycare-child-disclosure"><summary><span class="daycare-compact-identity">${childPhotoMarkup(id)}<strong>${esc(name)}</strong></span><span class="daycare-compact-status">${badge(state,here?'green':'grey')}</span><span class="daycare-compact-care">${esc(careContext)}</span><span class="daycare-compact-cues">${safety.length?`<span class="daycare-safety-cue">Care safety · ${safety.length}</span>`:''}${pickup}</span><span class="daycare-compact-chevron" aria-hidden="true">⌄</span></summary><div class="daycare-child-expanded">${daycareSafetyContext(id,true)}${pickup?`<div class="daycare-expanded-pickup">${pickup}</div>`:''}${here?daycareChildRecordSummary(id):''}<div class="daycare-child-profile-action">${canOpenChildProfile(id)?btn('Open Child profile',`openChildProfile('${id}')`,'secondary','sm'):''}</div>${here?`<details class="daycare-today-child-actions"><summary>More actions</summary>${btn('Add care note',`openModal('daycare-note',{childId:'${id}'})`,'secondary','sm')}</details>`:''}</div></details></article>`;
  }).join('');
  const notChecked=roster.filter(b=>!attendanceCurrentRecord(profileChildId(b.childId)||b.childId)||attendanceCurrentRecord(profileChildId(b.childId)||b.childId).status==='not_marked').length;
  const summary=`<p class="daycare-roster-summary" data-daycare-roster-summary>${roster.length} expected · ${present.length} present · ${notChecked} not checked in</p>`;
@@ -60634,7 +60696,8 @@ renderDaycare=function(){
  const attention=late||activity?`<section class="daycare-today-attention"><h2>Needs attention</h2>${late}${activity}</section>`:'';
  const care=present.length?`<section class="daycare-today-record"><h2>Record care</h2><div class="daycare-today-record-actions">${btn('Record meal/snack',"openModal('daycare-meal')",'secondary','sm')}${btn('Record rest',"openModal('daycare-rest')",'secondary','sm')}${btn('Record activity',"openModal('daycare-activity')",'secondary','sm')}</div></section>`:'';
  const recorded=daycareTodayRecordCount()?`<section class="daycare-today-recorded"><h2>Recorded today</h2>${daycareTodayRecords()}</section>`:'';
- return shell(`${pageHead('','Daycare','',canBook?btn('Add one-day care',"openModal('daycare-booking')",'secondary'):'')}${tabs}${summary}<section class="daycare-today-children"><h2>Today’s children</h2>${children?`<div class="daycare-today-child-list">${children}</div>`:`<p class="daycare-today-empty">${empty}</p>${!allCurrent.length&&allowed('admissions')?btn('Open Admissions',"setRoute('admissions')",'secondary','sm'):''}`}</section>${attention}${care}${recorded}${futureCareBookings()}`);
+ const filters=children?`<div class="daycare-roster-tools"><div class="field"><label for="daycare_roster_search">Search children by name</label><input id="daycare_roster_search" type="search" autocomplete="off" oninput="mpsFilterDaycareRoster()"></div><div class="field"><label for="daycare_roster_status">Attendance status</label><select id="daycare_roster_status" onchange="mpsFilterDaycareRoster()"><option value="">All statuses</option>${['Present','Not checked in','Absent','Checked out'].filter(state=>states.has(state)).map(state=>`<option value="${esc(state)}">${esc(state)}</option>`).join('')}</select></div><button id="daycare_roster_clear" class="btn secondary sm" type="button" onclick="mpsClearDaycareRosterFilters()" hidden>Clear filters</button></div><div id="daycare_roster_result" class="daycare-roster-result" role="status" hidden></div>`:'';
+ return shell(`${pageHead('','Daycare','',canBook?btn('Add one-day care',"openModal('daycare-booking')",'secondary'):'')}${tabs}${summary}${attention}${care}<section class="daycare-today-children"><h2>Today’s children</h2>${filters}${children?`<div id="daycare_roster_list" class="daycare-today-child-list">${children}</div>`:`<p class="daycare-today-empty">${empty}</p>${!allCurrent.length&&allowed('admissions')?btn('Open Admissions',"setRoute('admissions')",'secondary','sm'):''}`}</section>${recorded}${futureCareBookings()}`);
 };
 // Head Teacher review Round 2A: bounded presentation, accessibility and planning safeguards.
 let mpsRound2FieldSequence=0;
@@ -60732,7 +60795,7 @@ function mpsRound2RestoreFocus(){
  let target=ref.id&&document.getElementById(ref.id);if(!target&&ref.onclick)target=[...document.querySelectorAll('[onclick]')].find(el=>el.getAttribute('onclick')===ref.onclick);if(!target&&ref.text)target=[...document.querySelectorAll('button,a')].find(el=>(el.textContent||'').trim()===ref.text);target?.focus?.();
 }
 function mpsRound2EnhanceRendered(){
- mpsRound2EnhanceForms();mpsRound2EnhanceTabs();
+ mpsRound2EnhanceForms();mpsRound2EnhanceTabs();if(ui().route==='admissions')mpsRevealSelectedAdmissionTab();
  const dialog=document.querySelector('#overlay [role="dialog"]');if(dialog&&document.activeElement&&!dialog.contains(document.activeElement))queueMicrotask(()=>{if(!dialog.contains(document.activeElement))dialog.focus()});
  if(!dialog&&mpsRound2OverlayWasOpen){mpsRound2OverlayWasOpen=false;queueMicrotask(mpsRound2RestoreFocus)}
 }

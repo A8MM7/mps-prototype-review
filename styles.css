@@ -180,6 +180,11 @@ le h2{font-size:18px;margin:0;color:var(--navy)}.case-title p{font-size:10px;col
   .case-workspace .action-card>.grow>span:empty{display:none}
   .case-workspace .action-card>div:last-child{justify-content:flex-end;margin-left:auto}
 }
+@media(max-width:600px){
+  .case-workspace>.action-card{display:grid;grid-template-columns:38px minmax(0,1fr);align-items:center}
+  .case-workspace>.action-card>div:last-child{grid-column:1/-1;width:100%;margin:0}
+  .case-workspace>.action-card>div:last-child:empty{display:none}
+}
 
 /* Stage picker only: retain the shared modal lifecycle and dismissal action. */
 @media(max-width:600px){
@@ -1017,8 +1022,8 @@ fieldset{min-width:0;border:1px solid #e6e8ef;border-radius:10px;margin:12px 0;p
 .teaching-summary{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;padding:11px 13px}.teaching-summary h3,.teaching-summary p{margin:0}.teaching-summary h3{font-size:14px}.teaching-summary p{font-size:12px;color:var(--muted);flex:1 1 180px}.teaching-summary .btn{margin:0 0 0 auto;min-height:40px}
 @media(max-width:600px){.today-home-head{display:flex;align-items:center;gap:10px}.today-home-head .left{min-width:0}.today-home-head p{font-size:13px}.today-home-head .page-actions{margin:0 0 0 auto}.today-home-head .btn{min-height:44px}.today-opening{gap:8px}.today-home-metrics{display:grid;gap:4px}.today-home-metrics>div{border:0;padding:0;justify-content:space-between}.today-home-metrics strong{order:2}.teaching-summary p{flex-basis:100%}.teaching-summary .btn{margin-left:0}}
 /* Eliira Brand UI Foundation v1 — shared visual layer. Semantic status tokens stay independent. */
-@font-face{font-family:Manrope;src:url("assets/fonts/manrope-v20-latin-ext-400-700.woff2?v=9a74887474fd") format("woff2");font-style:normal;font-weight:400 700;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
-@font-face{font-family:Manrope;src:url("assets/fonts/manrope-v20-latin-400-700.woff2?v=9a74887474fd") format("woff2");font-style:normal;font-weight:400 700;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Manrope;src:url("assets/fonts/manrope-v20-latin-ext-400-700.woff2?v=de8ca5d3d48b") format("woff2");font-style:normal;font-weight:400 700;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:Manrope;src:url("assets/fonts/manrope-v20-latin-400-700.woff2?v=de8ca5d3d48b") format("woff2");font-style:normal;font-weight:400 700;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 :root{
   --brand-deep-teal:#0F4D4A;--brand-soft-teal:#5FB3A8;--brand-apricot:#F7B08A;--brand-gold:#E3B458;--brand-off-white:#FAF7F2;--brand-charcoal:#2E2E2E;
   --ui-page:#FAF7F2;--ui-card:#fff;--ui-warm:#F7F6F2;--ui-hover:#F3F7F5;--ui-selected:#E8F3F0;--ui-border:#D5DFDB;--ui-divider:#E5EBE7;--ui-disabled:#F2F3F1;
@@ -1150,23 +1155,23 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
 .review-nav-group{border-top:1px solid var(--ui-border);padding-top:16px;margin-top:20px}.mobile-more-routes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.mobile-more-routes .btn{width:100%;min-width:0;white-space:normal;text-align:left}.mobile-review-tools{border-top:1px solid var(--ui-border);margin-top:20px;padding-top:16px}.mobile-review-tools .nav-label{padding-left:0}.mobile-review-tools .btn{display:inline-flex;align-items:center;gap:8px}
 @media(max-width:390px){.mobile-more-routes{grid-template-columns:1fr}}
 
-.nav-line-icon.icon-house{--nav-icon:url("assets/icons/lucide-v0.468.0/house.svg?v=9a74887474fd")}
-.nav-line-icon.icon-user-round-plus{--nav-icon:url("assets/icons/lucide-v0.468.0/user-round-plus.svg?v=9a74887474fd")}
-.nav-line-icon.icon-circle-check{--nav-icon:url("assets/icons/lucide-v0.468.0/circle-check.svg?v=9a74887474fd")}
-.nav-line-icon.icon-sun{--nav-icon:url("assets/icons/lucide-v0.468.0/sun.svg?v=9a74887474fd")}
-.nav-line-icon.icon-clipboard-list{--nav-icon:url("assets/icons/lucide-v0.468.0/clipboard-list.svg?v=9a74887474fd")}
-.nav-line-icon.icon-presentation{--nav-icon:url("assets/icons/lucide-v0.468.0/presentation.svg?v=9a74887474fd")}
-.nav-line-icon.icon-file-text{--nav-icon:url("assets/icons/lucide-v0.468.0/file-text.svg?v=9a74887474fd")}
-.nav-line-icon.icon-heart-pulse{--nav-icon:url("assets/icons/lucide-v0.468.0/heart-pulse.svg?v=9a74887474fd")}
-.nav-line-icon.icon-receipt-text{--nav-icon:url("assets/icons/lucide-v0.468.0/receipt-text.svg?v=9a74887474fd")}
-.nav-line-icon.icon-image{--nav-icon:url("assets/icons/lucide-v0.468.0/image.svg?v=9a74887474fd")}
-.nav-line-icon.icon-users-round{--nav-icon:url("assets/icons/lucide-v0.468.0/users-round.svg?v=9a74887474fd")}
-.nav-line-icon.icon-contact-round{--nav-icon:url("assets/icons/lucide-v0.468.0/contact-round.svg?v=9a74887474fd")}
-.nav-line-icon.icon-calendar-days{--nav-icon:url("assets/icons/lucide-v0.468.0/calendar-days.svg?v=9a74887474fd")}
-.nav-line-icon.icon-settings{--nav-icon:url("assets/icons/lucide-v0.468.0/settings.svg?v=9a74887474fd")}
-.nav-line-icon.icon-rotate-ccw{--nav-icon:url("assets/icons/lucide-v0.468.0/rotate-ccw.svg?v=9a74887474fd")}
-.nav-line-icon.icon-ellipsis{--nav-icon:url("assets/icons/lucide-v0.468.0/ellipsis.svg?v=9a74887474fd")}
-.nav-line-icon.icon-download{--nav-icon:url("assets/icons/lucide-v0.468.0/download.svg?v=9a74887474fd")}
+.nav-line-icon.icon-house{--nav-icon:url("assets/icons/lucide-v0.468.0/house.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-user-round-plus{--nav-icon:url("assets/icons/lucide-v0.468.0/user-round-plus.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-circle-check{--nav-icon:url("assets/icons/lucide-v0.468.0/circle-check.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-sun{--nav-icon:url("assets/icons/lucide-v0.468.0/sun.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-clipboard-list{--nav-icon:url("assets/icons/lucide-v0.468.0/clipboard-list.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-presentation{--nav-icon:url("assets/icons/lucide-v0.468.0/presentation.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-file-text{--nav-icon:url("assets/icons/lucide-v0.468.0/file-text.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-heart-pulse{--nav-icon:url("assets/icons/lucide-v0.468.0/heart-pulse.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-receipt-text{--nav-icon:url("assets/icons/lucide-v0.468.0/receipt-text.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-image{--nav-icon:url("assets/icons/lucide-v0.468.0/image.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-users-round{--nav-icon:url("assets/icons/lucide-v0.468.0/users-round.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-contact-round{--nav-icon:url("assets/icons/lucide-v0.468.0/contact-round.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-calendar-days{--nav-icon:url("assets/icons/lucide-v0.468.0/calendar-days.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-settings{--nav-icon:url("assets/icons/lucide-v0.468.0/settings.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-rotate-ccw{--nav-icon:url("assets/icons/lucide-v0.468.0/rotate-ccw.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-ellipsis{--nav-icon:url("assets/icons/lucide-v0.468.0/ellipsis.svg?v=de8ca5d3d48b")}
+.nav-line-icon.icon-download{--nav-icon:url("assets/icons/lucide-v0.468.0/download.svg?v=de8ca5d3d48b")}
 .review-person-picker{display:grid;gap:6px;margin:8px 0 12px;color:inherit;font-size:12px}
 .review-person-picker select{width:100%;min-width:0;min-height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface,#fff);color:var(--text);padding:6px 8px;font:inherit}
 .mobile-review-tools .review-person-picker{margin:12px 0}
@@ -1403,6 +1408,9 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
 .medication-administration-context{margin-bottom:16px;border-bottom:1px solid var(--line)}
 .medication-administration-context .kv{grid-template-columns:minmax(105px,38%) minmax(0,1fr);gap:10px;padding:7px 0}
 .medication-administration-context .kv .v{min-width:0;overflow-wrap:anywhere}
+.medication-child-context .medication-context-label{display:block;margin-bottom:5px;font-size:13px;font-weight:600;color:var(--text-secondary)}
+.medication-child-context .medication-child-name{min-height:44px;display:flex;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface,#fff);overflow-wrap:anywhere}
+.medication-receipt-context{margin-bottom:16px}.medication-receipt-context .kv{grid-template-columns:minmax(125px,38%) minmax(0,1fr);gap:10px;align-items:start;padding:8px 0}.medication-receipt-context .kv .v{min-width:0;overflow-wrap:anywhere}
 .medication-authorisation-card details{margin-top:20px}
 .medication-trigger-fields{display:grid;gap:var(--ui-space-3);margin:var(--ui-space-3) 0 var(--ui-space-4);padding:var(--ui-space-4);border:1px solid var(--line);border-radius:12px;background:var(--surface-subtle,#f5f8f5)}
 .medication-trigger-fields[hidden],.medication-weekdays[hidden],#med_actual_wrap[hidden]{display:none}
@@ -1413,7 +1421,7 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
 .medication-weekdays>div{display:flex;flex-wrap:wrap;gap:var(--ui-space-2) var(--ui-space-3)}
 .medication-weekdays label{display:inline-flex;align-items:center;gap:var(--ui-space-1);font-size:12px}
 .medication-weekdays input{width:16px;height:16px}
-@media(max-width:640px){.health-subject-bar .field{width:100%}.medication-authorisation-card .medication-actions>*{max-width:100%}}
+@media(max-width:640px){.health-subject-bar .field{width:100%}.medication-authorisation-card .medication-actions>*{max-width:100%}.medication-receipt-context .kv{grid-template-columns:minmax(0,1fr);gap:3px}}
 .incident-occurrence-fields{align-items:end}
 .incident-fact-help{margin-top:-6px}
 .incident-children{margin:16px 0}
@@ -1465,23 +1473,26 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
 .today-care-summary{margin:10px 0 14px;border-top:1px solid var(--line);padding-top:8px;color:var(--text-secondary)}
 .today-care-summary summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:13px;font-weight:700}
 .today-care-summary p{display:flex;gap:8px 12px;flex-wrap:wrap;margin:6px 0;font-size:13px}.today-care-summary p span{color:var(--text-secondary)}
+.today-care-entries{display:grid;gap:10px}.today-care-entry{display:grid;grid-template-columns:minmax(170px,210px) minmax(0,1fr);gap:8px 14px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}.today-care-entry:last-child{border-bottom:0}.today-care-entry .attendance-person{align-self:start;min-width:0}.today-care-entry dl{margin:0;min-width:0}.today-care-fact{display:grid;grid-template-columns:minmax(105px,145px) minmax(0,1fr);gap:6px 10px;padding:2px 0}.today-care-fact dt{font-weight:700;color:var(--text-secondary)}.today-care-fact dd{margin:0;min-width:0;overflow-wrap:anywhere;color:var(--ink)}
 .family-siblings{margin-top:20px;padding-top:14px;border-top:1px solid var(--line)}.family-siblings h4{margin:0 0 8px}.family-siblings>small{display:block;margin-top:8px;color:var(--text-secondary)}
 .family-sibling-row{display:flex;align-items:baseline;gap:8px 14px;flex-wrap:wrap;padding:8px 0;border-bottom:1px solid var(--line)}.family-sibling-row:last-of-type{border-bottom:0}.family-sibling-row span,.family-sibling-row small{color:var(--text-secondary)}
 .daycare-today-children,.daycare-today-attention,.daycare-today-record,.daycare-today-recorded{margin-top:20px}.daycare-today-children h2,.daycare-today-attention h2,.daycare-today-record h2,.daycare-today-recorded h2{font-size:17px;margin:0 0 12px}
-.daycare-today-child-list{display:grid;gap:10px}.daycare-today-child{border:1px solid var(--line);border-radius:12px;background:var(--ui-card,#fff);padding:14px;min-width:0}
+.daycare-today-child-list{display:grid;gap:10px;align-items:start}.daycare-today-child{border:1px solid var(--line);border-radius:12px;background:var(--ui-card,#fff);min-width:0}.daycare-today-child[hidden],.daycare-roster-tools [hidden],.daycare-roster-result[hidden]{display:none!important}
 @media(min-width:900px){.daycare-today-child-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
-.daycare-today-child-head{display:flex;align-items:center;justify-content:space-between;gap:8px 14px;flex-wrap:wrap}.daycare-today-identity{font-weight:700;min-width:0}.daycare-today-window{color:var(--text-secondary);font-size:13px;margin:6px 0 0}
+.daycare-child-disclosure>summary{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:3px 10px;align-items:center;min-height:68px;padding:10px 14px;list-style:none;cursor:pointer}.daycare-child-disclosure>summary::-webkit-details-marker{display:none}.daycare-child-disclosure>summary:focus-visible{outline:2px solid var(--navy);outline-offset:2px;border-radius:10px}.daycare-compact-identity{grid-column:1;display:flex;align-items:center;gap:10px;min-width:0;color:var(--navy)}.daycare-compact-identity .person-photo{width:40px;height:40px;flex-basis:40px;margin:0}.daycare-compact-identity strong{min-width:0;overflow-wrap:anywhere}.daycare-compact-status{grid-column:2;grid-row:1}.daycare-compact-care{grid-column:1;color:var(--text-secondary);font-size:12px;overflow-wrap:anywhere}.daycare-compact-cues{grid-column:1;display:flex;gap:4px 10px;flex-wrap:wrap;color:var(--text-secondary);font-size:11px;font-weight:700}.daycare-compact-cues:empty{display:none}.daycare-safety-cue{color:var(--navy)}.daycare-compact-chevron{grid-column:2;grid-row:2 / span 2;justify-self:end;font-size:20px;color:var(--text-secondary);line-height:1}.daycare-child-disclosure[open] .daycare-compact-chevron{transform:rotate(180deg)}.daycare-child-expanded{border-top:1px solid var(--line);padding:8px 14px 12px;min-width:0}.daycare-child-expanded .daycare-safety-compact{margin-top:0}.daycare-expanded-pickup,.daycare-child-records,.daycare-not-recorded{display:block;margin:8px 0;font-size:12px}.daycare-child-profile-action{margin-top:10px}.daycare-roster-tools{display:grid;grid-template-columns:minmax(0,1fr) minmax(150px,200px) auto;gap:8px 12px;align-items:end;margin:0 0 12px}.daycare-roster-tools .field{margin:0;min-width:0}.daycare-roster-tools input,.daycare-roster-tools select{width:100%;min-width:0}.daycare-roster-tools .btn{min-height:44px}.daycare-roster-result{margin:0 0 10px;color:var(--text-secondary);font-size:12px}
 .daycare-today-child-actions{margin-top:4px}.daycare-today-child-actions summary{min-height:44px;align-content:center;cursor:pointer;color:var(--text-secondary);font-size:13px;font-weight:600}.daycare-today-child-actions .btn{margin:2px 0 6px}.daycare-today-record-actions{display:flex;flex-wrap:wrap;gap:8px}.daycare-today-empty{color:var(--text-secondary);margin:0}.daycare-late-summary{display:flex;align-items:center;justify-content:space-between;gap:8px 14px;flex-wrap:wrap;padding:10px 12px;border:1px solid var(--line);border-radius:10px}
 .daycare-safety-compact{margin-top:8px;color:var(--text-secondary);font-size:12px}.daycare-safety-compact summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-weight:700}.daycare-safety-compact>div{padding:6px 0}.daycare-safety-compact p{margin:3px 0;overflow-wrap:anywhere}
+.daycare-safety-compact p strong{color:var(--ink)}.daycare-safety-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px;padding-top:10px;border-top:1px solid var(--line)}
 .billing-charge-waiting{color:var(--text-secondary);font-size:12px;font-weight:600}
 /* Search has one shared visual form; each screen keeps its existing filter. */
 .search,.profile-search input,.case-search input,.mobile-case-search input,.billing-lookup input,.activity-search-field input,input[type=search]{min-height:44px;border:1px solid var(--ui-border,var(--line));border-radius:9px;background:var(--ui-card,#fff);color:var(--ink);padding:9px 12px;font:inherit;font-size:14px;max-width:100%}
 @media(max-width:600px){
+  .today-care-entry,.today-care-fact{grid-template-columns:minmax(0,1fr)}.today-care-entry{gap:5px}.today-care-fact{gap:1px}
   /* 16px focused controls avoid the iOS automatic focus-zoom trigger. Keep user zoom enabled. */
   input:not([type=checkbox]):not([type=radio]):not([type=hidden]),select,textarea{font-size:16px!important}
   .staff-time-segments input[type=text]{width:72px}.staff-time-segments select{width:68px}
   .education-hours-row{grid-template-columns:minmax(0,1fr)}
-  .daycare-today-child{padding:12px}.daycare-today-record-actions .btn{min-height:44px}
+  .daycare-roster-tools{grid-template-columns:minmax(0,1fr)}.daycare-child-disclosure>summary{padding:10px 12px}.daycare-child-expanded{padding:8px 12px 12px}.daycare-today-record-actions .btn{min-height:44px}
   .today-opening{flex-wrap:wrap;gap:4px 12px}.today-services{flex-wrap:wrap}
   .billing-exceptions .child-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:6px 12px;align-items:center}
   .billing-exceptions .child-row>strong{grid-column:1;min-width:0;overflow-wrap:anywhere}
@@ -1545,6 +1556,7 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
 .case-item:is(button):focus-visible{outline:3px solid var(--focus-ring,#2f6f73);outline-offset:-3px}
 .health-update-reason{min-width:0;overflow-wrap:anywhere}
 .planning-publish-blocked{display:flex;align-items:center;justify-content:flex-end;gap:8px 12px;flex-wrap:wrap}.planning-publish-blocked p{flex-basis:100%;margin:0;color:var(--text-secondary);font-size:12px;text-align:right}.planning-publish-blocked .btn[disabled]{opacity:.55;cursor:not-allowed}
+.lesson-plan-card .lesson-week-actions{align-items:flex-start}.planning-publish-blocked{display:flex;flex:0 1 140px;flex-direction:column;align-items:flex-start;justify-content:flex-start;gap:5px;min-width:0}.planning-publish-blocked p{width:100%;margin:0;text-align:left;line-height:1.4}
 .report-note-editor{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.report-note-editor h4{margin:0 0 8px}.report-note-editor>small{display:block;margin-top:6px;color:var(--text-secondary)}
 .assessment-observation-links{font-size:13px;color:var(--text-secondary)}.assessment-observation-links a{font-weight:700}
 #overlay [role=dialog]:focus{outline:none}
