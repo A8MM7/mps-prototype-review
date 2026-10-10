@@ -48360,7 +48360,7 @@ function mpsReviewSwitchStaff(id){
  const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
  save();render();return true;
 }
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=eb4f7910a66c" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=eb4f7910a66c" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=2309c3652e81" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=2309c3652e81" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -56183,7 +56183,7 @@ renderDaycare=function(){
 // BQ-103: one parent submission, reused by staff readiness and operational profiles.
 const applicationSections=['Child details','Guardian details','Health & care','Permissions & communication','Review & submit'];
 let applicationAutosaveTimer=null;
-let applicationLastSaveSucceeded=null,applicationLastSaveCaseId=null,applicationRenderDiagnostic='';
+let applicationLastSaveSucceeded=null,applicationLastSaveCaseId=null,applicationRenderDiagnostic='',applicationRenderOperation='';
 function applicationRememberSave(id,saved){applicationLastSaveCaseId=id;applicationLastSaveSucceeded=saved;return saved}
 function applicationSaveNavigation(){
   applicationSavingNavigation=true;
@@ -56255,6 +56255,7 @@ function applicationEmergencyFields(id,d){
 function applicationFamilyFields(id,step){
   const c=db.admissions[id],d=applicationFamilyDraft(id),a=c.application.draft;
   // Reuse the established field vocabulary and contact controls.
+  if(step===4)applicationRenderOperation='Build permission fields';
   let html=parentFamilyFields(id,step>2?step+1:step);
   if(step===1){
     html=html.replace(childPhotoInput(id,true),'');
@@ -56292,14 +56293,27 @@ function applicationFamilyFields(id,step){
     html=template.innerHTML;
   }
   if(step===4){
+    applicationRenderOperation='Family communications controls';
     html=html.replace(`<div class="field"><label>Family communications</label><p class="field-help">Choose one or both authorised guardians for routine reports, invoices, receipts and preschool notices.</p>${onboardingRecipientFields(id)}</div>`,'');
+    applicationRenderOperation='Starter item controls';
     html=html.replace(selectField('Books / accessories status',['Pending collection','Collected'],d.starter.books,'po_books'),'');
+    applicationRenderOperation='Uniform controls';
     if(!applicationUniformConfigured(c))html=html.replace(selectField('Uniform size',['Select size…','Size 22','Size 24','Size 26','Size 28'],d.starter.uniform||'Select size…','po_uniform'),'');
+    applicationRenderOperation='Care arrangement';
     html=html.replace(kv('Agreed daycare arrangement',c.service),kv('Agreed daycare arrangement',esc(a.service||c.service)));
+    applicationRenderOperation='Parse permission fields';
     const template=document.createElement('template');template.innerHTML=html;
+    applicationRenderOperation='Find birth certificate field';
     const documentLabel=[...template.content.querySelectorAll('.field > label')].find(label=>label.textContent==='Birth certificate copy');
-    if(documentLabel)documentLabel.closest('.field').outerHTML=mpsBirthCertificateParentField(id,d.documents);
+    if(documentLabel){
+      applicationRenderOperation='Build birth certificate field';
+      const documentField=mpsBirthCertificateParentField(id,d.documents);
+      applicationRenderOperation='Replace birth certificate field';
+      documentLabel.closest('.field').outerHTML=documentField;
+    }
+    applicationRenderOperation='Serialize permission fields';
     html=template.innerHTML;
+    applicationRenderOperation='';
   }
   return html;
 }
@@ -56349,7 +56363,7 @@ function applicationDiagnosticMessage(error){
   return 'Message withheld to protect family information.';
 }
 function applicationDiagnosticLocations(error){
-  const allowed=new Set(['renderParentApplication','applicationFamilyFields','applicationFamilyDraft','applicationEmergencyFields','applicationRecipientChoices','guardianCard','parentFamilyFields','ensureOnboarding','mpsOnboardingPhoneCountry','appContinue','syncApplicationDraft','render','save']);
+  const allowed=new Set(['renderParentApplication','applicationFamilyFields','applicationFamilyDraft','applicationEmergencyFields','applicationRecipientChoices','guardianCard','parentFamilyFields','onboardingRecipientFields','onboardingGuardianChoices','mpsBirthCertificateParentField','ensureOnboarding','mpsOnboardingPhoneCountry','appContinue','syncApplicationDraft','render','save']);
   const frames=[];
   for(const line of String(error?.stack||'').split('\n').slice(1,16)){
     const location=line.match(/\bapp\.js(?:\?[^:\s)]*)?:(\d{1,7})(?::(\d{1,6}))?/);
@@ -56368,10 +56382,10 @@ function applicationSavedCaseState(id){
   }catch{return 'Unavailable'}
 }
 function applicationBuildRenderDiagnostic(error,id){
-  const type=['Error','TypeError','ReferenceError','RangeError','SyntaxError','URIError'].includes(error?.name)?error.name:'Error';
+  const type=['Error','TypeError','ReferenceError','RangeError','SyntaxError','URIError','NoModificationAllowedError','HierarchyRequestError','InvalidStateError','NotSupportedError','SecurityError','QuotaExceededError'].includes(error?.name)?error.name:'Error';
   const step=Number.isInteger(ui().parentApplicationStep)&&ui().parentApplicationStep>=1&&ui().parentApplicationStep<=5?ui().parentApplicationStep:'Unavailable';
   const saveStatus=applicationLastSaveCaseId===id&&applicationLastSaveSucceeded===true?'Succeeded':applicationLastSaveCaseId===id&&applicationLastSaveSucceeded===false?'Failed':'Not confirmed for this case in this page load';
-  return ['Eliira Application display error',`Runtime: ${applicationDiagnosticRuntime()}`,`Error type: ${type}`,`Message: ${applicationDiagnosticMessage(error)}`,`Code location:\n${applicationDiagnosticLocations(error)}`,`Application step: ${step}`,`Case in memory: ${db.admissions[id]?'Yes':'No'}`,`Case in saved browser storage: ${applicationSavedCaseState(id)}`,`Last Application save: ${saveStatus}`].join('\n');
+  return ['Eliira Application display error',`Runtime: ${applicationDiagnosticRuntime()}`,`Error type: ${type}`,`Message: ${applicationDiagnosticMessage(error)}`,`Code location:\n${applicationDiagnosticLocations(error)}`,`Application step: ${step}`,...(step===4?[`Step 4 operation: ${applicationRenderOperation||'Unavailable'}`]:[]),`Case in memory: ${db.admissions[id]?'Yes':'No'}`,`Case in saved browser storage: ${applicationSavedCaseState(id)}`,`Last Application save: ${saveStatus}`].join('\n');
 }
 async function applicationCopyRenderErrorDetails(){
   const details=document.getElementById('application_error_details'),field=document.getElementById('application_error_text'),status=document.getElementById('application_error_copy_status');
@@ -56400,6 +56414,7 @@ function recoverParentApplication(){
   render();return true;
 }
 renderParentApplication=function(){
+ applicationRenderOperation='';
  try{
   const id=ui().parentApplicationCase,c=db.admissions[id];if(!c)return applicationRecoveryView();
   const editable=applicationFamilyEditable(id),step=Math.min(5,Math.max(1,ui().parentApplicationStep||1));
