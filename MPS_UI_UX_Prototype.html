@@ -1579,6 +1579,20 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
 .teaching-view-header .page-head{margin-bottom:0}.teaching-view-header .page-head p:empty{display:none}.teaching-view-header .teaching-view-tabs{margin:16px 0 0}.teaching-view-message{margin:16px 0 14px;color:var(--muted);font-size:13px;line-height:1.5}.teaching-view-tools{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:16px 0 14px}.teaching-view-tools .teaching-view-message{margin:0}.teaching-view-actions{display:flex;gap:8px;flex-wrap:wrap}.teaching-week-actions .btn{min-height:44px}.teaching-week-actions .btn[disabled]{opacity:.5;cursor:not-allowed;filter:none}
 @media(max-width:820px){.teaching-view-tools{display:block}.teaching-view-actions{margin-top:10px}.teaching-view-actions .btn{min-height:44px}}
 .application-error-tools{margin:18px 0 16px}.application-error-tools .btn{min-height:42px}.application-error-tools [role="status"]{margin:8px 0;color:var(--muted);font-size:13px}.application-error-tools details{margin-top:8px}.application-error-tools summary{cursor:pointer;color:var(--navy);font-weight:700}.application-error-text{display:block;width:100%;height:250px;min-height:220px;box-sizing:border-box;margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:8px;background:#f7f9fa;color:var(--ink);font:12px/1.5 ui-monospace,SFMono-Regular,Menlo,monospace;resize:vertical;user-select:text;-webkit-user-select:text}@media(max-width:480px){.application-error-text{height:min(60vh,440px);min-height:360px}}
+.child-document-row{padding:12px 0;border-bottom:1px solid var(--line);min-width:0}
+.child-document-row:last-child{border-bottom:0}
+.child-document-row>.child-document-main{padding:0;border:0}
+.child-document-row>small{display:block;color:var(--muted);margin-top:4px;overflow-wrap:anywhere}
+.child-document-actions{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.child-document-row details{margin-top:8px;color:var(--muted);font-size:13px}
+.child-document-row summary{cursor:pointer}
+.child-document-row ul{padding-left:19px}
+.child-document-assign{display:flex;align-items:end;gap:8px;flex-wrap:wrap;margin-top:14px}
+.child-document-assign label{width:100%;font-weight:600}
+.child-document-assign select{min-width:0;max-width:100%;min-height:44px;flex:1 1 180px}
+.child-document-preview{display:block;width:100%;height:min(65vh,620px);border:0}
+.child-document-preview-image{display:block;max-width:100%;max-height:65vh;object-fit:contain;margin:auto}
+@media(max-width:600px){.child-document-actions>*{min-height:44px}.child-document-assign .btn{min-height:44px}}
 
 </style>
 <script type="text/plain" id="manrope-license">Copyright 2018 The Manrope Project Authors (https://github.com/googlefonts/manrope)
@@ -50141,7 +50155,7 @@ function addPickup(caseId){let o=ensureOnboarding(caseId);o.draft.pickup.push({n
 function submitOnboarding(caseId){syncOnboarding(caseId,5);for(let step=1;step<=5;step++){if(!validateOnboardingStep(caseId,step))return}let c=db.admissions[caseId],o=c.onboarding;o.healthConfirmed=false;o.status='submitted';o.submittedAt=new Date().toISOString();if(o.snapshot){o.submissionHistory=o.submissionHistory||[];o.submissionHistory.push(JSON.parse(JSON.stringify(o.snapshot)))}o.snapshot=JSON.parse(JSON.stringify({submittedAt:o.submittedAt,data:o.draft}));c.childName=o.draft.child.legalName;c.dob=o.draft.child.dob;c.guardian=o.draft.guardians[0]?.name||c.guardian;c.phone=o.draft.guardians[0]?.phone||c.phone;addEvent(caseId,'onboarding_submitted','New Family Onboarding submitted','Parent-provided information awaiting staff review');ui().route='admissions';ui().admissionsCase=caseId;ui().admissionsTab='prestart';ui().parentOnboardingStep=1;save();render()}
 function guardianCard(g,i){return `<div class="card flat" style="margin-bottom:10px"><h3>Guardian ${i+1}</h3><div class="form-grid">${field('Full name',g.name,'text',false,`po_g${i}_name`)}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other'],g.relationship||'Select…',`po_g${i}_rel`)}${field('Date of birth',g.dob,'date',false,`po_g${i}_dob`)}${field('Registered WhatsApp / mobile',g.phone,'text',false,`po_g${i}_phone`)}${selectField('Legal decision-making authority',['Select…','Yes','No'],g.legalAuthority||'Select…',`po_g${i}_auth`)}${selectField('Currently working?',['Select…','Yes','No'],g.working||'Select…',`po_g${i}_work`)}${field('Workplace / company name',g.company,'text',false,`po_g${i}_company`)}${field('Job title',g.jobTitle||'','text',false,`po_g${i}_job_title`)}</div></div>`}
 function pickupCard(p,i,caseId){return `<div class="card flat" style="margin-bottom:10px"><h3>Authorised pickup person ${i+1}</h3><div class="form-grid">${typeof pickupGuardianLinkControl==='function'?pickupGuardianLinkControl(p,i,caseId):''}${field('Full name',p.name,'text',false,`po_p${i}_name`)}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other relative','Family friend','Neighbour','Nanny or caregiver','Driver','Other'],p.relationship||'Select…',`po_p${i}_rel`)}</div>${operationalPhotoInput('Pickup verification photo','pickup',caseId+':'+i,p.verificationPhoto||(p.photo?{name:p.photoName}:null))}</div>`}
-function parentFamilyFields(id,s){let c=db.admissions[id],d=ensureOnboarding(id).draft,body='';if(s===1)body=`${notice('Admissions information is prefilled. Complete or confirm the remaining pre-start family details.','info')}<div class="form-grid">${db.people?childPhotoInput(id,true):''}${field('Child full legal name',d.child.legalName,'text',false,'po_legal')}${field('Preferred / called name',d.child.preferred,'text',false,'po_pref')}${field('Date of birth',d.child.dob,'date',false,'po_dob')}${selectField('Gender',['Select…','Male','Female'],d.child.gender||'Select…','po_gender')}${field('Residential address',d.child.address,'text',false,'po_address')}<div class="field"><label>Primary language(s) spoken at home</label><div class="check-stack">${['Sinhala','English','Tamil'].map(x=>`<label class="check-row"><input data-home-language type="checkbox" value="${x}" ${checked((Array.isArray(d.child.languages)?d.child.languages:[d.child.languages]).includes(x))}> ${x}</label>`).join('')}</div></div></div>${selectField('Does the child have siblings?',['Select…','Yes','No'],d.child.hasSiblings||'Select…','po_has_siblings')}${d.child.hasSiblings==='Yes'?`<div class="section-title">Siblings</div>${d.child.siblings.map((x,i)=>`<div class="form-grid">${selectField(`Sibling ${i+1} relationship`,['Brother','Sister'],x.relationship,`po_sib${i}_rel`)}${field('Sibling date of birth',x.dob,'date',false,`po_sib${i}_dob`)}</div>`).join('')}${btn('+ Add sibling',`syncOnboarding('${id}',1);addSibling('${id}')`,'secondary','sm')}`:''}`;if(s===2)body=`${d.guardians.map(guardianCard).join('')}${btn('+ Add another guardian',`syncOnboarding('${id}',2);addGuardian('${id}')`,'secondary','sm')}<div class="section-title">Legal arrangements</div>${selectField('Are there any legal restrictions or special arrangements we should know about?',['Select…','No','Yes — provide details'],d.legalRestrictions?.answer||'Select…','po_legal_restrict')}${textArea('Details when Yes',d.legalRestrictions?.details||'','po_legal_details')}`;if(s===3)body=`<h3>Emergency contact</h3><div class="form-grid">${field('Name',d.emergency.name,'text',false,'po_em_name')}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other'],d.emergency.relationship||'Select…','po_em_rel')}${field('Phone',d.emergency.phone,'text',false,'po_em_phone')}</div><div class="section-title">Authorised pickup people</div>${d.pickup.map((p,i)=>pickupCard(p,i,id)).join('')}${btn('+ Add pickup person',`syncOnboarding('${id}',3);addPickup('${id}')`,'secondary','sm')}`;if(s===4)body=`${selectField('Allergies',['Select…','No','Yes'],d.health.allergies||'Select…','po_allergy')}${field('Allergy details when Yes',d.health.allergyDetails,'text',false,'po_allergy_detail')}${selectField('Medical conditions',['Select…','No','Yes'],d.health.conditions||'Select…','po_conditions')}${field('Medical condition details when Yes',d.health.conditionDetails||'','text',false,'po_condition_detail')}${selectField('Regular medication',['Select…','No','Yes'],d.health.medication||'Select…','po_medication')}${field('Medication details when Yes',d.health.medicationDetails||'','text',false,'po_medication_detail')}${selectField('Dietary restrictions relevant to care',['Select…','No','Yes'],d.health.dietary||'Select…','po_dietary')}${field('Dietary details when Yes',d.health.dietaryDetails||'','text',false,'po_dietary_detail')}${field('Emergency medical instructions (if applicable)',d.health.emergencyInstructions||'','text',false,'po_emergency_medical')}${selectField("Anything else about your child's health or care?",['Select…','No','Yes'],d.health.other||'Select…','po_other')}${field('Other health / care details when Yes',d.health.otherDetails||'','text',false,'po_other_detail')}${notice('This submission is parent-provided evidence. It does not overwrite authoritative Health until staff review.','warn')}`;if(s===5)body=`${selectField('Is it okay if your child appears in photos we post on our Facebook page?',['Select…','Yes, that\'s okay','No, please don\'t include my child'],d.facebook||'Select…','po_facebook')}<div class="field"><label>Family communications</label><p class="field-help">Choose one or both authorised guardians for routine reports, invoices, receipts and preschool notices.</p>${onboardingRecipientFields(id)}</div><div class="field"><label>Birth certificate copy</label>${d.documents.birthCertificate?`<div class="notice ok">Attached · ${esc(d.documents.birthCertificateFile||'birth-certificate.pdf')}</div>`:''}<input type="file" accept=".pdf,.jpg,.jpeg,.png" onchange="markParentDocUploaded('${id}',this.files[0]?.name)"></div>${kv('Agreed daycare arrangement',c.service)}${selectField('Uniform size',['Select size…','Size 22','Size 24','Size 26','Size 28'],d.starter.uniform||'Select size…','po_uniform')}${selectField('Books / accessories status',['Pending collection','Collected'],d.starter.books,'po_books')}`;return body}
+function parentFamilyFields(id,s){let c=db.admissions[id],d=ensureOnboarding(id).draft,body='';if(s===1)body=`${notice('Admissions information is prefilled. Complete or confirm the remaining pre-start family details.','info')}<div class="form-grid">${db.people?childPhotoInput(id,true):''}${field('Child full legal name',d.child.legalName,'text',false,'po_legal')}${field('Preferred / called name',d.child.preferred,'text',false,'po_pref')}${field('Date of birth',d.child.dob,'date',false,'po_dob')}${selectField('Gender',['Select…','Male','Female'],d.child.gender||'Select…','po_gender')}${field('Residential address',d.child.address,'text',false,'po_address')}<div class="field"><label>Primary language(s) spoken at home</label><div class="check-stack">${['Sinhala','English','Tamil'].map(x=>`<label class="check-row"><input data-home-language type="checkbox" value="${x}" ${checked((Array.isArray(d.child.languages)?d.child.languages:[d.child.languages]).includes(x))}> ${x}</label>`).join('')}</div></div></div>${selectField('Does the child have siblings?',['Select…','Yes','No'],d.child.hasSiblings||'Select…','po_has_siblings')}${d.child.hasSiblings==='Yes'?`<div class="section-title">Siblings</div>${d.child.siblings.map((x,i)=>`<div class="form-grid">${selectField(`Sibling ${i+1} relationship`,['Brother','Sister'],x.relationship,`po_sib${i}_rel`)}${field('Sibling date of birth',x.dob,'date',false,`po_sib${i}_dob`)}</div>`).join('')}${btn('+ Add sibling',`syncOnboarding('${id}',1);addSibling('${id}')`,'secondary','sm')}`:''}`;if(s===2)body=`${d.guardians.map(guardianCard).join('')}${btn('+ Add another guardian',`syncOnboarding('${id}',2);addGuardian('${id}')`,'secondary','sm')}<div class="section-title">Legal arrangements</div>${selectField('Are there any legal restrictions or special arrangements we should know about?',['Select…','No','Yes — provide details'],d.legalRestrictions?.answer||'Select…','po_legal_restrict')}${textArea('Details when Yes',d.legalRestrictions?.details||'','po_legal_details')}`;if(s===3)body=`<h3>Emergency contact</h3><div class="form-grid">${field('Name',d.emergency.name,'text',false,'po_em_name')}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other'],d.emergency.relationship||'Select…','po_em_rel')}${field('Phone',d.emergency.phone,'text',false,'po_em_phone')}</div><div class="section-title">Authorised pickup people</div>${d.pickup.map((p,i)=>pickupCard(p,i,id)).join('')}${btn('+ Add pickup person',`syncOnboarding('${id}',3);addPickup('${id}')`,'secondary','sm')}`;if(s===4)body=`${selectField('Allergies',['Select…','No','Yes'],d.health.allergies||'Select…','po_allergy')}${field('Allergy details when Yes',d.health.allergyDetails,'text',false,'po_allergy_detail')}${selectField('Medical conditions',['Select…','No','Yes'],d.health.conditions||'Select…','po_conditions')}${field('Medical condition details when Yes',d.health.conditionDetails||'','text',false,'po_condition_detail')}${selectField('Regular medication',['Select…','No','Yes'],d.health.medication||'Select…','po_medication')}${field('Medication details when Yes',d.health.medicationDetails||'','text',false,'po_medication_detail')}${selectField('Dietary restrictions relevant to care',['Select…','No','Yes'],d.health.dietary||'Select…','po_dietary')}${field('Dietary details when Yes',d.health.dietaryDetails||'','text',false,'po_dietary_detail')}${field('Emergency medical instructions (if applicable)',d.health.emergencyInstructions||'','text',false,'po_emergency_medical')}${selectField("Anything else about your child's health or care?",['Select…','No','Yes'],d.health.other||'Select…','po_other')}${field('Other health / care details when Yes',d.health.otherDetails||'','text',false,'po_other_detail')}${notice('This submission is parent-provided evidence. It does not overwrite authoritative Health until staff review.','warn')}`;if(s===5)body=`${selectField('Is it okay if your child appears in photos we post on our Facebook page?',['Select…','Yes, that\'s okay','No, please don\'t include my child'],d.facebook||'Select…','po_facebook')}<div class="field"><label>Family communications</label><p class="field-help">Choose one or both authorised guardians for routine reports, invoices, receipts and preschool notices.</p>${onboardingRecipientFields(id)}</div>${kv('Agreed daycare arrangement',c.service)}${selectField('Uniform size',['Select size…','Size 22','Size 24','Size 26','Size 28'],d.starter.uniform||'Select size…','po_uniform')}${selectField('Books / accessories status',['Pending collection','Collected'],d.starter.books,'po_books')}`;return body}
 function renderParentOnboarding(){let id=ui().parentOnboardingCase,c=db.admissions[id];if(!c){ui().route='admissions';save();return renderAdmissions()}let o=ensureOnboarding(id),d=o.draft,s=ui().parentOnboardingStep,body='';body=parentFamilyFields(id,s);return `<div class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>${ORG}</strong><p>New Family Onboarding · secure link · no parent account</p></div><div class="parent-content"><div class="stepper">${[1,2,3,4,5].map(i=>`<span class="${s>=i?'active':''}"></span>`).join('')}</div><div class="eyebrow">${esc(c.childName)} · pre-start</div><h2 style="color:var(--navy);font-size:20px;margin:5px 0 12px">${['Child & family','Guardians','Emergency & pickup','Health','Consent & starter'][s-1]}</h2>${body}<div class="parent-foot">${btn(s===1?'Back to MPS':'Back',s===1?`ui().route='admissions';ui().admissionsTab='prestart';save();render()`:`onboardingBack('${id}')`,'secondary')}${btn(s===5?'Submit onboarding':'Continue',s===5?`submitOnboarding('${id}')`:`onboardingNext('${id}')`,'primary')}</div></div></div></div>`}
 
 function todayActions(){let a=[];let dilan=db.attendance.dilan;if(dilan&&dilan.status==='present'&&activeTemporaryPickup('dilan')&&childInClassroomScope(db.people?.children?.dilan))a.push({sev:'red',icon:'!',title:'Dilan Jayasinghe still checked in',sub:'Temporary pickup instruction active · verify collector before handover',go:"setRoute('attendance')"});let sen=db.admissions.senuri;if(sen&&admissionDerived(sen).status==='Fee overdue'&&has('Admissions'))a.push({sev:'amber',icon:'receipt-text',title:'Senuri Peris · admission fee overdue',sub:'Admissions decision required — Extend, Waive or Release place',go:"ui().admissionsCase='senuri';setRoute('admissions')"});let hu=Object.values(db.health.updates).find(x=>x.status==='pending');if(hu&&has('Head Teacher'))a.push({sev:'amber',icon:'heart-pulse',title:'Health update awaiting review',sub:`${hu.childName} · parent submitted new medical information`,go:`ui().healthChild='${hu?.childId||''}';setRoute('health')`});let n=db.admissions.nethmi;if(n&&admissionDerived(n).stage==='Tour'&&has('Admissions'))a.push({sev:'blue',icon:'user-round-plus',title:'Nethmi Silva · admissions follow-up due',sub:'Tour completed · family wants to proceed',go:"ui().admissionsCase='nethmi';setRoute('admissions')"});let p=currentPersona();if(has('Accounts')){let pend=Object.values(db.billing.payments).find(x=>x.status==='pending');if(pend)a.push({sev:'amber',icon:'receipt-text',title:'Payment awaiting verification',sub:`${money(pend.amount)} · ${pend.reference}`,go:"setRoute('billing')",paymentId:pend.id})}return a}
@@ -53551,6 +53565,8 @@ createEnrolment = function(id){
   // Keep that pending review when enrolment is created; do not ask for a second form.
   if(!(c.application?.snapshot?.data?.family&&c.onboarding?.status==='submitted'))
     c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});
+  // BQ-161: snapshot current document definitions when Pre-start begins.
+  if(!Array.isArray(c.onboarding.documentAssignments))c.onboarding.documentAssignments=mpsDocumentSnapshot();
   const submittedUniformSize=c.application?.snapshot?.source==='Parent Application'?c.application.snapshot.data?.family?.starter?.uniform:null;
   if(typeof submittedUniformSize==='string'&&submittedUniformSize.trim())
     c.onboarding.childSetup={...(c.onboarding.childSetup||{}),uniformSize:submittedUniformSize.trim()};
@@ -56784,7 +56800,7 @@ function renderChildren(){
   const learning=has('Head Teacher')||has('Class Teacher');
   const observations=learning?Object.values(db.observations).filter(o=>profileChildId(o.childId)===c.id&&o.visibility!=='Restricted/confidential'):[];
   const rows=Object.values(db.reports).filter(r=>profileChildId(r.childId)===c.id);
-  return shell(`${pageHead('','Children','',btn('All children',"ui().profileChild=null;render()",'secondary'))}<div class="card profile-hero">${childProfilePhotoEditor(c)}<div><h2>${esc(c.preferred||c.legalName)}</h2><p class="profile-context">${childProfileHeaderMeta(c)}</p>${service?`<div class="profile-service">${esc(service)}</div>`:''}${childLifecycleBadges(c)}${childTaskBadges(c)}</div></div><div class="profile-sections">${profileSection('Overview',childPlacementControls(c)+kv('Date of birth',esc(c.dob||'Not recorded'))+kv('Age',profileAge(c.dob)===null?'Not recorded':profileAge(c.dob)+' years')+kv('Gender',esc(c.gender||'Not recorded'))+kv('Home address',esc(c.address||'Not recorded'))+kv('Home languages',esc((c.languages||[]).join(', ')||'Not recorded'))+childOverviewStatus(c,ad))}${childPreschoolJourney(c)}${profileSection('Family & pickup',familyPeopleList(c.id))}${profileSection('Health & safety',canViewChildHealth(c.id)?mpsHealthFacts(c.id,health)+btn('Open Health & safety',`openHealthForChild('${c.id}')`,'secondary'):'<p>Health information is restricted.</p>')}${profileSection('Attendance & daycare',`<div class="child-care-facts">${kv('Today',esc(att?.status?.replace('_',' ')||'No current Attendance record'))}${mpsChildDaycareContent(c)}${kv('Daycare today',esc(book.map(b=>b.care).join(', ')||'No booking'))}</div><div class="child-care-actions">${attendanceCanViewHistory(c.id)?btn('Attendance history',`openModal('child-attendance-history',{childId:'${c.id}'})`,'secondary'):''}${allowed('attendance')?btn('Open Attendance',"setRoute('attendance')",'secondary'):''}${allowed('daycare')?btn('Open Daycare',"setRoute('daycare')",'secondary'):''}</div>`,'profile-care-combined')}${profileSection('Learning',learning?(observations.length||rows.length||childDirectoryGroup(c)!=='prestart'?kv('Observations',observations.length)+kv('Reports',rows.length):'<p class="profile-learning-empty">No learning evidence yet.</p>')+btn('Open learning',`mpsOpenChildProgress('${c.id}')`,'secondary'):'<p>Learning information is restricted.</p>')}${childAdmissionsBackground(c)}${profileSection('Documents & history',(typeof mpsSignedApplicationProfile==='function'?mpsSignedApplicationProfile(c):'')+(has('Head Teacher')?kv('Birth certificate',mpsBirthCertificateState(d?.documents).label)+kv('Facebook choice',esc(d?.facebook||'Not recorded')):'')+(allowed('admissions')&&c.caseIds?.length?`<div class="profile-document-actions">${c.caseIds.map(id=>btn('View admissions case',`setAdmissionCase('${id}');setRoute('admissions')`,'secondary')).join('')}</div>`:'')+((c.history||[]).length?`<div class="profile-document-history">${c.history.map(e=>`<p>${esc(e.title)} · ${esc(childProfileAuditTime(e.at))}</p>`).join('')}</div>`:''))}</div>`);
+  return shell(`${pageHead('','Children','',btn('All children',"ui().profileChild=null;render()",'secondary'))}<div class="card profile-hero">${childProfilePhotoEditor(c)}<div><h2>${esc(c.preferred||c.legalName)}</h2><p class="profile-context">${childProfileHeaderMeta(c)}</p>${service?`<div class="profile-service">${esc(service)}</div>`:''}${childLifecycleBadges(c)}${childTaskBadges(c)}</div></div><div class="profile-sections">${profileSection('Overview',childPlacementControls(c)+kv('Date of birth',esc(c.dob||'Not recorded'))+kv('Age',profileAge(c.dob)===null?'Not recorded':profileAge(c.dob)+' years')+kv('Gender',esc(c.gender||'Not recorded'))+kv('Home address',esc(c.address||'Not recorded'))+kv('Home languages',esc((c.languages||[]).join(', ')||'Not recorded'))+childOverviewStatus(c,ad))}${childPreschoolJourney(c)}${profileSection('Family & pickup',familyPeopleList(c.id))}${profileSection('Health & safety',canViewChildHealth(c.id)?mpsHealthFacts(c.id,health)+btn('Open Health & safety',`openHealthForChild('${c.id}')`,'secondary'):'<p>Health information is restricted.</p>')}${profileSection('Attendance & daycare',`<div class="child-care-facts">${kv('Today',esc(att?.status?.replace('_',' ')||'No current Attendance record'))}${mpsChildDaycareContent(c)}${kv('Daycare today',esc(book.map(b=>b.care).join(', ')||'No booking'))}</div><div class="child-care-actions">${attendanceCanViewHistory(c.id)?btn('Attendance history',`openModal('child-attendance-history',{childId:'${c.id}'})`,'secondary'):''}${allowed('attendance')?btn('Open Attendance',"setRoute('attendance')",'secondary'):''}${allowed('daycare')?btn('Open Daycare',"setRoute('daycare')",'secondary'):''}</div>`,'profile-care-combined')}${profileSection('Learning',learning?(observations.length||rows.length||childDirectoryGroup(c)!=='prestart'?kv('Observations',observations.length)+kv('Reports',rows.length):'<p class="profile-learning-empty">No learning evidence yet.</p>')+btn('Open learning',`mpsOpenChildProgress('${c.id}')`,'secondary'):'<p>Learning information is restricted.</p>')}${childAdmissionsBackground(c)}${profileSection('Documents & history',(typeof mpsSignedApplicationProfile==='function'?mpsSignedApplicationProfile(c):'')+(typeof mpsChildDocumentsProfile==='function'?mpsChildDocumentsProfile(ad):'')+(has('Head Teacher')?kv('Facebook choice',esc(d?.facebook||'Not recorded')):'')+(allowed('admissions')&&c.caseIds?.length?`<div class="profile-document-actions">${c.caseIds.map(id=>btn('View admissions case',`setAdmissionCase('${id}');setRoute('admissions')`,'secondary')).join('')}</div>`:'')+((c.history||[]).length?`<div class="profile-document-history">${c.history.map(e=>`<p>${esc(e.title)} · ${esc(childProfileAuditTime(e.at))}</p>`).join('')}</div>`:''))}</div>`);
 }
 function guardianProfileModal(linkId){
   const l=db.people.links[linkId];if(!l||!canViewChild(l.childId))return modal('Family information','',notice('This child is outside your current scope.','warn'),btn('Close','closeOverlay()','secondary'));
@@ -58006,18 +58022,6 @@ function applicationFamilyFields(id,step){
     if(!applicationUniformConfigured(c))html=html.replace(selectField('Uniform size',['Select size…','Size 22','Size 24','Size 26','Size 28'],d.starter.uniform||'Select size…','po_uniform'),'');
     applicationRenderOperation='Care arrangement';
     html=html.replace(kv('Agreed daycare arrangement',c.service),kv('Agreed daycare arrangement',esc(a.service||c.service)));
-    applicationRenderOperation='Parse permission fields';
-    const template=document.createElement('template');template.innerHTML=html;
-    applicationRenderOperation='Find birth certificate field';
-    const documentLabel=[...template.content.querySelectorAll('.field > label')].find(label=>label.textContent==='Birth certificate copy');
-    if(documentLabel){
-      applicationRenderOperation='Build birth certificate field';
-      const documentField=mpsBirthCertificateParentField(id,d.documents);
-      applicationRenderOperation='Replace birth certificate field';
-      documentLabel.closest('.field').outerHTML=documentField;
-    }
-    applicationRenderOperation='Serialize permission fields';
-    html=template.innerHTML;
     applicationRenderOperation='';
   }
   return html;
@@ -58039,7 +58043,7 @@ function applicationEmergencySummary(d){
   const source=e.kind==='guardian'?'Selected Guardian':'Someone else';
   return `<section class="card flat" style="margin-bottom:12px"><h3>Emergency contact <span class="application-provenance">Parent selected</span></h3>${kv('Contact',esc(e.name||'Not recorded'))}${kv('Relationship',esc(e.relationship||'Not recorded'))}${kv('Phone',esc(e.phone||'Not recorded'))}${kv('Source',source)}</section>`;
 }
-function applicationFamilySummary(data){
+function applicationFamilySummary(data,historical=false){
   const d=data.family;if(!d)return '<p>No detailed family submission recorded.</p>';
   const rows=(title,body)=>`<section class="card flat" style="margin-bottom:12px"><h3>${title}</h3>${body}</section>`;
   return rows('Child',kv('Legal name',esc(d.child.legalName))+kv('Called name',esc(d.child.preferred))+kv('Date of birth',fmtDate(d.child.dob))+kv('Gender',esc(d.child.gender))+kv('Address',esc(d.child.address))+kv('Home languages',esc(d.child.languages.join(', ')))+kv('Siblings',d.child.hasSiblings==='Yes'?d.child.siblings.map(s=>`${esc(s.relationship)} · ${fmtDate(s.dob)}`).join('<br>'):esc(d.child.hasSiblings)))+
@@ -58047,7 +58051,7 @@ function applicationFamilySummary(data){
     rows('Guardians',d.guardians.map(applicationGuardianReview).join(''))+
     (d.legalRestrictions?.answer?rows('Legal arrangements',kv('Restrictions / special arrangements',esc(d.legalRestrictions.answer)+(d.legalRestrictions.answer.startsWith('Yes')?` · ${esc(d.legalRestrictions.details||'')}`:''))):'')+applicationEmergencySummary(d)+
     rows('Health & care',[['Allergies','allergies','allergyDetails'],['Medical conditions','conditions','conditionDetails'],['Regular medication','medication','medicationDetails'],['Dietary restrictions','dietary','dietaryDetails'],['Other health/care','other','otherDetails']].map(([label,key,detail])=>kv(label,esc(d.health[key])+(d.health[key]==='Yes'?' · '+esc(d.health[detail]):''))).join('')+(d.health.medication==='Yes'?kv('Preschool to give medication',esc(d.health.preschoolAdministration||'Not answered')):'')+kv('Emergency instructions',esc(d.health.emergencyInstructions||'Not supplied')))+
-    rows('Permissions & setup',kv('Facebook photo permission',esc(d.facebook))+kv('Family communications',esc((d.requestedRecipients||d.recipients||[]).join(', ')))+kv('Birth certificate',mpsBirthCertificateState(d.documents).label)+(d.starter.uniform?kv('Uniform size',esc(d.starter.uniform)):''));
+    rows('Permissions & setup',kv('Facebook photo permission',esc(d.facebook))+kv('Family communications',esc((d.requestedRecipients||d.recipients||[]).join(', ')))+(historical&&d.documents?kv('Birth certificate',mpsBirthCertificateState(d.documents).label):'')+(d.starter.uniform?kv('Uniform size',esc(d.starter.uniform)):''));
 }
 function applicationRecoveryView(){
   return `<main class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>Eliira</strong><p>Application preview</p></div><div class="parent-content"><h2>Application could not open</h2>${applicationSaveProblem?applicationSaveMessage():''}<p>This saved page no longer points to an available Application. Your other saved records have not been cleared.</p><div class="parent-foot">${btn('Return to Admissions','recoverParentApplication()','primary')}</div></div></div></main>`;
@@ -58068,7 +58072,7 @@ function applicationDiagnosticMessage(error){
   return 'Message withheld to protect family information.';
 }
 function applicationDiagnosticLocations(error){
-  const allowed=new Set(['renderParentApplication','applicationFamilyFields','applicationFamilyDraft','applicationEmergencyFields','applicationRecipientChoices','guardianCard','parentFamilyFields','onboardingRecipientFields','onboardingGuardianChoices','mpsBirthCertificateParentField','ensureOnboarding','mpsOnboardingPhoneCountry','appContinue','syncApplicationDraft','render','save']);
+  const allowed=new Set(['renderParentApplication','applicationFamilyFields','applicationFamilyDraft','applicationEmergencyFields','applicationRecipientChoices','guardianCard','parentFamilyFields','onboardingRecipientFields','onboardingGuardianChoices','ensureOnboarding','mpsOnboardingPhoneCountry','appContinue','syncApplicationDraft','render','save']);
   const frames=[];
   for(const line of String(error?.stack||'').split('\n').slice(1,16)){
     const location=line.match(/\bapp\.js(?:\?[^:\s)]*)?:(\d{1,7})(?::(\d{1,6}))?/);
@@ -58253,6 +58257,8 @@ submitApplication=function(id){
   // Deferred safety facts are not represented as parent Application evidence.
   delete data.family.child.photo;
   for(const key of ['pickup','recipients','recipientGuardianIds'])delete data.family[key];
+  // BQ-161: ordinary documents are collected after enrolment, never frozen as new parent Application evidence.
+  delete data.family.documents;
   if(c.application.snapshot)c.applicationVersions=[...(c.applicationVersions||[]),c.application.snapshot];
   c.application.snapshot={versionId:'application_'+crypto.randomUUID(),submittedAt:at,source:'Parent Application',data};c.application.status='submitted';
   if(c.application.link){c.application.link.status='Submitted';c.application.link.submittedAt=at}
@@ -58388,8 +58394,9 @@ admissionPrestart=function(c){
   const h=d.health||{};
   const healthDetailsOk=detailOk(h.allergies,h.allergyDetails)&&detailOk(h.conditions,h.conditionDetails)&&detailOk(h.medication,h.medicationDetails)&&detailOk(h.dietary,h.dietaryDetails)&&detailOk(h.other,h.otherDetails);
   const communicationsOk=!!d.recipients?.length,photoOk=!db.people||childPhotoReady(c),submitted=o.status==='submitted';
-  const safetyReady=mpsApplicationBaseReadiness(c),starterItems=prestartApplicableItems(c),birthReceived=mpsBirthCertificateState(o.draft.documents).complete;
-  const practicalRemaining=Number(!birthReceived)+starterItems.filter(item=>!mpsItemDone(item)).length;
+  const safetyReady=mpsApplicationBaseReadiness(c),starterItems=prestartApplicableItems(c),documentItems=mpsChildDocumentAssignments(c);
+  const documentComplete=documentItems.filter(item=>mpsChildDocumentState(c,item).complete).length;
+  const practicalRemaining=documentItems.length-documentComplete+starterItems.filter(item=>!mpsItemDone(item)).length;
   const familyGo=canOpenChildProfile(childId)?`openApplicationFamilySetup('${childId}')`:'';
   const healthGo=allowed('health')&&canViewChildHealth(childId)?`openHealthForChild('${childId}')`:'';
   const healthAction=!o.healthConfirmed&&submitted&&has('Head Teacher')?btn('Review Health',`openModal('review-health',{caseId:'${c.id}'})`,'secondary','sm'):'';
@@ -58418,30 +58425,30 @@ admissionPrestart=function(c){
   if(!safetyReady&&submitted&&guardianReady&&emergencyReady&&pickupReady&&healthReady&&communicationsOk&&childOk&&siblingOk&&d.facebook&&photoOk)safetyEntries.push({done:false,html:prestartReadinessRow('other','Readiness review','Review required','amber',applicationAction)});
   const completedSafety=safetyEntries.filter(entry=>entry.done),pendingSafety=safetyEntries.filter(entry=>!entry.done);
   const safetyRows=safetyEntries.map(entry=>entry.html).join('');
-  const documentRows=(typeof mpsSignedApplicationPrestart==='function'?mpsSignedApplicationPrestart(c):'')+mpsBirthCertificateStaffRow(c);
+  const documentRows=(typeof mpsSignedApplicationPrestart==='function'?mpsSignedApplicationPrestart(c):'')+mpsChildDocumentRows(c);
   const itemRows=['Preschool','Daycare'].map(scope=>{
     const items=starterItems.filter(item=>item.scope===scope);
     const uniformSize=scope==='Preschool'?c.onboarding?.childSetup?.uniformSize:null;
     return items.length||uniformSize?`<h4 class="prestart-item-scope">${scope}</h4>${uniformSize?kv('Uniform size',esc(uniformSize)):''}${items.map(item=>prestartItemRow(c,item)).join('')}`:'';
   }).join('');
   const signedRequired=typeof mpsSignedApplicationVersion==='function'&&!!mpsSignedApplicationVersion(c),signedReady=signedRequired&&mpsSignedApplicationValid(c);
-  const completeCount=Number(guardianReady)+Number(emergencyReady)+Number(pickupReady)+Number(healthReady)+Number(communicationsOk)+Number(birthReceived)+Number(signedReady)+Number(medicationCheck===true)+starterItems.filter(mpsItemDone).length;
-  const percent=Math.round(100*completeCount/(6+Number(signedRequired)+Number(medicationCheck!==null)+starterItems.length));
+  const completeCount=Number(guardianReady)+Number(emergencyReady)+Number(pickupReady)+Number(healthReady)+Number(communicationsOk)+documentComplete+Number(signedReady)+Number(medicationCheck===true)+starterItems.filter(mpsItemDone).length;
+  const percent=Math.round(100*completeCount/(5+documentItems.length+Number(signedRequired)+Number(medicationCheck!==null)+starterItems.length));
   const starterInvoice=mpsStarterPackInvoice(c);
   const discardedStarter=Object.values(db.billing?.invoices||{}).some(inv=>inv.category==='starter_pack'&&inv.admissionsCaseId===c.id&&inv.status==='discarded');
   const billingLink=starterInvoice?.status==='draft'&&allowed('billing')?`<div class="prestart-starter-billing-link"><span>Starter Pack draft</span>${btn('Open in Billing',`openBillingInvoice('${starterInvoice.id}')`,'secondary','sm')}</div>`
     :!starterInvoice&&discardedStarter&&allowed('billing')?`<div class="prestart-starter-billing-link"><span>Starter Pack charge still needs Billing</span>${btn('Prepare draft',`mpsReprepareStarterPackDraft('${c.id}')`,'secondary','sm')}</div>`:'';
-  const documentTotal=1+Number(signedRequired),documentComplete=Number(birthReceived)+Number(signedRequired&&signedReady);
+  const documentTotal=documentItems.length+Number(signedRequired),documentProgress=documentComplete+Number(signedRequired&&signedReady);
   const itemsComplete=starterItems.filter(mpsItemDone).length,itemsTotal=starterItems.length;
   const section=(key,title,icon,summary,complete,content)=>`<details class="prestart-section ${complete?'is-complete':'needs-work'}" data-prestart-section="${key}" ${key==='safety'||!complete?'open':''}><summary>${mpsLineIcon(icon)}<span class="prestart-section-label"><strong>${title}</strong><small>${summary}</small></span><span class="prestart-section-state">${complete?'Complete':'Needs attention'}</span><span class="prestart-section-chevron" aria-hidden="true">⌄</span></summary><div class="prestart-section-body">${content}</div></details>`;
-  return `${db.people?childPhotoPrestart(c):''}<div class="card prestart-readiness"><div class="prestart-setup-summary"><div><h3>Start setup</h3><p>${percent}% complete · ${practicalRemaining?`${practicalRemaining} document${practicalRemaining===1?' or item':'s or items'} remaining`:'Documents and items complete'}</p></div><div class="progress prestart-overall-progress" role="progressbar" aria-label="Overall Pre-start setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><span style="width:${percent}%"></span></div></div>${section('safety','Safety checks','heart-pulse',`${completedSafety.length} of ${safetyEntries.length} confirmed`,pendingSafety.length===0,safetyRows)}${section('documents','Documents','file-text',`${documentComplete} of ${documentTotal} complete`,birthReceived&&(!signedRequired||signedReady),documentRows)}${section('items','Items & equipment','clipboard-list',`${itemsComplete} of ${itemsTotal} complete`,itemsComplete===itemsTotal,itemRows||'<p>No items assigned.</p>')}${billingLink}</div>`;
+  return `${db.people?childPhotoPrestart(c):''}<div class="card prestart-readiness"><div class="prestart-setup-summary"><div><h3>Start setup</h3><p>${percent}% complete · ${practicalRemaining?`${practicalRemaining} document${practicalRemaining===1?' or item':'s or items'} remaining`:'Documents and items complete'}</p></div><div class="progress prestart-overall-progress" role="progressbar" aria-label="Overall Pre-start setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><span style="width:${percent}%"></span></div></div>${section('safety','Safety checks','heart-pulse',`${completedSafety.length} of ${safetyEntries.length} confirmed`,pendingSafety.length===0,safetyRows)}${section('documents','Documents','file-text',`${documentProgress} of ${documentTotal} complete`,documentProgress===documentTotal,documentRows||'<p>No documents assigned.</p>')}${section('items','Items & equipment','clipboard-list',`${itemsComplete} of ${itemsTotal} complete`,itemsComplete===itemsTotal,itemRows||'<p>No items assigned.</p>')}${billingLink}</div>`;
 };
 function openApplicationFamilySetup(id){if(!canOpenChildProfile(id))return;openChildProfile(id);document.querySelectorAll('.profile-sections summary').forEach(h=>{if(h.textContent==='Family & pickup')h.scrollIntoView({block:'start'})})}
 const applicationPreviousReview=admissionApplication;
 admissionApplication=function(c){
   const html=admissionPlacementReview(c)+applicationPreviousReview(c),data=c.application?.snapshot?.data;
   if(!data?.family||!has('Head Teacher'))return html;
-  return html+`<details class="card application-details"><summary><span class="application-details-title">Application details</span><span class="application-provenance">Parent submitted</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></summary><div class="application-details-body">${applicationFamilySummary(data)}${data.note?kv('Historical parent-submitted note',esc(data.note)):''}</div></details>`;
+  return html+`<details class="card application-details"><summary><span class="application-details-title">Application details</span><span class="application-provenance">Parent submitted</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m7 10 5 5 5-5"/></svg></summary><div class="application-details-body">${applicationFamilySummary(data,true)}${data.note?kv('Historical parent-submitted note',esc(data.note)):''}</div></details>`;
 };
 render();
 // BQ-150: a document status names the evidence actually retained.
@@ -58452,23 +58459,8 @@ function mpsBirthCertificateState(documents){
   if(documents?.birthCertificate||documents?.birthCertificateFile)return {label:'Previously recorded · copy unavailable',complete:false};
   return {label:'Outstanding',complete:false};
 }
-function mpsBirthCertificateParentField(caseId,documents){
-  const state=mpsBirthCertificateState(documents);
-  return `<div class="field"><label for="po_birth_certificate">Birth certificate copy</label>${state.label==='Uploaded'?`<div class="notice ok">Uploaded · ${esc(state.attachment.name)}</div>`:state.label!=='Outstanding'?`<div class="notice info">${esc(state.label)}</div>`:''}<input id="po_birth_certificate" type="file" accept="application/pdf,image/jpeg,image/png,.pdf,.jpg,.jpeg,.png" onchange="markParentDocUploaded('${caseId}',this.files[0])"><small>Choose a PDF, JPG or PNG copy under 750 KB.</small></div>`;
-}
-markParentDocUploaded=async function(caseId,file){
-  if(!applicationFamilyEditable(caseId)||!file)return false;
-  if(!['application/pdf','image/jpeg','image/png'].includes(file.type)||file.size>750*1024||!file.size)return eliiraFieldError('po_birth_certificate','Choose a PDF, JPG or PNG copy under 750 KB.');
-  syncApplicationDraft(caseId);
-  const data=await new Promise(resolve=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>resolve(null);reader.readAsDataURL(file)});
-  if(typeof data!=='string'||!/^data:(application\/pdf|image\/(jpeg|png));base64,/.test(data))return eliiraFieldError('po_birth_certificate','This copy could not be saved. Choose another file.');
-  const documents=ensureOnboarding(caseId).draft.documents,previous={...documents};
-  documents.birthCertificateAttachment={id:'document_'+crypto.randomUUID(),data,name:file.name.slice(0,160),mimeType:file.type,size:file.size,uploadedAt:mpsPreschoolBusinessNow().toISOString(),source:'Parent Application'};
-  documents.birthCertificateFile=file.name.slice(0,160);
-  documents.birthCertificate=true;
-  if(!save()){for(const key of Object.keys(documents))delete documents[key];Object.assign(documents,previous);return false}
-  render();return true;
-};
+// Retired BQ-103 parent upload writer. Historical attachments remain readable.
+markParentDocUploaded=function(){return false};
 function mpsCanReadBirthCertificate(caseId){
   const c=db.admissions?.[caseId];return !!c&&(allowed('admissions')||(has('Head Teacher')&&c.childId&&canViewChild(c.childId)));
 }
@@ -58996,7 +58988,7 @@ mpsPreschoolSettingsContent=function(){
   const rows=scope=>items.filter(item=>mpsItemScope(item)===scope).map(item=>`<div class="starter-setting-row" data-starter-config="${esc(item.id)}"><div><strong>${esc(item.name)}</strong><small>Required: ${mpsItemRequiredQuantity(item)} · ${esc(item.suppliedBy)}${item.suppliedBy==='Preschool'&&mpsItemSnapshotPrice(item)!=null?' · '+money(mpsItemSnapshotPrice(item))+' each':''} · ${item.active===false?'Inactive':'Active'}</small></div><div class="starter-setting-actions">${btn('Edit',`mpsBeginStarterEdit('${item.id}')`,'secondary','sm')}${btn(item.active===false?'Activate':'Deactivate',`mpsSetStarterActive('${item.id}',${item.active===false})`,'secondary','sm')}</div></div>`).join('')+(!mpsActiveStarterItems(scope).length?`<p>No ${scope.toLowerCase()} items configured for new children.</p>`:'');
   const item=items.find(row=>row.id===mpsStarterEditing),editing=!!mpsStarterEditing;
   const form=editing?`<div class="starter-setting-editor"><div class="form-grid">${field('Item name',item?.name||'','text',false,'starter_item_name')}<div class="field"><label for="starter_item_provider">Supplied by</label><select id="starter_item_provider" onchange="mpsStarterProviderChanged()"><option value="Preschool" ${item?.suppliedBy!=='Family'?'selected':''}>Preschool</option><option value="Family" ${item?.suppliedBy==='Family'?'selected':''}>Family</option></select></div><div class="field"><label for="starter_item_quantity">Required quantity</label><input id="starter_item_quantity" type="number" min="1" max="100" step="1" inputmode="numeric" value="${mpsItemRequiredQuantity(item)}"><small>How many one child needs.</small></div><div class="field" id="starter_item_price_wrap" ${item?.suppliedBy==='Family'?'hidden':''}><label for="starter_item_price">Unit price · Rs (optional)</label><input id="starter_item_price" type="number" min="0" step="1" inputmode="numeric" value="${item?.suppliedBy==='Preschool'&&mpsItemSnapshotPrice(item)!=null?esc(String(mpsItemSnapshotPrice(item))):''}"></div></div><div class="starter-setting-actions">${btn('Cancel','mpsCancelStarterEdit()','secondary')}${btn('Save item','mpsSaveStarterItem()','primary')}</div></div>`:'';
-  return existing.replace(/<\/div>\s*$/,`<section class="card settings-overview-section starter-settings" data-overview-section="items-equipment"><header><h3>Items & equipment</h3></header>${['Preschool','Daycare'].map(scope=>`<div class="starter-settings-group"><header><h4>${scope}</h4>${!editing?btn('Add item',`mpsBeginStarterEdit('new','${scope}')`,'secondary','sm'):''}</header>${rows(scope)}${editing&&mpsStarterEditingScope===scope?form:''}</div>`).join('')}</section></div>`);
+  return existing.replace(/<\/div>\s*$/,`<section class="card settings-overview-section starter-settings" data-overview-section="items-equipment"><header><h3>Documents & items</h3></header>${['Preschool','Daycare'].map(scope=>`<div class="starter-settings-group"><header><h4>${scope} items</h4>${!editing?btn('Add item',`mpsBeginStarterEdit('new','${scope}')`,'secondary','sm'):''}</header>${rows(scope)}${editing&&mpsStarterEditingScope===scope?form:''}</div>`).join('')}${mpsDocumentSettingsGroup()}</section></div>`);
 };
 function mpsBeginStarterEdit(id,scope='Preschool'){
   if(!has('Head Teacher')||!allowed('preschool-settings'))return false;
@@ -59025,6 +59017,182 @@ function mpsSetStarterActive(id,active){
   (db.organization.settingsHistory||(db.organization.settingsHistory=[])).push({at:new Date().toISOString(),byId:currentPersona().id,by:currentPersona().name,changes:[`starter item ${active?'activated':'deactivated'}: ${item.name}`]});
   if(!save()){db.organization=before;return false}render();return true;
 }
+// BQ-161: lightweight tenant document catalogue and child-owned evidence.
+// Saved pre-BQ-161 records retain their original birth-certificate evidence fields.
+const mpsLegacyBirthRequirement={id:'birth-certificate',name:'Birth certificate copy',active:true};
+function mpsDocumentCatalogue(){
+  return Array.isArray(db.organization?.documentRequirements)?db.organization.documentRequirements:[mpsLegacyBirthRequirement];
+}
+function mpsDocumentSnapshot(){
+  return mpsDocumentCatalogue().filter(row=>row.active!==false).map(row=>({
+    id:'child_document_'+crypto.randomUUID(),requirementId:row.id,name:row.name,
+    assignedAt:mpsPreschoolBusinessNow().toISOString(),status:'Outstanding',evidence:{},history:[]
+  }));
+}
+function mpsLegacyBirthEvidence(c){
+  const d=c?.onboarding?.draft?.documents;
+  return !!(d?.birthCertificate||d?.birthCertificateFile||d?.birthCertificateAttachment||d?.birthCertificateReceivedInPerson||d?.birthCertificateReceived);
+}
+function mpsChildDocumentAssignments(c){
+  if(!c?.onboarding)return [];
+  const saved=Array.isArray(c.onboarding.documentAssignments)?c.onboarding.documentAssignments:[];
+  if(saved.some(row=>row.requirementId==='birth-certificate'))return saved;
+  if(!Array.isArray(c.onboarding.documentAssignments)||mpsLegacyBirthEvidence(c))return [
+    {id:'legacy-birth-certificate',requirementId:'birth-certificate',name:'Birth certificate copy',legacy:true},...saved
+  ];
+  return saved;
+}
+function mpsChildDocumentState(c,item){
+  const evidence=item?.evidence||{};
+  const saved=mpsBirthCertificateState({
+    birthCertificateAttachment:evidence.attachment,
+    birthCertificateReceivedInPerson:evidence.receivedInPerson,
+    birthCertificateFile:evidence.previousFilename
+  });
+  if(saved.complete)return saved;
+  if(evidence.received?.at&&evidence.received.actor)return {label:'Received',complete:true};
+  if(item?.requirementId==='birth-certificate'&&(item.legacy||mpsLegacyBirthEvidence(c))){
+    const documents=c.onboarding?.draft?.documents,legacy=mpsBirthCertificateState(documents);
+    if(legacy.complete)return legacy;
+    if(documents?.birthCertificateReceived?.at&&documents.birthCertificateReceived.actor)return {label:'Received',complete:true};
+    if(legacy.label!=='Outstanding')return legacy;
+  }
+  return saved;
+}
+const mpsPreviousDocumentChecklist=onboardingChecklistComplete;
+onboardingChecklistComplete=function(onboarding){
+  const c=Object.values(db.admissions||{}).find(row=>row.onboarding===onboarding);
+  if(!c)return mpsPreviousDocumentChecklist(onboarding);
+  return mpsChildDocumentAssignments(c).every(item=>mpsChildDocumentState(c,item).complete)&&
+    mpsOnboardingStarterItems(onboarding).every(mpsStarterItemDone);
+};
+function mpsCanWriteChildDocument(c){
+  return !!(c?.enrolment&&!c.closed&&!ui().signedOut&&mpsCurrentAccount()?.status==='active'&&allowed('admissions'));
+}
+function mpsCanReadChildDocument(c){return !!(c&&mpsCanReadBirthCertificate(c.id))}
+function mpsDocumentSettingsGroup(){
+  if(!has('Head Teacher'))return '';
+  const rows=mpsDocumentCatalogue(),editing=!!mpsDocumentEditing;
+  const list=rows.map(row=>`<div class="starter-setting-row" data-document-config="${esc(row.id)}"><div><strong>${esc(row.name)}</strong><small>${row.active===false?'Inactive':'Active'}</small></div><div class="starter-setting-actions">${btn('Edit',`mpsBeginDocumentEdit('${row.id}')`,'secondary','sm')}${btn(row.active===false?'Activate':'Deactivate',`mpsSetDocumentActive('${row.id}',${row.active===false})`,'secondary','sm')}</div></div>`).join('');
+  const current=rows.find(row=>row.id===mpsDocumentEditing);
+  const form=editing?`<div class="starter-setting-editor">${field('Document name',current?.name||'','text',false,'document_requirement_name')}<div class="starter-setting-actions">${btn('Cancel','mpsCancelDocumentEdit()','secondary')}${btn('Save document','mpsSaveDocumentRequirement()','primary')}</div></div>`:'';
+  return `<div class="starter-settings-group" data-document-settings><header><h4>Documents</h4>${!editing&&!mpsStarterEditing?btn('Add document',"mpsBeginDocumentEdit('new')",'secondary','sm'):''}</header>${list||'<p>No documents configured.</p>'}${form}</div>`;
+}
+let mpsDocumentEditing=null;
+function mpsBeginDocumentEdit(id){
+  if(!has('Head Teacher')||!allowed('preschool-settings')||mpsStarterEditing||mpsSettingsEditing)return false;
+  if(id!=='new'&&!mpsDocumentCatalogue().some(row=>row.id===id))return false;
+  mpsDocumentEditing=id;render();byId('document_requirement_name')?.focus();return true;
+}
+function mpsCancelDocumentEdit(){mpsDocumentEditing=null;render()}
+function mpsSaveDocumentRequirement(){
+  if(!has('Head Teacher')||!allowed('preschool-settings')||!mpsDocumentEditing)return false;
+  const name=val('document_requirement_name').trim(),rows=mpsDocumentCatalogue();
+  if(!name||name.length>100){showFeedback('Enter a document name of up to 100 characters.');return false}
+  if(rows.some(row=>row.id!==mpsDocumentEditing&&row.name.toLowerCase()===name.toLowerCase())){showFeedback('This document is already configured.');return false}
+  const previous=JSON.stringify(db.organization),next=rows.map(row=>({...row}));
+  let row=next.find(row=>row.id===mpsDocumentEditing);
+  if(!row){row={id:'document_requirement_'+crypto.randomUUID(),active:true};next.push(row)}
+  row.name=name;db.organization.documentRequirements=next;
+  (db.organization.settingsHistory||(db.organization.settingsHistory=[])).push({at:mpsPreschoolBusinessNow().toISOString(),byId:currentPersona().id,by:currentPersona().name,changes:[`document requirement ${mpsDocumentEditing==='new'?'added':'updated'}: ${name}`]});
+  if(!save()){db.organization=JSON.parse(previous);return false}
+  mpsDocumentEditing=null;render();return true;
+}
+function mpsSetDocumentActive(id,active){
+  if(!has('Head Teacher')||!allowed('preschool-settings'))return false;
+  const rows=mpsDocumentCatalogue().map(row=>({...row})),row=rows.find(row=>row.id===id);
+  if(!row)return false;
+  const previous=JSON.stringify(db.organization);row.active=active;db.organization.documentRequirements=rows;
+  (db.organization.settingsHistory||(db.organization.settingsHistory=[])).push({at:mpsPreschoolBusinessNow().toISOString(),byId:currentPersona().id,by:currentPersona().name,changes:[`document requirement ${active?'activated':'deactivated'}: ${row.name}`]});
+  if(!save()){db.organization=JSON.parse(previous);return false}
+  render();return true;
+}
+function mpsChildDocumentPicker(c){
+  if(!mpsCanWriteChildDocument(c))return '';
+  const assigned=new Set(mpsChildDocumentAssignments(c).map(row=>row.requirementId));
+  const available=mpsDocumentCatalogue().filter(row=>row.active!==false&&!assigned.has(row.id));
+  if(!available.length)return '';
+  return `<div class="child-document-assign"><label for="child_document_choice">Assign another document</label><select id="child_document_choice"><option value="">Select document…</option>${available.map(row=>`<option value="${esc(row.id)}">${esc(row.name)}</option>`).join('')}</select>${btn('Assign',`mpsAssignChildDocument('${c.id}')`,'secondary','sm')}</div>`;
+}
+function mpsAssignChildDocument(caseId){
+  const c=db.admissions?.[caseId];if(!mpsCanWriteChildDocument(c))return false;
+  const id=val('child_document_choice'),config=mpsDocumentCatalogue().find(row=>row.id===id&&row.active!==false);
+  if(!config||mpsChildDocumentAssignments(c).some(row=>row.requirementId===id))return false;
+  const previous=c.onboarding.documentAssignments;
+  c.onboarding.documentAssignments=[...mpsChildDocumentAssignments(c).map(row=>({...row})),{
+    id:'child_document_'+crypto.randomUUID(),requirementId:config.id,name:config.name,
+    assignedAt:mpsPreschoolBusinessNow().toISOString(),assignedBy:staffActor(),status:'Outstanding',evidence:{},history:[]
+  }];
+  if(!save()){c.onboarding.documentAssignments=previous;return false}
+  render();return true;
+}
+function mpsChildDocumentRow(c,item){
+  const state=mpsChildDocumentState(c,item),canWrite=mpsCanWriteChildDocument(c),canRead=mpsCanReadChildDocument(c);
+  const view=state.attachment&&canRead?btn('View copy',`mpsViewChildDocument('${c.id}','${item.id}')`,'secondary','sm'):'';
+  const receive=!state.complete&&canWrite?btn('Mark received',`mpsReceiveChildDocument('${c.id}','${item.id}')`,'primary','sm'):'';
+  const history=(item.assignedAt?`<li>Assigned · ${esc(item.assignedBy?.name||'Pre-start setup')} · ${esc(childProfileAuditTime(item.assignedAt))}</li>`:'')+
+    (item.history||[]).map(event=>`<li>${esc(event.text)} · ${esc(event.actor?.name||'Staff')} · ${esc(childProfileAuditTime(event.at))}</li>`).join('');
+  const legacyHistory=(item.legacy?c.onboarding?.draft?.documents?.birthCertificateHistory||[]:[]).map(event=>`<li>${esc(event.text)} · ${esc(event.actor?.name||'Staff')} · ${esc(childProfileAuditTime(event.at))}</li>`).join('');
+  const receiptAt=item.legacy?c.onboarding?.draft?.documents?.birthCertificateReceived?.at||c.onboarding?.draft?.documents?.birthCertificateReceivedInPerson?.at:item.evidence?.received?.at||item.evidence?.receivedInPerson?.at;
+  return `<div class="child-document-row" data-child-document="${esc(item.id)}"><div class="prestart-readiness-row child-document-main"><strong>${esc(item.name)}</strong>${badge(state.label,state.complete?'green':'amber')}${view||receive?`<div class="prestart-readiness-action child-document-actions">${view}${receive}</div>`:''}</div>${state.attachment?`<small>${esc(state.attachment.name||'Saved copy')}</small>`:''}${['Received','Received in person'].includes(state.label)?`<small>Recorded ${esc(childProfileAuditTime(receiptAt))}</small>`:''}${history||legacyHistory?`<details><summary>History</summary><ul>${history}${legacyHistory}</ul></details>`:''}</div>`;
+}
+function mpsChildDocumentRows(c){
+  if(!mpsCanReadChildDocument(c))return '<p>Document information is restricted.</p>';
+  const rows=mpsChildDocumentAssignments(c);
+  return `${rows.map(row=>mpsChildDocumentRow(c,row)).join('')||'<p>No ordinary documents assigned.</p>'}${mpsChildDocumentPicker(c)}`;
+}
+function mpsChildDocumentsProfile(c){return c?.enrolment?mpsChildDocumentRows(c):''}
+function mpsDocumentAssignment(c,id){return mpsChildDocumentAssignments(c).find(row=>row.id===id)}
+function mpsRestoreDocumentAssignment(item,before){
+  for(const key of Object.keys(item))delete item[key];
+  Object.assign(item,JSON.parse(before));
+}
+function mpsWriteLegacyBirthEvidence(c,change){
+  const originalDraft=c.onboarding.draft;
+  const draft=originalDraft&&typeof originalDraft==='object'&&!Array.isArray(originalDraft)?originalDraft:(c.onboarding.draft={});
+  const originalDocuments=draft.documents;
+  const existing=originalDocuments&&typeof originalDocuments==='object'&&!Array.isArray(originalDocuments);
+  const documents=existing?originalDocuments:(draft.documents={});
+  const before=existing?JSON.stringify(documents):null;
+  change(documents);
+  if(save())return true;
+  if(existing){for(const key of Object.keys(documents))delete documents[key];Object.assign(documents,JSON.parse(before))}
+  else if(originalDocuments===undefined)delete draft.documents;
+  else draft.documents=originalDocuments;
+  if(originalDraft===undefined)delete c.onboarding.draft;
+  else c.onboarding.draft=originalDraft;
+  return false;
+}
+function mpsReceiveChildDocument(caseId,id){
+  const c=db.admissions?.[caseId],item=c&&mpsDocumentAssignment(c,id);
+  if(!item||!mpsCanWriteChildDocument(c)||mpsChildDocumentState(c,item).complete)return false;
+  if(item.legacy){
+    if(!mpsWriteLegacyBirthEvidence(c,d=>{
+      d.birthCertificateReceived={at:mpsPreschoolBusinessNow().toISOString(),actor:staffActor()};
+      (d.birthCertificateHistory||(d.birthCertificateHistory=[])).push({at:d.birthCertificateReceived.at,actor:d.birthCertificateReceived.actor,text:'Marked received'});
+    }))return false;
+  }else{
+    const before=JSON.stringify(item);
+    item.evidence=item.evidence||{};item.evidence.received={at:mpsPreschoolBusinessNow().toISOString(),actor:staffActor()};item.status='Received';
+    (item.history||(item.history=[])).push({at:item.evidence.received.at,actor:item.evidence.received.actor,text:'Marked received'});
+    if(!save()){mpsRestoreDocumentAssignment(item,before);return false}
+  }
+  render();return true;
+}
+function mpsViewChildDocument(caseId,id){
+  const c=db.admissions?.[caseId],item=c&&mpsDocumentAssignment(c,id);
+  if(!item||!mpsCanReadChildDocument(c)||!mpsChildDocumentState(c,item).attachment)return false;
+  openModal('child-document-copy',{caseId,id});return true;
+}
+const mpsDocumentPreviousModalView=modalView;
+modalView=function(m){
+  if(m?.name!=='child-document-copy')return mpsDocumentPreviousModalView(m);
+  const c=db.admissions?.[m.data?.caseId],item=c&&mpsDocumentAssignment(c,m.data?.id);
+  const attachment=item&&mpsCanReadChildDocument(c)?mpsChildDocumentState(c,item).attachment:null;
+  if(!attachment)return modal('Copy unavailable','',notice('No retrievable copy is available to your account.','warn'),btn('Close','closeOverlay()','secondary'));
+  const content=attachment.mimeType==='application/pdf'?`<iframe title="${esc(item.name)}" src="${esc(attachment.data)}" class="child-document-preview"></iframe>`:`<img src="${esc(attachment.data)}" alt="${esc(item.name)}" class="child-document-preview-image">`;
+  return modal(esc(item.name),esc(attachment.name),content,btn('Close','closeOverlay()','secondary'));
+};
 // BQ-111: separate, append-only financial records; issued invoices stay untouched.
 function billingFinance(){return db.billing.finance||{accounts:{},childAccounts:{},corrections:{},credits:{},applications:{},refunds:{}}}
 function billingFinanceWrite(){return db.billing.finance||(db.billing.finance=billingFinance())}
@@ -61183,8 +61351,11 @@ function mpsSignedApplicationDocument(c,version){
   field('Facebook / public-social permission',family.facebook);
   const selected=guardians.filter(g=>g.communicationRequested===true).map(g=>g.name);
   field('Family communications recipients',selected.length?selected:family.requestedRecipients);
-  field('Birth certificate copy',family.documents?.birthCertificate?'Submitted':'Not submitted');
-  if(family.documents?.birthCertificate)field('Submitted file',family.documents.birthCertificateFile);
+  // Historical Application versions keep their recorded document facts. New BQ-161 versions omit this field.
+  if(family.documents){
+    field('Birth certificate copy',family.documents.birthCertificate?'Submitted':'Not submitted');
+    if(family.documents.birthCertificate)field('Submitted file',family.documents.birthCertificateFile);
+  }
   field('Uniform size',family.starter?.uniform);
   if(String(data.note||'').trim()){section('Parent note');field('Note',data.note.trim())}
   blocks.push({type:'declaration'});
