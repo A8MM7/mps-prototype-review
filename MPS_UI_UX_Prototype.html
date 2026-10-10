@@ -50213,10 +50213,12 @@ function rapidArrival(){if(!allowed('attendance'))return;document.querySelectorA
 function checkout(childId,temp=false){
   if(!attendanceCanCheckout(childId))return;
   const instruction=activeTemporaryPickup(childId);
-  if(instruction&&!temp){openModal('checkout',{childId});return}
+  if(temporaryPickupValidAt(instruction)&&!temp){openModal('checkout',{childId});return}
   if(temp){
-    if(!instruction){alert('No current temporary pickup authorisation is recorded.');return}
-    if(instruction.origin==='Checkout Guardian authorisation'&&(!checkoutAuthorisingGuardians(childId).some(link=>link.id===instruction.guardianLinkId&&link.guardianId===instruction.guardianId)||preschoolPickupTime()<instruction.from||preschoolPickupTime()>instruction.until)){
+    if(!temporaryPickupValidAt(instruction)){
+      alert('This temporary instruction is outside its valid date or time. Keep the child checked in.');return;
+    }
+    if(instruction.origin==='Checkout Guardian authorisation'&&!checkoutAuthorisingGuardians(childId).some(link=>link.id===instruction.guardianLinkId&&link.guardianId===instruction.guardianId)){
       alert('This temporary authorisation is no longer valid. Keep the child checked in.');return;
     }
     if(!pickupIdentityMethods.includes(val('temp_verify'))){alert('Complete the collector identity check before handover.');return}
@@ -57320,9 +57322,18 @@ function checkoutAuthorisingGuardians(childId){
 function preschoolPickupTime(now=new Date()){
   return new Intl.DateTimeFormat('en-GB',{timeZone:mpsPreschoolClockTimezone(),hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).format(now);
 }
+function temporaryPickupValidAt(instruction,now=new Date()){
+  if(!instruction||instruction.date!==mpsProductDate(now,mpsPreschoolClockTimezone()))return false;
+  const from=instruction.from||'',until=instruction.until||'';
+  if(!from&&!until)return true; // BQ-102 permits a date-only instruction.
+  if(!/^([01]\d|2[0-3]):[0-5]\d$/.test(from)||!/^([01]\d|2[0-3]):[0-5]\d$/.test(until)||from>=until)return false;
+  const time=preschoolPickupTime(now);
+  return from<=time&&time<=until;
+}
 function checkoutOtherAuthorisationModal(childId){
   if(!attendanceCanCheckout(childId))return modal('Temporary pickup','',notice('This child is not available for checkout in your scope.','warn'),btn('Close','closeOverlay()','secondary'));
   if(!canManageTemporaryPickup(childId))return modal('Temporary pickup','',notice('Ask the Head Teacher to record the Guardian’s temporary authorisation. Keep the child checked in until the collector is verified.','warn'),btn('Close','closeOverlay()','secondary'));
+  if(activeTemporaryPickup(childId))return modal('Temporary pickup','',notice('A temporary instruction already exists for today. Review it in Child → Family & pickup before releasing an unlisted collector.','warn'),btn('Close','closeOverlay()','secondary'));
   const guardians=checkoutAuthorisingGuardians(childId);
   if(!guardians.length)return modal('Temporary pickup','',notice('No authorised Guardian is recorded for this child. Keep the child checked in and ask the Head Teacher to resolve the family record.','warn'),btn('Close','closeOverlay()','secondary'));
   return modal('Authorise temporary pickup','Record the Guardian’s instruction for this collector. Staff must verify the collector separately before handover.',
@@ -57431,7 +57442,7 @@ function attendanceWorkspace(){
     ${rows.length?`<div class="attendance-summary">${rows.filter(r=>r.status==='present').length} on site · ${rows.filter(r=>r.status==='not_marked').length} not checked in · ${rows.filter(r=>r.status==='absent').length} absent · ${rows.filter(r=>r.status==='checked_out').length} checked out</div>`:''}
     <div class="table-wrap operational-roster-wrap"><table class="table operational-roster attendance-roster ${pickup?'pickup-roster':'arrivals-roster'}"><thead><tr><th class="roster-ordinal">#</th><th>Child</th><th>Class</th><th>Status</th><th>Arrival</th>${pickup?'<th>Pickup</th>':''}<th></th></tr></thead><tbody>${visible.map((r,index)=>{
       const instruction=activeTemporaryPickup(r.id);
-      const context=r.status==='checked_out'?`${esc(r.collector||'Not recorded')} · ${esc(r.checkOut||'Not recorded')}`:instruction?`<span class="attendance-temporary-cue">Temporary pickup · verify at handover</span>`:'Authorised collector · verify at handover';
+      const context=r.status==='checked_out'?`${esc(r.collector||'Not recorded')} · ${esc(r.checkOut||'Not recorded')}`:temporaryPickupValidAt(instruction)?`<span class="attendance-temporary-cue">Temporary pickup · verify at handover</span>`:'Authorised collector · verify at handover';
       const actions=pickup?(r.status==='present'?btn('Checkout',`openModal('checkout',{childId:'${r.id}'})`,'primary','sm')+(canManageTemporaryPickup(r.id)?btn(instruction?'Edit temporary pickup':'Add temporary pickup',`openModal('temporary-pickup-instruction',{childId:'${r.id}'${instruction?`,id:'${instruction.id}'`:''}})`,'secondary','sm'):''):attendanceCanCorrectCheckout(r.id,r.date||TODAY)?btn('Correct checkout',`openModal('checkout-correction',{childId:'${r.id}',date:'${r.date||TODAY}'})`,'secondary','sm'):''):r.status==='not_marked'?btn('Check in',`checkInAttendanceRow('${r.id}')`,'primary','sm')+btn('Mark absent',`openModal('attendance-absence',{childId:'${r.id}'})`,'secondary','sm'):r.status==='absent'?btn('Check in',`checkInAttendanceRow('${r.id}')`,'primary','sm'):attendanceCanCorrectArrival(r.id)?btn('Edit',`openModal('attendance-correction',{childId:'${r.id}'})`,'secondary','sm'):'';
       return `<tr data-child-id="${esc(r.id)}"><td class="roster-ordinal">${index+1}</td><td class="roster-identity"><div class="name">${attendanceChildIdentity(r.id,r.name)}</div></td><td class="roster-class">${esc(r.className)}</td><td class="roster-status"><div>${badge(attendanceStatusLabel(r.status),r.status==='present'?'green':r.status==='absent'?'grey':'blue')}</div></td><td class="roster-time"><span class="operational-desktop-only">${esc(r.checkIn||'—')}</span><span class="operational-mobile-only">Arrival · ${esc(r.checkIn||'Not recorded')}</span></td>${pickup?`<td class="roster-context"><div>${context}</div></td>`:''}<td class="roster-actions"><div class="attendance-row-actions">${actions}</div></td></tr>`;
     }).join('')}</tbody></table>${!visible.length?`<div class="empty operational-empty"><strong>${emptyCopy}</strong>${!allCurrent.length&&allowed('admissions')?btn('Open Admissions',"setRoute('admissions')",'secondary','sm'):''}</div>`:''}</div>
@@ -57441,13 +57452,17 @@ function attendanceCheckoutModal(childId,temporaryOnly=false){
   const r=db.attendance[childId];
   if(!attendanceCanCheckout(childId))return modal('Checkout child','',notice('This child is not currently available for checkout in your scope.','warn'),btn('Close','closeOverlay()','secondary'));
   const p=activeTemporaryPickup(childId);
-  if(p)return modal('Temporary pickup · '+profileChildName(childId),'Human verification remains the safety decision.',
-    kv('Instruction',esc(p.name+' · '+temporaryPickupValidity(p)))+kv('Requested by',esc(p.requestContext||[p.requestedBy,p.source].join(' · ')))+kv('Reference',esc(p.reference))+pickupIdentityCheckField('temp_verify')+notice('If staff are not satisfied, do not release the child.','bad'),btn('Do not release','closeOverlay()','danger')+btn('Escalate uncollected',`escalateUncollected('${childId}')`,'secondary')+btn('Safe handover & checkout',`checkout('${childId}',true)`,'primary'));
-  if(temporaryOnly)return modal('Temporary pickup','',notice('No temporary pickup instruction is recorded for today.','warn'),btn('Close','closeOverlay()','secondary'));
+  if(temporaryPickupValidAt(p)){
+    return modal('Temporary pickup · '+profileChildName(childId),'Human verification remains the safety decision.',
+      kv('Instruction',esc(p.name+' · '+temporaryPickupValidity(p)))+kv('Requested by',esc(p.requestContext||[p.requestedBy,p.source].join(' · ')))+kv('Reference',esc(p.reference))+pickupIdentityCheckField('temp_verify')+notice('If staff are not satisfied, do not release the child.','bad'),
+      btn('Do not release','closeOverlay()','danger')+btn('Escalate uncollected',`escalateUncollected('${childId}')`,'secondary')+btn('Safe handover & checkout',`checkout('${childId}',true)`,'primary'));
+  }
+  if(temporaryOnly)return modal('Temporary pickup','',notice(p?'This instruction is outside its valid date or time. It cannot authorise handover.':'No temporary pickup instruction is recorded for today.','warn'),btn('Close','closeOverlay()','secondary'));
   const unlistedOnly=profileCollectorOptions(childId).length===1;
   const routine=`<div id="pickup_routine_check" ${unlistedOnly?'hidden':''}>${kv('Verification','Routine authorised collector · manual human check')}${pickupIdentityCheckField('routine_verify')}</div>`;
   const unlisted=`<div id="pickup_unlisted_help" ${unlistedOnly?'':'hidden'}>${notice('Record a Guardian’s temporary authorisation before checking the collector’s identity.','info')}</div>`;
-  return modal('Checkout child','Record only after safe handover.',profileCollectorField(childId)+unlisted+routine,btn('Cancel','closeOverlay()','secondary')+`<span data-checkout-action>${btn(unlistedOnly?'Continue to Guardian authorisation':'Record checkout',`checkout('${childId}')`,'primary')}</span>`);
+  const expired=p?notice('Today’s temporary pickup instruction is outside its valid date or time. It cannot authorise handover.','warn'):'';
+  return modal('Checkout child','Record only after safe handover.',expired+profileCollectorField(childId)+unlisted+routine,btn('Cancel','closeOverlay()','secondary')+`<span data-checkout-action>${btn(unlistedOnly?'Continue to Guardian authorisation':'Record checkout',`checkout('${childId}')`,'primary')}</span>`);
 }
 const pickupIdentityMethods=['Reference photo matched by staff','Government photo ID checked','Live visual guardian confirmation'];
 function pickupIdentityCheckField(id){
