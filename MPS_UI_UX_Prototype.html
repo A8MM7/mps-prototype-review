@@ -1294,10 +1294,10 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
 .prestart-identity-main h3{margin:0 0 3px;color:var(--composition-ink);font-size:17px;line-height:1.25;overflow-wrap:anywhere}
 .prestart-identity-main p{margin:0;color:var(--text-secondary);font-size:12px;line-height:1.4}
 .prestart-identity-tools{display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
-.prestart-identity-tools .btn{margin:0}
-.prestart-identity-tools .profile-upload{display:flex;align-items:center;gap:8px}
+.prestart-identity-tools .btn{margin:0;min-height:44px}
+.prestart-identity-tools .profile-upload{display:flex;align-items:center;gap:8px;margin:0}
 .prestart-identity-tools .profile-upload>span,.prestart-identity-tools .profile-upload>small{display:none}
-.prestart-identity-tools .profile-upload .btn{min-height:36px}
+.prestart-identity-tools .photo-upload-control{margin:0}
 .prestart-photo-change{position:relative}
 .prestart-photo-change>summary{list-style:none;display:flex;align-items:center;min-height:40px;color:var(--brand-deep-teal);font-weight:650;font-size:12px;cursor:pointer}
 .prestart-photo-change>summary::-webkit-details-marker{display:none}
@@ -58425,7 +58425,7 @@ admissionPrestart=function(c){
   if(!safetyReady&&submitted&&guardianReady&&emergencyReady&&pickupReady&&healthReady&&communicationsOk&&childOk&&siblingOk&&d.facebook&&photoOk)safetyEntries.push({done:false,html:prestartReadinessRow('other','Readiness review','Review required','amber',applicationAction)});
   const completedSafety=safetyEntries.filter(entry=>entry.done),pendingSafety=safetyEntries.filter(entry=>!entry.done);
   const safetyRows=safetyEntries.map(entry=>entry.html).join('');
-  const documentRows=(typeof mpsSignedApplicationPrestart==='function'?mpsSignedApplicationPrestart(c):'')+mpsChildDocumentRows(c);
+  const documentRows=(typeof mpsSignedApplicationPrestart==='function'?mpsSignedApplicationPrestart(c):'')+mpsChildDocumentRows(c,{showHistory:false});
   const itemRows=['Preschool','Daycare'].map(scope=>{
     const items=starterItems.filter(item=>item.scope===scope);
     const uniformSize=scope==='Preschool'?c.onboarding?.childSetup?.uniformSize:null;
@@ -59126,7 +59126,7 @@ function mpsAssignChildDocument(caseId){
   if(!save()){c.onboarding.documentAssignments=previous;return false}
   render();return true;
 }
-function mpsChildDocumentRow(c,item){
+function mpsChildDocumentRow(c,item,{showHistory=true}={}){
   const state=mpsChildDocumentState(c,item),canWrite=mpsCanWriteChildDocument(c),canRead=mpsCanReadChildDocument(c);
   const view=state.attachment&&canRead?btn('View copy',`mpsViewChildDocument('${c.id}','${item.id}')`,'secondary','sm'):'';
   const receive=!state.complete&&canWrite?btn('Mark received',`mpsReceiveChildDocument('${c.id}','${item.id}')`,'primary','sm'):'';
@@ -59134,12 +59134,12 @@ function mpsChildDocumentRow(c,item){
     (item.history||[]).map(event=>`<li>${esc(event.text)} · ${esc(event.actor?.name||'Staff')} · ${esc(childProfileAuditTime(event.at))}</li>`).join('');
   const legacyHistory=(item.legacy?c.onboarding?.draft?.documents?.birthCertificateHistory||[]:[]).map(event=>`<li>${esc(event.text)} · ${esc(event.actor?.name||'Staff')} · ${esc(childProfileAuditTime(event.at))}</li>`).join('');
   const receiptAt=item.legacy?c.onboarding?.draft?.documents?.birthCertificateReceived?.at||c.onboarding?.draft?.documents?.birthCertificateReceivedInPerson?.at:item.evidence?.received?.at||item.evidence?.receivedInPerson?.at;
-  return `<div class="child-document-row" data-child-document="${esc(item.id)}"><div class="prestart-readiness-row child-document-main"><strong>${esc(item.name)}</strong>${badge(state.label,state.complete?'green':'amber')}${view||receive?`<div class="prestart-readiness-action child-document-actions">${view}${receive}</div>`:''}</div>${state.attachment?`<small>${esc(state.attachment.name||'Saved copy')}</small>`:''}${['Received','Received in person'].includes(state.label)?`<small>Recorded ${esc(childProfileAuditTime(receiptAt))}</small>`:''}${history||legacyHistory?`<details><summary>History</summary><ul>${history}${legacyHistory}</ul></details>`:''}</div>`;
+  return `<div class="child-document-row" data-child-document="${esc(item.id)}"><div class="prestart-readiness-row child-document-main"><strong>${esc(item.name)}</strong>${badge(state.label,state.complete?'green':'amber')}${view||receive?`<div class="prestart-readiness-action child-document-actions">${view}${receive}</div>`:''}</div>${showHistory&&state.attachment?`<small>${esc(state.attachment.name||'Saved copy')}</small>`:''}${showHistory&&['Received','Received in person'].includes(state.label)?`<small>Recorded ${esc(childProfileAuditTime(receiptAt))}</small>`:''}${showHistory&&(history||legacyHistory)?`<details><summary>History</summary><ul>${history}${legacyHistory}</ul></details>`:''}</div>`;
 }
-function mpsChildDocumentRows(c){
+function mpsChildDocumentRows(c,{showHistory=true}={}){
   if(!mpsCanReadChildDocument(c))return '<p>Document information is restricted.</p>';
   const rows=mpsChildDocumentAssignments(c);
-  return `${rows.map(row=>mpsChildDocumentRow(c,row)).join('')||'<p>No ordinary documents assigned.</p>'}${mpsChildDocumentPicker(c)}`;
+  return `${rows.map(row=>mpsChildDocumentRow(c,row,{showHistory})).join('')||'<p>No ordinary documents assigned.</p>'}${mpsChildDocumentPicker(c)}`;
 }
 function mpsChildDocumentsProfile(c){return c?.enrolment?mpsChildDocumentRows(c):''}
 function mpsDocumentAssignment(c,id){return mpsChildDocumentAssignments(c).find(row=>row.id===id)}
