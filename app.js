@@ -48360,7 +48360,7 @@ function mpsReviewSwitchStaff(id){
  const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
  save();render();return true;
 }
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=de8ca5d3d48b" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=de8ca5d3d48b" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=eb4f7910a66c" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=eb4f7910a66c" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -56183,9 +56183,11 @@ renderDaycare=function(){
 // BQ-103: one parent submission, reused by staff readiness and operational profiles.
 const applicationSections=['Child details','Guardian details','Health & care','Permissions & communication','Review & submit'];
 let applicationAutosaveTimer=null;
+let applicationLastSaveSucceeded=null,applicationLastSaveCaseId=null,applicationRenderDiagnostic='';
+function applicationRememberSave(id,saved){applicationLastSaveCaseId=id;applicationLastSaveSucceeded=saved;return saved}
 function applicationSaveNavigation(){
   applicationSavingNavigation=true;
-  try{return save()}finally{applicationSavingNavigation=false}
+  try{return applicationRememberSave(ui().parentApplicationCase,save())}finally{applicationSavingNavigation=false}
 }
 function applicationSaveMessage(){return '<div id="application_save_error" class="notice warn" role="alert" tabindex="-1">Your changes could not be saved on this device. Check browser storage, then try again. Keep this page open until they are saved.</div>'}
 function applicationSaveFailed(){
@@ -56331,9 +56333,69 @@ function applicationFamilySummary(data){
 function applicationRecoveryView(){
   return `<main class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>Eliira</strong><p>Application preview</p></div><div class="parent-content"><h2>Application could not open</h2>${applicationSaveProblem?applicationSaveMessage():''}<p>This saved page no longer points to an available Application. Your other saved records have not been cleared.</p><div class="parent-foot">${btn('Return to Admissions','recoverParentApplication()','primary')}</div></div></div></main>`;
 }
+function applicationDiagnosticRuntime(){
+  try{
+    const script=document.querySelector('script[src*="app.js"]');
+    const version=script?new URL(script.src,location.href).searchParams.get('v'):null;
+    return /^[a-f0-9]{12}$/.test(version||'')?version:'Unavailable';
+  }catch{return 'Unavailable'}
+}
+function applicationDiagnosticMessage(error){
+  const message=typeof error?.message==='string'?error.message:'';
+  if(/^Cannot read propert(?:y|ies) of (?:undefined|null)\b/.test(message))return 'A required value was missing while building the page.';
+  if(/\bis not a function\b/.test(message))return 'A required page function was unavailable.';
+  if(/\bis not iterable\b/.test(message))return 'A required list could not be read.';
+  if(/\b(?:quota|storage)\b/i.test(message))return 'Browser storage could not be used.';
+  return 'Message withheld to protect family information.';
+}
+function applicationDiagnosticLocations(error){
+  const allowed=new Set(['renderParentApplication','applicationFamilyFields','applicationFamilyDraft','applicationEmergencyFields','applicationRecipientChoices','guardianCard','parentFamilyFields','ensureOnboarding','mpsOnboardingPhoneCountry','appContinue','syncApplicationDraft','render','save']);
+  const frames=[];
+  for(const line of String(error?.stack||'').split('\n').slice(1,16)){
+    const location=line.match(/\bapp\.js(?:\?[^:\s)]*)?:(\d{1,7})(?::(\d{1,6}))?/);
+    if(!location)continue;
+    const name=line.match(/^\s*at\s+([A-Za-z_$][\w$]*)\s*\(/)?.[1]||line.match(/^\s*([A-Za-z_$][\w$]*)@/)?.[1];
+    frames.push(`${allowed.has(name)?name:'code'} @ app.js:${location[1]}:${location[2]||'?'}`);
+    if(frames.length===5)break;
+  }
+  return frames.length?frames.join('\n'):'No safe code location available.';
+}
+function applicationSavedCaseState(id){
+  try{
+    const raw=localStorage.getItem(storageKey);
+    if(raw===null)return 'No';
+    return JSON.parse(raw)?.admissions?.[id]?'Yes':'No';
+  }catch{return 'Unavailable'}
+}
+function applicationBuildRenderDiagnostic(error,id){
+  const type=['Error','TypeError','ReferenceError','RangeError','SyntaxError','URIError'].includes(error?.name)?error.name:'Error';
+  const step=Number.isInteger(ui().parentApplicationStep)&&ui().parentApplicationStep>=1&&ui().parentApplicationStep<=5?ui().parentApplicationStep:'Unavailable';
+  const saveStatus=applicationLastSaveCaseId===id&&applicationLastSaveSucceeded===true?'Succeeded':applicationLastSaveCaseId===id&&applicationLastSaveSucceeded===false?'Failed':'Not confirmed for this case in this page load';
+  return ['Eliira Application display error',`Runtime: ${applicationDiagnosticRuntime()}`,`Error type: ${type}`,`Message: ${applicationDiagnosticMessage(error)}`,`Code location:\n${applicationDiagnosticLocations(error)}`,`Application step: ${step}`,`Case in memory: ${db.admissions[id]?'Yes':'No'}`,`Case in saved browser storage: ${applicationSavedCaseState(id)}`,`Last Application save: ${saveStatus}`].join('\n');
+}
+async function applicationCopyRenderErrorDetails(){
+  const details=document.getElementById('application_error_details'),field=document.getElementById('application_error_text'),status=document.getElementById('application_error_copy_status');
+  try{
+    if(!navigator.clipboard?.writeText)throw new Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(applicationRenderDiagnostic);
+    if(status)status.textContent='Error details copied. Share only this text.';
+    return true;
+  }catch{
+    if(details)details.open=true;
+    if(field){field.focus();field.select()}
+    if(status)status.textContent='Copy is unavailable here. Select the error details below and copy them.';
+    return false;
+  }
+}
+function applicationRenderErrorView(){
+  return `<main class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>Eliira</strong><p>Application preview</p></div><div class="parent-content"><h2>Application could not display</h2>${applicationSaveProblem?applicationSaveMessage():''}<p>The Application record is still available, but this page could not be shown. Try again, or return to Admissions and reopen this case. Keep this page open if your changes have not been saved.</p><div class="application-error-tools">${btn('Copy error details','applicationCopyRenderErrorDetails()','secondary','sm')}<div id="application_error_copy_status" role="status" aria-live="polite"></div><details id="application_error_details"><summary>View error details</summary><textarea id="application_error_text" class="application-error-text" readonly spellcheck="false" aria-label="Error details to copy">${esc(applicationRenderDiagnostic)}</textarea></details></div><div class="parent-foot">${btn('Return to Admissions','recoverParentApplication()','secondary')}${btn('Try again','render()','primary')}</div></div></div></main>`;
+}
 function recoverParentApplication(){
-  const previous={route:ui().route,admissionsStageFilter:ui().admissionsStageFilter,parentApplicationCase:ui().parentApplicationCase,parentApplicationStep:ui().parentApplicationStep};
-  ui().route='admissions';ui().admissionsStageFilter='All';ui().parentApplicationCase=null;ui().parentApplicationStep=1;
+  const id=ui().parentApplicationCase;
+  const previous={route:ui().route,admissionsCase:ui().admissionsCase,admissionsTab:ui().admissionsTab,admissionsStageFilter:ui().admissionsStageFilter,parentApplicationCase:id,parentApplicationStep:ui().parentApplicationStep};
+  ui().route='admissions';ui().admissionsStageFilter='All';
+  if(db.admissions[id]){ui().admissionsCase=id;ui().admissionsTab='application'}
+  ui().parentApplicationCase=null;ui().parentApplicationStep=1;
   if(!applicationSaveNavigation()){Object.assign(ui(),previous);applicationFocusSaveError();return false}
   render();return true;
 }
@@ -56346,7 +56408,13 @@ renderParentApplication=function(){
   const submitted=!!c.application.snapshot||['submitted','accepted','declined','withdrawn'].includes(c.application.status);
   const body=editable?(step<5?applicationFamilyFields(id,step):applicationFamilySummary({...a,family:d})):notice(submitted?'Your submitted Application is retained. No further parent form is required.':'This Application is not available for submission.','info');
   return `<div class="parent-view"><div style="max-width:680px;margin:0 auto 8px;text-align:right">${btn('Exit parent preview','exitParentPreview()','secondary','sm')}</div><div class="parent-card"><div class="parent-brand"><strong>${esc(mpsOrganisationName())}</strong><p>Secure Application</p></div><div class="parent-content"><div class="stepper">${applicationSections.map((_,i)=>`<span class="${i<step?'active':''}"></span>`).join('')}</div><div class="eyebrow">${editable?`Step ${step} of 5`:''}</div><h2>${editable?applicationSections[step-1]:(submitted?'Application submitted':'Application unavailable')}</h2>${applicationSaveProblem?applicationSaveMessage():''}${body}${editable?`<div class="parent-foot">${step>1?btn('Back',`applicationFamilyBack('${id}')`,'secondary'):'<span></span>'}${btn(step===5?'Submit application':'Continue',step===5?`submitApplication('${id}')`:`appContinue('${id}')`,'primary')}</div>`:''}</div></div></div>`;
- }catch(error){console.error('Application preview could not render',error);return applicationRecoveryView()}
+ }catch(error){
+  const id=ui().parentApplicationCase;
+  try{applicationRenderDiagnostic=applicationBuildRenderDiagnostic(error,id)}
+  catch{applicationRenderDiagnostic='Eliira Application display error\nDiagnostic details unavailable on this device.'}
+  console.error('Application preview could not render',applicationRenderDiagnostic);
+  return applicationRenderErrorView();
+ }
 };
 syncApplicationDraft=function(id){
   if(!applicationFamilyEditable(id))return true;
@@ -56392,7 +56460,7 @@ syncApplicationDraft=function(id){
     if(step===1){a.daycarePlanId=careInput('pa_service');a.service=careLabel(a.daycarePlanId);a.start=val('pa_start')}
   }
   Object.assign(a,{childName:d.child.legalName,dob:d.child.dob,guardian:d.guardians[0]?.name||'',phone:d.guardians[0]?.phone||''});
-  return save();
+  return applicationRememberSave(id,save());
 };
 function validateApplicationFamilyStep(id,step){
   const c=db.admissions[id],d=applicationFamilyDraft(id);
@@ -56437,7 +56505,8 @@ appContinue=function(id){
   if(!syncApplicationDraft(id)){applicationFocusSaveError();return false}
   if(!validateApplicationFamilyStep(id,step))return false;
   ui().parentApplicationStep=Math.min(5,step+1);
-  if(!save()){ui().parentApplicationStep=step;applicationFocusSaveError();return false}
+  const saved=applicationRememberSave(id,save());
+  if(!saved){ui().parentApplicationStep=step;applicationFocusSaveError();return false}
   render();window.scrollTo(0,0);return true;
 };
 function applicationFamilyBack(id){
@@ -56446,7 +56515,8 @@ function applicationFamilyBack(id){
   if(!syncApplicationDraft(id)){applicationFocusSaveError();return false}
   const step=ui().parentApplicationStep;
   ui().parentApplicationStep=Math.max(1,step-1);
-  if(!save()){ui().parentApplicationStep=step;applicationFocusSaveError();return false}
+  const saved=applicationRememberSave(id,save());
+  if(!saved){ui().parentApplicationStep=step;applicationFocusSaveError();return false}
   render();window.scrollTo(0,0);return true;
 }
 submitApplication=function(id){
