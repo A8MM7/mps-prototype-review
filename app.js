@@ -48360,7 +48360,7 @@ function mpsReviewSwitchStaff(id){
  const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
  save();render();return true;
 }
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=3fce31f04fc6" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=3fce31f04fc6" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=20deb70d6c59" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=20deb70d6c59" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -48878,6 +48878,7 @@ function mpsSaveMedicationAuthorisation(){
   if(!guardian)return eliiraFieldError('ma_guardian','Choose an authorised Guardian.');
   if(!medication)return eliiraFieldError('ma_medication','Enter the medication.');
   if(!instruction)return eliiraFieldError('ma_instruction','Enter the exact dose and instruction.');
+  if(val('ma_trigger')==='scheduled'&&val('ma_repeat')==='selected'&&!byId('ma_weekdays').querySelector('input:checked'))return eliiraFieldError('ma_weekdays','Select at least one day.');
   if(val('ma_trigger')==='scheduled')for(const input of byId('ma_schedule_times').querySelectorAll('.medication-schedule-time input[type=hidden]'))if(mpsTimeFieldValue(input.id)===null)return false;
   const trigger=mpsMedicationFormTrigger();
   if(!trigger)return eliiraFieldError(!val('ma_trigger')?'ma_trigger':val('ma_trigger')==='scheduled'?'ma_schedule_0_hour':'ma_condition','Complete the authorised medication trigger.');
@@ -49740,6 +49741,29 @@ function admissionStageTone(c){
 journey=function(c){let steps=['Enquiry','Confirmed Interest','Visit','Application','Accepted','Admission Fee','Enrolled','Ready to Start'];let current=admissionStageIndex(c);return `<div class="journey">${steps.map((s,i)=>`<div class="journey-step ${i<current?'done':i===current?'current':''}"><span class="dot">${i<current?'✓':i+1}</span>${s}</div>`).join('')}</div>`};
 function admissionsFilteredCases(){let filter=ui().admissionsStageFilter||'All';return Object.values(db.admissions).filter(c=>filter==='All'||admissionDisplayStage(c)===filter)}
 function setAdmissionsStageFilter(stage){ui().admissionsStageFilter=stage;let matches=admissionsFilteredCases();if(matches.length&&!matches.some(c=>c.id===ui().admissionsCase))ui().admissionsCase=matches[0].id;save();render()}
+// Remember the selected family's stage when its action opens. Some actions
+// finish in Billing, so the Admissions row may no longer be in the DOM when
+// they close. Keep the context transient; this is navigation, not case data.
+let admissionsActionContext=null;
+const openModalBeforeAdmissionContinuity=openModal;
+openModal=function(name,data=null){
+  const state=ui(),c=db.admissions?.[data?.caseId],filter=state.admissionsStageFilter||'All';
+  admissionsActionContext=c&&state.admissionsCase===c.id&&filter===admissionDisplayStage(c)
+    ? {caseId:c.id,filter} : null;
+  return openModalBeforeAdmissionContinuity(name,data);
+};
+const closeOverlayBeforeAdmissionContinuity=closeOverlay;
+closeOverlay=function(){
+  const state=ui(),action=admissionsActionContext;
+  admissionsActionContext=null;
+  const c=db.admissions?.[action?.caseId];
+  if(action&&state.modal?.data?.caseId===action.caseId&&
+     state.admissionsCase===action.caseId&&state.admissionsStageFilter===action.filter&&c&&
+     admissionDisplayStage(c)!==action.filter){
+    state.admissionsStageFilter=admissionDisplayStage(c);
+  }
+  return closeOverlayBeforeAdmissionContinuity();
+};
 admissionsMetrics=function(){let all=Object.values(db.admissions),active=ui().admissionsStageFilter||'All';let stages=['All',...admissionStageLabels];return `<div class="tabs" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:0">${stages.map(stage=>{let count=stage==='All'?all.length:all.filter(c=>admissionDisplayStage(c)===stage).length;return `<button class="tab ${active===stage?'active':''}" data-stage-filter="${esc(stage)}" onclick='setAdmissionsStageFilter(${JSON.stringify(stage)})'>${stage} <strong>${count}</strong></button>`}).join('')}</div>`};
 admissionsList=function(){let cases=admissionsFilteredCases();return `<div class="case-list"><div class="case-search"><input placeholder="Search admissions…" oninput="filterAdmissions(this.value)"></div><div id="admissionsCaseItems">${cases.length?cases.map(caseListItem).join(''):(ui().admissionsStageFilter==='Completed admissions'?'<div class="empty" style="padding:16px">No completed admissions yet.</div>':ui().admissionsStageFilter==='Duplicates'?'<div class="empty" style="padding:16px">No resolved duplicates.</div>':Object.keys(db.admissions).length===0?'<div class="empty" style="padding:16px">No enquiries yet.</div>':'<div class="empty" style="padding:16px">No families in this stage.</div>')}</div></div>`};
 caseListItem=function(c){let stage=admissionDisplayStage(c),condition=admissionCondition(c);return `<div class="case-item ${ui().admissionsCase===c.id?'active':''}" data-stage="${esc(stage)}" data-search="${esc((c.childName+' '+c.guardian+' '+stage+' '+condition).toLowerCase())}" onclick="setAdmissionCase('${c.id}')"><div class="top"><strong>${c.childName}</strong><span style="margin-left:auto">${badge(stage,admissionStageTone(c))}</span></div><div class="meta">${c.guardian} · ${c.service}${condition?`<br>${esc(condition)}`:''}</div></div>`};
@@ -51539,6 +51563,13 @@ admissionPrestart=function(c){
 };
 
 // ---- Modal corrections / persistent artefacts ----
+function admissionPaymentMethodChanged(){
+  const cash=val('adm_record_method')==='Cash';
+  const reference=byId('adm_record_reference');
+  const wrap=byId('adm_record_reference_wrap');
+  if(wrap)wrap.hidden=cash;
+  if(cash&&reference)reference.value='';
+}
 const _mpsAuditModalView=modalView;
 modalView=function(m){
   const n=m?.name,d=m?.data||{};
@@ -51560,7 +51591,7 @@ modalView=function(m){
   if(n==='record-admission-payment'){
     const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView(m);
     const out=feeOutstanding(c.fee);
-    return modal('Record admission-fee payment','Record what the family says was paid. It remains Pending Verification until an authorised real-source check.',`${kv('Family',esc(c.childName))}${kv('Outstanding',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method')}${field('Payment date',mpsAdmissionToday(),'date',false,'adm_record_date')}${field('Amount',String(out),'number',false,'adm_record_amount')}${field('Reference','','text',false,'adm_record_reference')}<div class="field"><label>Optional payment evidence</label><input id="adm_record_evidence" type="file"><small>Attach a screenshot, receipt, deposit slip or other supporting file.</small></div>${notice('Attachment is optional. Verification against the real bank/cash source is still required.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record payment',`recordAdmissionPayment('${c.id}')`,'primary')}`);
+    return modal('Record admission-fee payment','Record what the family says was paid. It remains Pending Verification until an authorised real-source check.',`${kv('Family',esc(c.childName))}${kv('Outstanding',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method','admissionPaymentMethodChanged()')}${field('Payment date',mpsAdmissionToday(),'date',false,'adm_record_date')}${field('Amount',String(out),'number',false,'adm_record_amount')}<div id="adm_record_reference_wrap">${field('Bank transaction reference (optional)','','text',false,'adm_record_reference')}</div><div class="field"><label>Optional payment evidence</label><input id="adm_record_evidence" type="file"><small>Attach a screenshot, receipt, deposit slip or other supporting file.</small></div>${notice('Attachment is optional. Verification against the real bank/cash source is still required.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record payment',`recordAdmissionPayment('${c.id}')`,'primary')}`);
   }
   if(n==='verify-admission-payment'){
     const c=db.admissions[d.caseId],p=c?.fee?.pending?.find(x=>x.id===d.paymentId);if(!c||!p)return _mpsAuditModalView(m);
@@ -51865,6 +51896,7 @@ createEnrolment = function(id){
   closeOverlay();
 };
 // Finance ownership: Billing owns the admission-fee invoice, payment entry, verification and allocation.
+const admissionFeeVerificationMethods=['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'];
 recordAdmissionPayment=function(caseId){
   if(!has('Accounts')){alert('Admission-fee payment entry is handled in Billing by authorised finance staff.');return}
   const c=db.admissions[caseId],inv=mpsAdmissionFeeInvoice(c);if(!c?.fee||!inv)return;
@@ -51872,8 +51904,11 @@ recordAdmissionPayment=function(caseId){
   const max=invoiceOutstanding(inv);if(amount>max){alert('The recorded amount cannot exceed the current admission-fee outstanding balance.');return}
   const file=byId('adm_record_evidence')?.files?.[0]||null;
   const evidence=file?{name:file.name,type:file.type||'',size:file.size||0}:null;
+  const method=val('adm_record_method');
+  // Never persist a Bank reference after the staff member switches to Cash.
+  const reference=method==='Bank transfer'?val('adm_record_reference').trim():'';
   const pid='admp_'+crypto.randomUUID();
-  db.billing.payments[pid]={id:pid,childId:c.id,childName:c.childName,admissionsCaseId:c.id,invoiceId:inv.id,amount,paymentDate:val('adm_record_date')||mpsAdmissionToday(),method:val('adm_record_method'),reference:val('adm_record_reference')||'No reference',evidence,status:'pending',recordedBy:mpsAdmissionActor(),recordedById:currentPersona().id,recordedAt:new Date().toISOString()};
+  db.billing.payments[pid]={id:pid,childId:c.id,childName:c.childName,admissionsCaseId:c.id,invoiceId:inv.id,amount,paymentDate:val('adm_record_date')||mpsAdmissionToday(),method,reference:reference||'No reference',evidence,status:'pending',recordedBy:mpsAdmissionActor(),recordedById:currentPersona().id,recordedAt:new Date().toISOString()};
   addEvent(caseId,'fee_payment_recorded','Admission-fee payment recorded',`${money(amount)} · Pending Verification${evidence?` · Evidence attached: ${evidence.name}`:''}`);
   closeOverlay();
 };
@@ -51881,9 +51916,15 @@ verifyAdmissionPayment=function(caseId,paymentId){
   if(!has('Accounts')){alert('Admission-fee payment verification is handled in Billing by authorised finance staff.');return}
   const c=db.admissions[caseId],inv=mpsAdmissionFeeInvoice(c),p=db.billing?.payments?.[paymentId];
   if(!c||!inv||!p||p.admissionsCaseId!==caseId||p.status==='verified')return closeOverlay();
+  const verification=val('adm_verification');
+  if(!admissionFeeVerificationMethods.includes(verification)){
+    alert('Select how payment was checked.');
+    byId('adm_verification')?.focus();
+    return;
+  }
   const alloc=Math.min(Number(p.amount||0),invoiceOutstanding(inv));
   if(!alloc){alert('This admission-fee invoice has no outstanding balance.');return}
-  p.status='verified';p.verification=val('adm_verification');p.verifiedBy=mpsAdmissionActor();p.verifiedById=currentPersona().id;p.verifiedAt=new Date().toISOString();p.allocationInvoiceId=inv.id;
+  p.status='verified';p.verification=verification;p.verifiedBy=mpsAdmissionActor();p.verifiedById=currentPersona().id;p.verifiedAt=new Date().toISOString();p.allocationInvoiceId=inv.id;
   inv.allocations.push({paymentId:p.id,amount:alloc});
   p.receipt=`REC-${inv.number}-${p.id}.pdf`;
   p.receiptRecipientSnapshot=currentFamilyCommunicationSnapshots(inv);
@@ -52085,7 +52126,7 @@ modalView = function(m){
     return modal(
       'Verify admission-fee payment',
       'Check the real finance source before marking Verified.',
-      `${kv('Family',esc(c.childName))}${kv('Payment date',fmtDate(p.paymentDate))}${kv('Method',esc(p.method))}${kv('Amount',money(p.amount))}${kv('Reference',esc(p.reference||'No reference'))}${selectField('Verification method',['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'],'Bank app/account checked','adm_verification')}${notice('The optional attachment is supporting evidence, not the control. The authorised real-source check is.','info')}`,
+      `${kv('Family',esc(c.childName))}${kv('Payment date',fmtDate(p.paymentDate))}${kv('Method',esc(p.method))}${kv('Amount',money(p.amount))}${kv('Reference',esc(p.reference||'No reference'))}${selectField('Verification method',['Select how payment was checked…',...admissionFeeVerificationMethods],'Select how payment was checked…','adm_verification')}${notice('The optional attachment is supporting evidence, not the control. The authorised real-source check is.','info')}`,
       `${btn('Cancel','closeOverlay()','secondary')}${btn('Verify payment',`verifyAdmissionPayment('${c.id}','${p.id}')`,'primary')}`
     );
   }
@@ -55992,6 +56033,7 @@ const DAYCARE_ACTIVITY_CATALOGUE=['Outdoor play','Colouring','Story time','Block
 const DAYCARE_MEAL_OUTCOMES=['Offered','Refused','Ate some','Ate most','Ate all'];
 const DAYCARE_REST_OUTCOMES=['Slept','Partially slept','Quiet rest','Did not settle'];
 const DAYCARE_ACTIVITY_OUTCOMES=['Participated','Partially participated','Did not participate'];
+let daycareRecordingDraft=null;
 
 function ensureDaycareEventState(){
  db.daycare=db.daycare||{};
@@ -56013,36 +56055,81 @@ function daycareGroupId(booking){
  return known||booking.coverage?.planId||'daycare';
 }
 function daycareEventId(prefix){return `${prefix}_${Date.now()}_${Math.random().toString(36).slice(2,7)}`}
-function daycareOutcomeSelect(id,outcomes,label='Outcome'){
- return `<div class="field daycare-outcome-field"><label for="${id}">${label}</label><select id="${id}"><option value="">Select outcome…</option>${outcomes.map(outcome=>`<option value="${esc(outcome)}">${esc(outcome)}</option>`).join('')}</select></div>`;
+function daycareOutcomeSelect(id,outcomes,label='Outcome',attributes='',selected=''){
+ return `<div class="field daycare-outcome-field"><label for="${id}">${label}</label><select id="${id}" ${attributes}><option value="">Select outcome…</option>${outcomes.map(outcome=>`<option value="${esc(outcome)}"${outcome===selected?' selected':''}>${esc(outcome)}</option>`).join('')}</select></div>`;
 }
-function daycareBulkRows(outcomes,{withException=false}={}){
- const children=daycareEventChildren();
- return `<div class="daycare-bulk-list">${children.map(({childId})=>`<div class="daycare-bulk-row" data-care-child="${esc(childId)}"><label class="check-row daycare-child-choice"><input id="care_selected_${esc(childId)}" type="checkbox" data-care-selected value="${esc(childId)}" checked> <span>${esc(profileChildName(childId))}</span></label>${daycareOutcomeSelect(`care_outcome_${childId}`,outcomes,'Child outcome')}${withException?`<div class="field daycare-exception-field"><label for="care_exception_${esc(childId)}">Exception note (optional)</label><input id="care_exception_${esc(childId)}" type="text" placeholder="e.g. sleeping or arrived late"></div>`:''}</div>`).join('')}</div>`;
+function daycareRecordingEligible(){return daycareEventChildren().map(item=>item.childId)}
+function daycareRecordingVisible(){
+ const draft=daycareRecordingDraft;
+ const query=val('care_child_search').trim().toLowerCase();
+ return daycareRecordingEligible().filter(id=>!query||draft.selected.has(id)||profileChildName(id).toLowerCase().includes(query));
+}
+function daycareBulkRows(children){
+ const draft=daycareRecordingDraft;
+ return children.map(childId=>{
+  const selected=draft.selected.has(childId);
+  const foodSafety=draft.options.showFoodSafety?daycareFoodSafetyFacts(childId):[];
+  const outcome=daycareOutcomeSelect(`care_outcome_${childId}`,draft.outcomes,'Child outcome',`data-care-outcome="${esc(childId)}" onchange="daycareRecordingOutcomeChanged(this)"${selected?'':' disabled'}`,draft.values.get(childId)||'');
+  return `<div class="daycare-bulk-row" data-care-child="${esc(childId)}"><div class="daycare-bulk-child"><label class="check-row daycare-child-choice"><input id="care_selected_${esc(childId)}" type="checkbox" data-care-selected value="${esc(childId)}" onchange="daycareRecordingChildChanged(this)"${selected?' checked':''}> <span>${esc(profileChildName(childId))}</span></label>${foodSafety.length?`<p class="daycare-meal-safety">${foodSafety.map(esc).join(' · ')}</p>`:''}</div>${outcome}${draft.options.withException?`<div class="field daycare-exception-field"><label for="care_exception_${esc(childId)}">Exception note (optional)</label><input id="care_exception_${esc(childId)}" type="text" value="${esc(draft.notes.get(childId)||'')}" oninput="daycareRecordingNoteChanged(this)" data-care-note="${esc(childId)}" placeholder="e.g. sleeping or arrived late"${selected?'':' disabled'}></div>`:''}</div>`;
+ }).join('');
 }
 function daycareBulkEditor(outcomes,options={}){
- const children=daycareEventChildren();
- if(!children.length)return notice('No daycare child is both present and available in your scope.','info');
- return `<p class="daycare-group-help">Choose the children who took part, apply their common outcome, then change any exception before saving once.</p><div class="daycare-common-outcome">${daycareOutcomeSelect('care_common_outcome',outcomes,'Common outcome')} ${btn('Apply to selected',`applyDaycareCommonOutcome()`,'secondary','sm')}</div>${daycareBulkRows(outcomes,options)}`;
+ if(!daycareRecordingEligible().length)return notice('No daycare child is both present and available in your scope.','info');
+ daycareRecordingDraft={outcomes,options,selected:new Set(),values:new Map(),notes:new Map()};
+ return `<div class="daycare-selection-tools"><div class="field"><label for="care_child_search">Search children by name</label><input id="care_child_search" type="search" autocomplete="off" oninput="filterDaycareRecordingChildren()"></div><div class="daycare-selection-actions"><button type="button" class="btn secondary sm" onclick="selectAllDaycareRecordingChildren()">Select all eligible children</button><button type="button" class="btn secondary sm" onclick="clearDaycareRecordingSelection()">Clear selection</button></div></div><div class="daycare-common-outcome">${daycareOutcomeSelect('care_common_outcome',outcomes,'Common outcome')} <button type="button" class="btn secondary sm" id="care_apply_common" onclick="applyDaycareCommonOutcome()">Apply to selected children</button></div><div id="care_child_list" class="daycare-bulk-list">${daycareBulkRows(daycareRecordingEligible())}</div>`;
+}
+function daycareRecordingChildChanged(input){
+ const draft=daycareRecordingDraft,id=input.value;if(!draft)return;
+ if(input.checked)draft.selected.add(id);
+ else{draft.selected.delete(id);draft.values.delete(id);draft.notes.delete(id)}
+ const row=input.closest('.daycare-bulk-row');
+ const outcome=row?.querySelector('[data-care-outcome]'),note=row?.querySelector('[data-care-note]');
+ if(outcome){outcome.disabled=!input.checked;if(!input.checked)outcome.value=''}
+ if(note){note.disabled=!input.checked;if(!input.checked)note.value=''}
+ const query=val('care_child_search').trim().toLowerCase();
+ if(!input.checked&&query&&!profileChildName(id).toLowerCase().includes(query))filterDaycareRecordingChildren();
+}
+function daycareRecordingOutcomeChanged(input){
+ const draft=daycareRecordingDraft;if(!draft)return;
+ draft.values.set(input.dataset.careOutcome,input.value);
+}
+function daycareRecordingNoteChanged(input){daycareRecordingDraft?.notes.set(input.dataset.careNote,input.value)}
+function filterDaycareRecordingChildren(){
+ const list=byId('care_child_list');if(!list||!daycareRecordingDraft)return;
+ const visible=daycareRecordingVisible();
+ list.innerHTML=visible.length?daycareBulkRows(visible):'<p class="daycare-no-matches">No matching children.</p>';
+}
+function selectAllDaycareRecordingChildren(){
+ const draft=daycareRecordingDraft;if(!draft)return;
+ daycareRecordingEligible().forEach(id=>draft.selected.add(id));byId('care_child_search').value='';
+ filterDaycareRecordingChildren();
+}
+function clearDaycareRecordingSelection(){
+ const draft=daycareRecordingDraft;if(!draft)return;
+ draft.selected.clear();draft.values.clear();draft.notes.clear();filterDaycareRecordingChildren();
 }
 function applyDaycareCommonOutcome(){
- const outcome=val('care_common_outcome');if(!outcome)return eliiraFieldError('care_common_outcome','Choose the outcome to apply.');
- document.querySelectorAll('[data-care-selected]:checked').forEach(input=>{const select=byId('care_outcome_'+input.value);if(select)select.value=outcome});
+ const draft=daycareRecordingDraft,outcome=val('care_common_outcome');if(!outcome)return eliiraFieldError('care_common_outcome','Choose the outcome to apply.');
+ const selected=daycareRecordingEligible().filter(id=>draft?.selected.has(id));
+ if(!selected.length)return eliiraFieldError('care_child_search','Select at least one child.');
+ selected.forEach(id=>draft.values.set(id,outcome));filterDaycareRecordingChildren();
 }
 function daycareSelectedOutcomes(allowedOutcomes,{notes=false}={}){
- const eligible=new Set(daycareEventChildren().map(item=>item.childId));
- const selected=Array.from(document.querySelectorAll('[data-care-selected]:checked')).map(input=>input.value).filter(id=>eligible.has(id));
- if(!selected.length){const first=document.querySelector('[data-care-selected]');return {error:first?eliiraFieldError(first.id,'Select at least one present child.'):false}}
+ const draft=daycareRecordingDraft,selected=daycareRecordingEligible().filter(id=>draft?.selected.has(id));
+ if(!selected.length)return {error:eliiraFieldError('care_child_search','Select at least one present child.')};
  const outcomes=[];
  for(const childId of selected){
-  const outcome=val('care_outcome_'+childId);
-  if(!allowedOutcomes.includes(outcome))return {error:eliiraFieldError('care_outcome_'+childId,`Record an outcome for ${profileChildName(childId)}.`)};
-  outcomes.push({childId,outcome,...(notes?{note:val('care_exception_'+childId).trim()}:{} )});
+  const outcome=draft.values.get(childId);
+  if(!allowedOutcomes.includes(outcome)){
+   byId('care_child_search').value=profileChildName(childId);filterDaycareRecordingChildren();
+   return {error:eliiraFieldError('care_outcome_'+childId,`Record an outcome for ${profileChildName(childId)}.`)};
+  }
+  outcomes.push({childId,outcome,...(notes?{note:draft.notes.get(childId)?.trim()||''}:{} )});
  }
  return {outcomes};
 }
 function daycareMealModal(){
- return modal('Record meal or snack','Record this real occurrence for the present children who took part.',`${field('Meal or snack','','text',false,'meal_occurrence')}${staffTimeField('Approximate time','',false,'meal_time','Meal or snack')}${daycareBulkEditor(DAYCARE_MEAL_OUTCOMES)}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save meal/snack',`saveDaycareMeal()`,'primary')}`);
+ return modal('Record meal or snack','Record this real occurrence for the present children who took part.',`${field('Meal or snack','','text',false,'meal_occurrence')}${staffTimeField('Approximate time','',false,'meal_time','Meal or snack')}${daycareBulkEditor(DAYCARE_MEAL_OUTCOMES,{showFoodSafety:true})}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save meal/snack',`saveDaycareMeal()`,'primary')}`);
 }
 function saveDaycareMeal(){
  if(!allowed('daycare'))return;
@@ -56053,7 +56140,7 @@ function saveDaycareMeal(){
  ensureDaycareEventState();db.daycare.mealRecords.push({id:daycareEventId('meal'),date:TODAY,occurrence,time,outcomes:result.outcomes,actor:staffActor(),at:new Date().toISOString()});closeOverlay();
 }
 function daycareRestModal(){
- return modal('Record rest','Record the rest outcome for daycare children who are present.',daycareBulkEditor(DAYCARE_REST_OUTCOMES),`${btn('Cancel','closeOverlay()','secondary')}${btn('Save rest',`saveDaycareRest()`,'primary')}`);
+ return modal('Record rest','Record the rest outcome for daycare children who are present.',daycareBulkEditor(DAYCARE_REST_OUTCOMES,{showFoodSafety:true}),`${btn('Cancel','closeOverlay()','secondary')}${btn('Save rest',`saveDaycareRest()`,'primary')}`);
 }
 function saveDaycareRest(){
  if(!allowed('daycare'))return;eliiraClearValidation(document.getElementById('overlay'));
@@ -56063,7 +56150,7 @@ function saveDaycareRest(){
 function daycareActivityModal(){
  ensureDaycareEventState();
  const options=`<div class="field"><label for="activity_name">Activity</label><select id="activity_name" onchange="toggleDaycareOtherActivity()"><option value="">Select activity…</option>${db.daycare.activityCatalogue.map(name=>`<option value="${esc(name)}">${esc(name)}</option>`).join('')}<option value="Other">Other</option></select></div><div class="field" id="activity_other_field" hidden><label for="activity_other">Describe activity</label><input id="activity_other" type="text"></div>`;
- return modal('Record daycare activity','Record this activity once for the present children who took part.',`${options}${staffTimeField('Approximate time','',false,'activity_time','Daycare activity')}${daycareBulkEditor(DAYCARE_ACTIVITY_OUTCOMES,{withException:true})}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save activity',`saveDaycareActivity()`,'primary')}`);
+ return modal('Record daycare activity','Record this activity once for the present children who took part.',`${options}${staffTimeField('Approximate time','',false,'activity_time','Daycare activity')}${daycareBulkEditor(DAYCARE_ACTIVITY_OUTCOMES,{withException:true,showFoodSafety:true})}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save activity',`saveDaycareActivity()`,'primary')}`);
 }
 function toggleDaycareOtherActivity(){const field=byId('activity_other_field');if(field)field.hidden=val('activity_name')!=='Other'}
 function saveDaycareActivity(){
@@ -56120,12 +56207,17 @@ function daycareTodayCare(eventChildren){
  const detail=missing.length?`Activity still needed for ${missing.map(daycareGroupShortLabel).join(' and ')}`:activity?`${activity.title} · ${activity.outcomes.length} ${activity.outcomes.length===1?'child':'children'}`:'Not recorded yet';
  return `<section class="daycare-care-section"><h2>Today's care</h2>${eventChildren.length?`<div class="daycare-care-grid">${daycareCareStatus('Meal / snack',meal?`${meal.occurrence} · ${meal.outcomes.length} ${meal.outcomes.length===1?'child':'children'}`:'Not recorded yet','Record meal/snack','daycare-meal')}${daycareCareStatus('Rest',rest?`${rest.outcomes.length} ${rest.outcomes.length===1?'child':'children'} recorded`:'Not recorded yet','Record rest','daycare-rest')}${daycareCareStatus('Activity',detail,'Record activity','daycare-activity',missing.length>0)}</div>`:notice('Care recording becomes available after Attendance records an expected daycare child as present.','info')}</section>`;
 }
-function daycareSafetyContext(childId){
- if(!canViewChildHealth(childId))return '';
+function daycareFoodSafetyFacts(childId){
+ if(!canViewChildHealth(childId))return [];
  const health=db.health.profiles?.[childId],parts=[];
  if(health?.allergies&&!/^(none|no allergies|not recorded)/i.test(health.allergies))parts.push(`Allergy: ${health.allergies}`);
  const dietary=String(health?.dietaryRestrictions||'').trim();
  if(dietary&&!/^(none(?: declared)?|no(?: dietary restrictions?)?(?: declared)?|not recorded)$/i.test(dietary))parts.push(`Dietary restriction: ${dietary}`);
+ return parts;
+}
+function daycareSafetyContext(childId){
+ if(!canViewChildHealth(childId))return '';
+ const parts=daycareFoodSafetyFacts(childId);
  const auth=db.health.medAuth?.[childId];if(auth?.status==='current'&&auth.medication)parts.push(`Medication: ${auth.medication}`);
  return parts.length?`<div class="daycare-safety"><strong>Care safety</strong> · ${parts.map(esc).join(' · ')} ${allowed('health')?auth?.status==='current'&&auth.medication?btn('Open medication',`openMedicationForChild('${childId}')`,'secondary','sm'):btn('Open Health',`openHealthForChild('${childId}')`,'secondary','sm'):''}</div>`:'';
 }
@@ -56347,7 +56439,7 @@ function applicationFamilySummary(data,historical=false){
     rows('Guardians',d.guardians.map(applicationGuardianReview).join(''))+
     (d.legalRestrictions?.answer?rows('Legal arrangements',kv('Restrictions / special arrangements',esc(d.legalRestrictions.answer)+(d.legalRestrictions.answer.startsWith('Yes')?` · ${esc(d.legalRestrictions.details||'')}`:''))):'')+applicationEmergencySummary(d)+
     rows('Health & care',[['Allergies','allergies','allergyDetails'],['Medical conditions','conditions','conditionDetails'],['Regular medication','medication','medicationDetails'],['Dietary restrictions','dietary','dietaryDetails'],['Other health/care','other','otherDetails']].map(([label,key,detail])=>kv(label,esc(d.health[key])+(d.health[key]==='Yes'?' · '+esc(d.health[detail]):''))).join('')+(d.health.medication==='Yes'?kv('Preschool to give medication',esc(d.health.preschoolAdministration||'Not answered')):'')+kv('Emergency instructions',esc(d.health.emergencyInstructions||'Not supplied')))+
-    rows('Permissions & setup',kv('Facebook photo permission',esc(d.facebook))+kv('Family communications',esc((d.requestedRecipients||d.recipients||[]).join(', ')))+(historical&&d.documents?kv('Birth certificate',mpsBirthCertificateState(d.documents).label):'')+(d.starter.uniform?kv('Uniform size',esc(d.starter.uniform)):''));
+    rows(historical?'Permissions & setup':'Permissions & communication',kv('Facebook photo permission',esc(d.facebook))+kv('Family communications',esc((d.requestedRecipients||d.recipients||[]).join(', ')))+(historical&&d.documents?kv('Birth certificate',mpsBirthCertificateState(d.documents).label):'')+(d.starter.uniform?kv('Uniform size',esc(d.starter.uniform)):''));
 }
 function applicationRecoveryView(){
   return `<main class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>Eliira</strong><p>Application preview</p></div><div class="parent-content"><h2>Application could not open</h2>${applicationSaveProblem?applicationSaveMessage():''}<p>This saved page no longer points to an available Application. Your other saved records have not been cleared.</p><div class="parent-foot">${btn('Return to Admissions','recoverParentApplication()','primary')}</div></div></div></main>`;
@@ -59492,6 +59584,7 @@ function mpsSignedApplicationVersion(c,versionId=null){
     id:snapshot.versionId,submittedAt:snapshot.submittedAt,data:snapshot.data
   }:null;
 }
+function mpsSignedApplicationReference(version){return 'APP-'+String(version.id).replace(/[^a-z0-9]/gi,'').slice(-10).toUpperCase()}
 function mpsSignedApplicationReceipts(c){return c?.signedApplicationReceipts||[]}
 function mpsSignedApplicationReceipt(c){
   const version=mpsSignedApplicationVersion(c);
@@ -59522,7 +59615,7 @@ function mpsSignedApplicationReceiptModal(c){
   const checks=`<label class="check-row"><input id="signed_application_paper" type="checkbox"> The signed original is in the child's physical file</label><label class="check-row"><input id="signed_application_version" type="checkbox"> It matches this Application version</label><label class="check-row"><input id="signed_application_signature" type="checkbox"> I checked the Guardian signature</label>`;
   const context=`Application for ${esc(version.data?.childName||c.childName)} · Submitted ${esc(attendanceRecordedTime(version.submittedAt))}`;
   const legalNotice=legal.needed&&!legalReady?notice('If legal arrangements are awaiting review, receipt can be saved now. Ready to Start remains blocked until the signer’s authority is confirmed.','info'):'';
-  return modal('Mark signed Application received',context,select+checks+legalNotice,btn('Cancel','closeOverlay()','secondary')+btn('Mark received',`mpsMarkSignedApplicationReceived('${esc(c.id)}')`,'primary'));
+  return modal('Mark signed Application received',context,kv('Application reference',esc(mpsSignedApplicationReference(version)))+select+checks+legalNotice,btn('Cancel','closeOverlay()','secondary')+btn('Mark received',`mpsMarkSignedApplicationReceived('${esc(c.id)}')`,'primary'));
 }
 function mpsMarkSignedApplicationReceived(caseId){
   const c=db.admissions?.[caseId];if(!mpsCanReceiveSignedApplication(c))return false;
@@ -59607,7 +59700,7 @@ function mpsSignedApplicationDocument(c,version){
   const date=value=>value?fmtDate(value):'';
   const submitted=new Date(version.submittedAt);
   const submittedText=Number.isNaN(submitted.getTime())?String(version.submittedAt||'Not recorded'):new Intl.DateTimeFormat('en-GB',{timeZone:mpsPreschoolClockTimezone(),day:'numeric',month:'long',year:'numeric',hour:'numeric',minute:'2-digit',hour12:true}).format(submitted);
-  const reference='APP-'+String(version.id).replace(/[^a-z0-9]/gi,'').slice(-10).toUpperCase();
+  const reference=mpsSignedApplicationReference(version);
   section('Child');
   field('Legal name',child.legalName||data.childName);
   field('Called name',child.preferred);
@@ -59757,15 +59850,16 @@ function mpsMedicationVersion(childId,versionId){
   if(auth?.pendingReplacement?.id===versionId)return auth.pendingReplacement;
   return auth?.history?.find(item=>item.id===versionId)||null;
 }
+function mpsMedicationAuthorisationReference(version){return 'MED-'+String(version.id).replace(/[^a-z0-9]/gi,'').slice(-10).toUpperCase()}
 function mpsMedicationReceiptModal(data){
   const childId=data?.childId,version=mpsMedicationVersion(childId,data?.versionId);
   if(!mpsMedicationCanWrite(childId)||version?.status!=='awaiting_signed_form'||!mpsMedicationGuardians(childId).some(link=>link.guardianId===version.guardianId))
     return modal('Signed medication form unavailable','',notice('A prepared form and a currently authorised Guardian are required.','warn'),btn('Close','closeOverlay()','secondary'));
-  return modal('Mark signed form received',`Medication authorisation · ${esc(version.id)}`,
+  return modal('Mark signed form received',`Medication authorisation · ${esc(mpsMedicationAuthorisationReference(version))}`,
     `<div class="medication-receipt-context">${kv('Child',profileChildLink(childId))}${kv('Medication',esc(version.medication))}${kv('Authorising Guardian',esc(version.authorisedBy))}</div>`+
-    `<label class="check-row"><input id="ma_paper_received" type="checkbox"> The signed paper original is in the child’s physical file</label>`+
-    `<label class="check-row"><input id="ma_exact_version" type="checkbox"> It matches this medication authorisation version</label>`+
-    `<label class="check-row"><input id="ma_guardian_signature" type="checkbox"> I checked the authorised Guardian’s signature</label>`,
+    `<div class="field medication-receipt-check"><label class="check-row"><input id="ma_paper_received" type="checkbox"> The signed paper original is in the child’s physical file</label></div>`+
+    `<div class="field medication-receipt-check"><label class="check-row"><input id="ma_exact_version" type="checkbox"> It matches this medication authorisation version</label></div>`+
+    `<div class="field medication-receipt-check"><label class="check-row"><input id="ma_guardian_signature" type="checkbox"> I checked the authorised Guardian’s signature</label></div>`,
     btn('Cancel','closeOverlay()','secondary')+btn('Mark received',`mpsMarkMedicationAuthorisationReceived('${esc(childId)}','${esc(version.id)}')`,'primary'));
 }
 function mpsMedicationCareNeedModal(data){
@@ -59789,8 +59883,10 @@ function mpsSaveMedicationCareNeed(childId){
 function mpsMarkMedicationAuthorisationReceived(childId,versionId){
   const existing=mpsMedicationAuthorisation(childId),version=mpsMedicationVersion(childId,versionId),actor=staffActor();
   if(!mpsMedicationCanWrite(childId)||version?.status!=='awaiting_signed_form'||!actor?.staffId||
-    !mpsMedicationGuardians(childId).some(link=>link.guardianId===version.guardianId)||
-    !['ma_paper_received','ma_exact_version','ma_guardian_signature'].every(id=>byId(id)?.checked))return false;
+    !mpsMedicationGuardians(childId).some(link=>link.guardianId===version.guardianId))return false;
+  const confirmations={ma_paper_received:'Confirm the signed original is in the child’s file.',ma_exact_version:'Confirm the signed form matches this version.',ma_guardian_signature:'Confirm you checked the Guardian’s signature.'};
+  const missing=Object.keys(confirmations).find(id=>!byId(id)?.checked);
+  if(missing)return eliiraFieldError(missing,confirmations[missing]);
   const now=mpsPreschoolBusinessNow().toISOString(),current={...version,status:'current',receivedAt:now,receivedByStaffId:actor.staffId,receivedByName:actor.name,receiptMethod:'signed_paper_received',updated:TODAY};
   const alternate=Object.entries(db.health.medAuth).filter(([key,value])=>key!==childId&&value===existing);
   alternate.forEach(([key])=>delete db.health.medAuth[key]);
@@ -59817,7 +59913,7 @@ function mpsMedicationAuthorisationPdfBlob(childId,version){
     ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);
     ctx.fillStyle='#154c4a';ctx.fillRect(left,86,78,8);
     ctx.font='bold 27px Arial, sans-serif';ctx.fillText(version.preschoolName||mpsOrganisationName(),left,133);
-    ctx.fillStyle='#61736f';ctx.font='18px Arial, sans-serif';ctx.fillText('Medication authorisation · '+version.id,left,166);
+    ctx.fillStyle='#61736f';ctx.font='18px Arial, sans-serif';ctx.fillText('Medication authorisation · '+mpsMedicationAuthorisationReference(version),left,166);
     ctx.strokeStyle='#d7e5e0';ctx.beginPath();ctx.moveTo(left,188);ctx.lineTo(right,188);ctx.stroke();
     ctx.fillStyle='#143f3e';ctx.font='bold 42px Arial, sans-serif';ctx.fillText('MEDICATION AUTHORISATION',left,268);
     y=328;
@@ -59918,7 +60014,7 @@ function mpsMedicationTriggerFields(authorisation){
   const mode=authorisation?.triggerMode||'',times=authorisation?.schedule?.times?.length?authorisation.schedule.times:[''],days=authorisation?.schedule?.weekdays||[];
   const choice=`<div class="field"><label for="ma_trigger">How should this medication be given?</label><select id="ma_trigger" onchange="mpsMedicationTriggerChanged()"><option value="">Choose…</option><option value="scheduled" ${mode==='scheduled'?'selected':''}>At scheduled time(s)</option><option value="as_needed" ${mode==='as_needed'?'selected':''}>As needed when a condition occurs</option></select></div>`;
   const timeRows=times.map((time,index)=>mpsMedicationScheduleTimeField(index,time)).join('');
-  const schedule=`<div id="ma_schedule_fields" class="medication-trigger-fields" ${mode==='scheduled'?'':'hidden'}><div id="ma_schedule_times" class="medication-schedule-times">${timeRows}</div>${btn('Add another time','mpsMedicationAddScheduleTime()','secondary','sm')}<div class="field"><label for="ma_repeat">Repeat</label><select id="ma_repeat" onchange="mpsMedicationRepeatChanged()"><option value="attendance" ${days.length?'':'selected'}>Every day</option><option value="selected" ${days.length?'selected':''}>Selected weekdays</option></select></div><div id="ma_weekdays" class="medication-weekdays" ${days.length?'':'hidden'}><span>Applicable days</span><div>${mpsMedicationWeekdays.map(day=>`<label><input type="checkbox" value="${day}" ${days.includes(day)?'checked':''}> ${day}</label>`).join('')}</div></div></div>`;
+  const schedule=`<div id="ma_schedule_fields" class="medication-trigger-fields" ${mode==='scheduled'?'':'hidden'}><div id="ma_schedule_times" class="medication-schedule-times">${timeRows}</div>${btn('Add another time','mpsMedicationAddScheduleTime()','secondary','sm')}<div class="field"><label for="ma_repeat">Repeat</label><select id="ma_repeat" onchange="mpsMedicationRepeatChanged()"><option value="attendance" ${days.length?'':'selected'}>Every day</option><option value="selected" ${days.length?'selected':''}>Selected weekdays</option></select></div><div id="ma_weekdays" class="medication-weekdays field" role="group" aria-labelledby="ma_weekdays_label" tabindex="-1" ${days.length?'':'hidden'}><span id="ma_weekdays_label">Applicable days</span><div>${mpsMedicationWeekdays.map(day=>`<label><input type="checkbox" value="${day}" ${days.includes(day)?'checked':''}> ${day}</label>`).join('')}</div></div></div>`;
   const condition=`<div id="ma_condition_fields" class="medication-trigger-fields" ${mode==='as_needed'?'':'hidden'}>${textArea('Authorised condition / symptoms',authorisation?.authorisedCondition||'','ma_condition')}</div>`;
   return choice+schedule+condition;
 }
@@ -59928,7 +60024,7 @@ function mpsMedicationScheduleTimeField(index,time=''){
 function mpsMedicationTriggerChanged(){
   const mode=val('ma_trigger');byId('ma_schedule_fields').hidden=mode!=='scheduled';byId('ma_condition_fields').hidden=mode!=='as_needed';
 }
-function mpsMedicationRepeatChanged(){byId('ma_weekdays').hidden=val('ma_repeat')!=='selected'}
+function mpsMedicationRepeatChanged(){const weekdays=byId('ma_weekdays');eliiraClearFieldError(weekdays);weekdays.hidden=val('ma_repeat')!=='selected'}
 function mpsMedicationRenumberScheduleTimes(){
   byId('ma_schedule_times')?.querySelectorAll('.medication-schedule-time').forEach((row,index)=>{row.querySelector('label').textContent=`Scheduled time ${index+1}`});
 }

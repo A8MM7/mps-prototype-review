@@ -846,11 +846,19 @@ fieldset{min-width:0;border:1px solid #e6e8ef;border-radius:10px;margin:12px 0;p
 .daycare-record-buttons{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
 .daycare-common-outcome{display:flex;align-items:flex-end;gap:8px;margin:12px 0}
 .daycare-common-outcome .field{flex:1;margin:0}
+.daycare-selection-tools{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:7px 10px;align-items:end;margin-top:12px}
+.daycare-selection-tools .field{margin:0;min-width:0}.daycare-selection-tools input{width:100%;min-width:0}
+.daycare-selection-actions{display:flex;gap:6px;flex-wrap:wrap}
+.daycare-no-matches{margin:10px 0;color:var(--muted);font-size:13px}
 .daycare-bulk-list{display:grid;gap:8px;margin-top:8px}
 .daycare-bulk-row{display:grid;grid-template-columns:minmax(150px,1fr) minmax(170px,1fr);gap:10px;align-items:end;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:#f8fafb}
 .daycare-bulk-row:has(.daycare-exception-field){grid-template-columns:minmax(145px,.8fr) minmax(160px,1fr) minmax(180px,1.1fr)}
 .daycare-bulk-row .field{margin:0}
-.daycare-child-choice{align-self:center;margin:0}
+.daycare-bulk-child{min-width:0}
+.daycare-child-choice{display:flex;align-items:center;gap:8px;min-width:0;align-self:center;margin:0}
+.daycare-child-choice input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;margin:0}
+.daycare-child-choice span{min-width:0;overflow-wrap:anywhere}
+.daycare-meal-safety{margin:6px 0 0;padding:6px 8px;border-radius:8px;background:var(--amber);color:var(--amber-ink);font-size:12px;font-weight:700;line-height:1.4;overflow-wrap:anywhere}
 .daycare-child-records{display:grid;gap:3px;font-size:13px;line-height:1.35}
 .daycare-not-recorded{color:var(--muted)}
 .daycare-event-list{display:grid;gap:8px}
@@ -865,7 +873,7 @@ fieldset{min-width:0;border:1px solid #e6e8ef;border-radius:10px;margin:12px 0;p
 .daycare-care-status{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;border:1px solid var(--line);border-radius:12px;background:var(--panel);padding:12px;min-width:0}
 .daycare-care-status h3{font-size:15px;margin:0 0 4px}.daycare-care-status p{font-size:13px;color:var(--muted);margin:0;overflow-wrap:anywhere}
 .daycare-care-status.needs-care{border-color:#d7a95a;background:#fffaf0}.daycare-care-status.needs-care p{color:var(--navy)}
-.daycare-care-status .btn{flex-shrink:0}.daycare-group-help{font-size:13px;color:var(--muted);margin:4px 0 0}
+.daycare-care-status .btn{flex-shrink:0}
 .daycare-safety{font-size:12px;color:var(--navy);line-height:1.4;margin-top:5px;overflow-wrap:anywhere}.daycare-safety .btn{margin-left:5px}
 .daycare-pickup-cue{display:block;font-size:12px;color:var(--navy);margin-top:4px}
 .daycare-tabs{margin:0 0 14px}
@@ -896,6 +904,8 @@ fieldset{min-width:0;border:1px solid #e6e8ef;border-radius:10px;margin:12px 0;p
  .daycare-record-buttons .btn{min-width:0;padding:7px 5px;font-size:9px;line-height:1.2}
  .daycare-common-outcome{align-items:stretch;flex-direction:column}
  .daycare-common-outcome .btn{align-self:flex-start}
+ .daycare-selection-tools{grid-template-columns:1fr}
+ .daycare-selection-actions{justify-content:flex-start}
  .daycare-bulk-row,.daycare-bulk-row:has(.daycare-exception-field){grid-template-columns:1fr;gap:8px}
  .daycare-event-list article{align-items:flex-start;flex-direction:column;gap:5px}
  .daycare-event-list small{text-align:left}
@@ -1022,8 +1032,8 @@ fieldset{min-width:0;border:1px solid #e6e8ef;border-radius:10px;margin:12px 0;p
 .teaching-summary{display:flex;align-items:center;gap:8px 14px;flex-wrap:wrap;padding:11px 13px}.teaching-summary h3,.teaching-summary p{margin:0}.teaching-summary h3{font-size:14px}.teaching-summary p{font-size:12px;color:var(--muted);flex:1 1 180px}.teaching-summary .btn{margin:0 0 0 auto;min-height:40px}
 @media(max-width:600px){.today-home-head{display:flex;align-items:center;gap:10px}.today-home-head .left{min-width:0}.today-home-head p{font-size:13px}.today-home-head .page-actions{margin:0 0 0 auto}.today-home-head .btn{min-height:44px}.today-opening{gap:8px}.today-home-metrics{display:grid;gap:4px}.today-home-metrics>div{border:0;padding:0;justify-content:space-between}.today-home-metrics strong{order:2}.teaching-summary p{flex-basis:100%}.teaching-summary .btn{margin-left:0}}
 /* Eliira Brand UI Foundation v1 — shared visual layer. Semantic status tokens stay independent. */
-@font-face{font-family:Manrope;src:url("assets/fonts/manrope-v20-latin-ext-400-700.woff2?v=3fce31f04fc6") format("woff2");font-style:normal;font-weight:400 700;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
-@font-face{font-family:Manrope;src:url("assets/fonts/manrope-v20-latin-400-700.woff2?v=3fce31f04fc6") format("woff2");font-style:normal;font-weight:400 700;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
+@font-face{font-family:Manrope;src:url("assets/fonts/manrope-v20-latin-ext-400-700.woff2?v=20deb70d6c59") format("woff2");font-style:normal;font-weight:400 700;font-display:swap;unicode-range:U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF}
+@font-face{font-family:Manrope;src:url("assets/fonts/manrope-v20-latin-400-700.woff2?v=20deb70d6c59") format("woff2");font-style:normal;font-weight:400 700;font-display:swap;unicode-range:U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD}
 :root{
   --brand-deep-teal:#0F4D4A;--brand-soft-teal:#5FB3A8;--brand-apricot:#F7B08A;--brand-gold:#E3B458;--brand-off-white:#FAF7F2;--brand-charcoal:#2E2E2E;
   --ui-page:#FAF7F2;--ui-card:#fff;--ui-warm:#F7F6F2;--ui-hover:#F3F7F5;--ui-selected:#E8F3F0;--ui-border:#D5DFDB;--ui-divider:#E5EBE7;--ui-disabled:#F2F3F1;
@@ -1155,23 +1165,23 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
 .review-nav-group{border-top:1px solid var(--ui-border);padding-top:16px;margin-top:20px}.mobile-more-routes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.mobile-more-routes .btn{width:100%;min-width:0;white-space:normal;text-align:left}.mobile-review-tools{border-top:1px solid var(--ui-border);margin-top:20px;padding-top:16px}.mobile-review-tools .nav-label{padding-left:0}.mobile-review-tools .btn{display:inline-flex;align-items:center;gap:8px}
 @media(max-width:390px){.mobile-more-routes{grid-template-columns:1fr}}
 
-.nav-line-icon.icon-house{--nav-icon:url("assets/icons/lucide-v0.468.0/house.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-user-round-plus{--nav-icon:url("assets/icons/lucide-v0.468.0/user-round-plus.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-circle-check{--nav-icon:url("assets/icons/lucide-v0.468.0/circle-check.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-sun{--nav-icon:url("assets/icons/lucide-v0.468.0/sun.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-clipboard-list{--nav-icon:url("assets/icons/lucide-v0.468.0/clipboard-list.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-presentation{--nav-icon:url("assets/icons/lucide-v0.468.0/presentation.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-file-text{--nav-icon:url("assets/icons/lucide-v0.468.0/file-text.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-heart-pulse{--nav-icon:url("assets/icons/lucide-v0.468.0/heart-pulse.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-receipt-text{--nav-icon:url("assets/icons/lucide-v0.468.0/receipt-text.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-image{--nav-icon:url("assets/icons/lucide-v0.468.0/image.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-users-round{--nav-icon:url("assets/icons/lucide-v0.468.0/users-round.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-contact-round{--nav-icon:url("assets/icons/lucide-v0.468.0/contact-round.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-calendar-days{--nav-icon:url("assets/icons/lucide-v0.468.0/calendar-days.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-settings{--nav-icon:url("assets/icons/lucide-v0.468.0/settings.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-rotate-ccw{--nav-icon:url("assets/icons/lucide-v0.468.0/rotate-ccw.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-ellipsis{--nav-icon:url("assets/icons/lucide-v0.468.0/ellipsis.svg?v=3fce31f04fc6")}
-.nav-line-icon.icon-download{--nav-icon:url("assets/icons/lucide-v0.468.0/download.svg?v=3fce31f04fc6")}
+.nav-line-icon.icon-house{--nav-icon:url("assets/icons/lucide-v0.468.0/house.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-user-round-plus{--nav-icon:url("assets/icons/lucide-v0.468.0/user-round-plus.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-circle-check{--nav-icon:url("assets/icons/lucide-v0.468.0/circle-check.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-sun{--nav-icon:url("assets/icons/lucide-v0.468.0/sun.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-clipboard-list{--nav-icon:url("assets/icons/lucide-v0.468.0/clipboard-list.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-presentation{--nav-icon:url("assets/icons/lucide-v0.468.0/presentation.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-file-text{--nav-icon:url("assets/icons/lucide-v0.468.0/file-text.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-heart-pulse{--nav-icon:url("assets/icons/lucide-v0.468.0/heart-pulse.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-receipt-text{--nav-icon:url("assets/icons/lucide-v0.468.0/receipt-text.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-image{--nav-icon:url("assets/icons/lucide-v0.468.0/image.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-users-round{--nav-icon:url("assets/icons/lucide-v0.468.0/users-round.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-contact-round{--nav-icon:url("assets/icons/lucide-v0.468.0/contact-round.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-calendar-days{--nav-icon:url("assets/icons/lucide-v0.468.0/calendar-days.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-settings{--nav-icon:url("assets/icons/lucide-v0.468.0/settings.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-rotate-ccw{--nav-icon:url("assets/icons/lucide-v0.468.0/rotate-ccw.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-ellipsis{--nav-icon:url("assets/icons/lucide-v0.468.0/ellipsis.svg?v=20deb70d6c59")}
+.nav-line-icon.icon-download{--nav-icon:url("assets/icons/lucide-v0.468.0/download.svg?v=20deb70d6c59")}
 .review-person-picker{display:grid;gap:6px;margin:8px 0 12px;color:inherit;font-size:12px}
 .review-person-picker select{width:100%;min-width:0;min-height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface,#fff);color:var(--text);padding:6px 8px;font:inherit}
 .mobile-review-tools .review-person-picker{margin:12px 0}
@@ -1411,6 +1421,8 @@ button:disabled{background-color:var(--ui-disabled);color:var(--text-disabled);o
 .medication-child-context .medication-context-label{display:block;margin-bottom:5px;font-size:13px;font-weight:600;color:var(--text-secondary)}
 .medication-child-context .medication-child-name{min-height:44px;display:flex;align-items:center;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface,#fff);overflow-wrap:anywhere}
 .medication-receipt-context{margin-bottom:16px}.medication-receipt-context .kv{grid-template-columns:minmax(125px,38%) minmax(0,1fr);gap:10px;align-items:start;padding:8px 0}.medication-receipt-context .kv .v{min-width:0;overflow-wrap:anywhere}
+.medication-receipt-check .check-row{display:flex;align-items:flex-start;gap:8px;font-size:13px;font-weight:400;color:var(--ink);line-height:1.45}
+.medication-receipt-check .check-row input[type=checkbox]{width:18px;height:18px;flex:0 0 18px;margin:1px 0 0;padding:0}
 .medication-authorisation-card details{margin-top:20px}
 .medication-trigger-fields{display:grid;gap:var(--ui-space-3);margin:var(--ui-space-3) 0 var(--ui-space-4);padding:var(--ui-space-4);border:1px solid var(--line);border-radius:12px;background:var(--surface-subtle,#f5f8f5)}
 .medication-trigger-fields[hidden],.medication-weekdays[hidden],#med_actual_wrap[hidden]{display:none}
