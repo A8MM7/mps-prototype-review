@@ -48360,7 +48360,7 @@ function mpsReviewSwitchStaff(id){
  const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
  save();render();return true;
 }
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=224c6b73956b" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=224c6b73956b" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=4938e630eb92" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=4938e630eb92" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -60335,6 +60335,13 @@ function mpsIncidentCanView(incident){
 function mpsIncidentCanReview(incident){
   return mpsIncidentCanView(incident)&&mpsCurrentAccount()?.status==='active'&&has('Head Teacher');
 }
+function mpsIncidentCanAct(incident){
+  return mpsIncidentCanView(incident)&&mpsCurrentAccount()?.status==='active'&&
+    (has('Head Teacher')||(incidentChildIds(incident).length>0&&(has('Class Teacher')||has('Daycare'))));
+}
+function mpsIncidentNeedsHeadTeacher(incident){
+  return incident?.category==='Behaviour / Safeguarding concern'||!!incident?.escalation?.at;
+}
 function mpsIncidentContactEvents(incident){
   if(Array.isArray(incident?.contactHistory))return incident.contactHistory;
   if(!incident?.contact)return [];
@@ -60374,8 +60381,9 @@ function mpsIncidentContactPdfText(incident,childId){
   return [status,...events.filter(event=>event.outcome&&event.outcome!=='Not yet contacted').map(event=>[event.outcome,event.reason,event.detail,event.actor?.name,event.at?attendanceRecordedTime(event.at):'',event.legacy?'Earlier saved outcome; caller and time not separately recorded':''].filter(Boolean).join(' · '))].join('\n');
 }
 function mpsIncidentReviewBlocker(incident,followup){
-  if(!mpsIncidentCanReview(incident))return 'Head Teacher review access is required.';
+  if(!mpsIncidentCanAct(incident))return 'Authorised Incident access is required.';
   if(incident.status==='Closed')return 'This Incident is already closed.';
+  if(mpsIncidentNeedsHeadTeacher(incident)&&!mpsIncidentCanReview(incident))return 'Head Teacher attention is required for this Incident.';
   if(incidentCategoryNeedsChild(incident.category)&&!incidentChildIds(incident).length)return 'This Incident needs an involved Child.';
   const unresolved=incidentChildIds(incident).filter(id=>{
     const state=mpsIncidentContactState(incident,id);
@@ -60500,16 +60508,16 @@ function mpsIncidentDetailModal(incident){
   if(!mpsIncidentCanView(incident))return modal('Incident unavailable','',notice('This Incident record is not available.','warn'),btn('Close','closeOverlay()','secondary'));
   const occurred=incident.occurredOn?`${esc(fmtDate(incident.occurredOn))}${incident.occurredAtTime?` · ${esc(staffTimeLabel(incident.occurredAtTime))}`:''}`:'Not recorded on this earlier Incident';
   const reference=`<span class="incident-reference"><code>${esc(incident.id)}</code>${btn('Copy reference','mpsCopyIncidentReference(ui().modal?.data?.id)','secondary','sm')}</span>`;
-  const detail=`${kv('Incident reference',reference)}${kv('Status',esc(incident.status||'Not recorded'))}${mpsIncidentDownloadActions(incident)}${kv('Category',esc(incident.category||'Not recorded'))}${kv('Children involved',incidentChildrenContext(incident))}${kv('Occurred',occurred)}${incident.location?kv('Location',esc(incident.location)):''}${kv('What happened',esc(incident.what||'Not recorded'))}${incident.condition?kv('Injury / condition observed',esc(incident.condition)):''}${kv('Immediate action / first aid',esc(incident.action||'Not recorded'))}${mpsIncidentPhotosHtml(incident)}${kv('Guardian contact',esc(mpsIncidentContactSummary(incident)))}${incident.followup?kv('Follow-up',esc(incident.followup)):''}${incident.actor?.name?kv('Recorded by',`${esc(incident.actor.name)}${incident.at?` · ${esc(attendanceRecordedTime(incident.at))}`:''}`):''}`;
-  const open=incident.status!=='Closed',canReview=open&&mpsIncidentCanReview(incident),ids=incidentChildIds(incident);
+  const detail=`${kv('Incident reference',reference)}${kv('Status',esc(incident.status||'Not recorded'))}${mpsIncidentDownloadActions(incident)}${kv('Category',esc(incident.category||'Not recorded'))}${kv('Children involved',incidentChildrenContext(incident))}${kv('Occurred',occurred)}${incident.location?kv('Location',esc(incident.location)):''}${kv('What happened',esc(incident.what||'Not recorded'))}${incident.condition?kv('Injury / condition observed',esc(incident.condition)):''}${kv('Immediate action / first aid',esc(incident.action||'Not recorded'))}${mpsIncidentPhotosHtml(incident)}${kv('Guardian contact',esc(mpsIncidentContactSummary(incident)))}${incident.followup?kv('Follow-up',esc(incident.followup)):''}${incident.escalation?.actor?.name?kv('Escalated to Head Teacher by',`${esc(incident.escalation.actor.name)} · ${esc(attendanceRecordedTime(incident.escalation.at))}${incident.escalation.reason?` · ${esc(incident.escalation.reason)}`:''}`):''}${incident.resolutionActor?.name?kv('Resolved by',`${esc(incident.resolutionActor.name)} · ${esc(attendanceRecordedTime(incident.resolvedAt))}`):''}${incident.actor?.name?kv('Recorded by',`${esc(incident.actor.name)}${incident.at?` · ${esc(attendanceRecordedTime(incident.at))}`:''}`):''}`;
+  const open=incident.status!=='Closed',canReview=open&&mpsIncidentCanReview(incident),canAct=open&&mpsIncidentCanAct(incident),ids=incidentChildIds(incident);
   const contactOptions=['Choose outcome…','Called — spoke to guardian','Called — no answer','Informed in person',...(canReview&&incident.category!=='Uncollected Child'?['Contact not required']:[])];
   const target=ids.length>1?`<div class="field"><label for="inc_contact_child">Child whose Guardian was contacted</label><select id="inc_contact_child">${ids.map(id=>`<option value="${esc(id)}">${esc(incident.childSnapshots?.find(child=>child.childId===id)?.name||profileChildName(id))}</option>`).join('')}</select></div>`:ids.length?`<input type="hidden" id="inc_contact_child" value="${esc(ids[0])}">`:'';
   const contactEntry=open&&ids.length?`<section class="incident-contact-section"><h3>Record Guardian contact</h3>${target}${selectField('Actual outcome',contactOptions,'Choose outcome…','inc_contact_update','mpsIncidentContactChoiceChanged()')}<div id="inc_contact_reason_wrap" hidden>${textArea('Why contact was not required','','inc_contact_reason')}<label class="check-row"><input id="inc_minor_confirm" type="checkbox"> I confirm this was genuinely minor and Guardian contact was not required.</label><p class="field-help">Serious or urgent Incidents and Uncollected Child cases still require human contact.</p></div>${textArea('Factual contact note (optional)','','inc_contact_detail')}${btn('Save contact update',`mpsRecordIncidentContact('${esc(incident.id)}')`,'secondary')}</section>`:'';
   const contactHistory=`<section class="incident-contact-section"><h3>Contact history</h3>${mpsIncidentContactHistoryHtml(incident)}</section>`;
   const followupValue=incident.followup==='Open'?'Open follow-up':incident.followup||'Choose follow-up outcome…';
-  const review=canReview?`<section class="incident-review-section"><h3>Head Teacher review</h3>${selectField('Follow-up',['Choose follow-up outcome…','Open follow-up','Follow-up complete','No further follow-up required'],followupValue,'inc_followup','mpsIncidentUpdateReviewActions()')}<p id="inc_review_blocker" role="status">${esc(mpsIncidentReviewBlocker(incident,followupValue))}</p></section>`:'';
-  const closeAction=canReview?`<span id="inc_close_action" ${mpsIncidentReviewBlocker(incident,followupValue)?'hidden':''}>${btn('Close incident',`closeIncident('${esc(incident.id)}')`,'primary')}</span>`:'';
-  const footer=`${btn('Done','closeOverlay()','secondary')}${canReview?btn('Save review',`mpsSaveIncidentReview('${esc(incident.id)}',false)`,'secondary'):''}${closeAction}`;
+  const review=canAct?`<section class="incident-review-section"><h3>Follow-up and resolution</h3>${incident.escalation?.at?notice('Escalated for Head Teacher attention.','warn'):!canReview?'<p class="field-help">Escalate serious, safeguarding or disputed matters to the Head Teacher.</p>':''}${selectField('Follow-up',['Choose follow-up outcome…','Open follow-up','Follow-up complete','No further follow-up required'],followupValue,'inc_followup','mpsIncidentUpdateReviewActions()')}<p id="inc_review_blocker" role="status">${esc(mpsIncidentReviewBlocker(incident,followupValue))}</p></section>`:'';
+  const closeAction=canAct?`<span id="inc_close_action" ${mpsIncidentReviewBlocker(incident,followupValue)?'hidden':''}>${btn('Close incident',`closeIncident('${esc(incident.id)}')`,'primary')}</span>`:'';
+  const footer=`${btn('Done','closeOverlay()','secondary')}${canReview?btn('Save review',`mpsSaveIncidentReview('${esc(incident.id)}',false)`,'secondary'):canAct?btn('Keep open',`mpsKeepIncidentOpen('${esc(incident.id)}')`,'secondary'):''}${canAct&&!canReview&&!incident.escalation?.at?btn('Escalate to Head Teacher',`mpsEscalateIncident('${esc(incident.id)}')`,'secondary'):''}${closeAction}`;
   return modal('Incident record','Saved facts, Guardian contact and follow-up.',detail+contactEntry+contactHistory+review,footer);
 }
 function mpsIncidentContactChoiceChanged(){
@@ -60524,7 +60532,7 @@ function mpsIncidentUpdateReviewActions(){
 }
 function mpsRecordIncidentContact(id){
   const index=db.health.incidents.findIndex(item=>item.id===id),incident=db.health.incidents[index];
-  if(!mpsIncidentCanView(incident)||incident.status==='Closed')return false;
+  if(!mpsIncidentCanAct(incident)||incident.status==='Closed')return false;
   const childId=val('inc_contact_child'),ids=incidentChildIds(incident),outcome=val('inc_contact_update');
   if(!ids.includes(childId))return eliiraFieldError('inc_contact_child','Choose an involved Child.');
   if(!['Called — spoke to guardian','Called — no answer','Informed in person','Contact not required'].includes(outcome))return eliiraFieldError('inc_contact_update','Choose the actual contact outcome.');
@@ -60553,11 +60561,26 @@ modalView=function(m){
 };
 healthIncidents=function(){
   const incidents=db.health.incidents.filter(mpsIncidentCanView);
-  return `<div class="card incident-register"><div class="card-header"><div class="grow"><h3>Incident register</h3><p>Care first; factual record, guardian contact and follow-up.</p></div>${btn('New incident',"openModal('incident')",'primary','sm')}</div>${incidents.length?incidents.map(i=>`<div class="child-row incident-register-row" data-incident-id="${esc(i.id)}"><div class="incident-register-identity"><strong>${esc(i.category||'Incident')}</strong>${i.occurredOn?`<small>${esc(fmtDate(i.occurredOn))}</small>`:''}</div><span>${badge(i.status,'amber')}</span><span>${incidentChildrenContext(i)}</span><span class="incident-register-fact">${esc(i.what||'No factual description saved on this earlier Incident.')}</span><span>${btn(i.status==='Closed'?'Closed':mpsIncidentCanReview(i)?'Review':'View',`openModal('incident-review',{id:'${esc(i.id)}'})`,'secondary','sm')}</span></div>`).join(''):'<div class="empty">No incidents recorded in this prototype state.</div>'}</div>`;
+  return `<div class="card incident-register"><div class="card-header"><div class="grow"><h3>Incident register</h3><p>Care first; factual record, guardian contact and follow-up.</p></div>${btn('New incident',"openModal('incident')",'primary','sm')}</div>${incidents.length?incidents.map(i=>`<div class="child-row incident-register-row" data-incident-id="${esc(i.id)}"><div class="incident-register-identity"><strong>${esc(i.category||'Incident')}</strong>${i.occurredOn?`<small>${esc(fmtDate(i.occurredOn))}</small>`:''}</div><span>${badge(i.status,'amber')}</span><span>${incidentChildrenContext(i)}</span><span class="incident-register-fact">${esc(i.what||'No factual description saved on this earlier Incident.')}</span><span>${btn(i.status==='Closed'?'Closed':mpsIncidentCanReview(i)?'Review':mpsIncidentCanAct(i)?'Open':'View',`openModal('incident-review',{id:'${esc(i.id)}'})`,'secondary','sm')}</span></div>`).join(''):'<div class="empty">No incidents recorded in this prototype state.</div>'}</div>`;
 };
+function mpsKeepIncidentOpen(id){
+  if(!byId('inc_followup'))return false;
+  byId('inc_followup').value='Open follow-up';
+  return mpsSaveIncidentReview(id,false);
+}
+function mpsEscalateIncident(id){
+  const index=db.health.incidents.findIndex(item=>item.id===id),incident=db.health.incidents[index];
+  if(!mpsIncidentCanAct(incident)||mpsIncidentCanReview(incident)||incident.status==='Closed'||incident.escalation?.at)return false;
+  const actor=staffActor();if(!actor?.staffId)return false;
+  const before=structuredClone(incident),at=mpsPreschoolBusinessNow().toISOString();
+  incident.escalation={actor,at};
+  incident.escalationHistory=[...(incident.escalationHistory||[]),incident.escalation];
+  if(!save()){db.health.incidents[index]=before;return false}
+  render();showFeedback('Incident escalated to Head Teacher.');return true;
+}
 function mpsSaveIncidentReview(id,closeRequested=false){
   const index=db.health.incidents.findIndex(item=>item.id===id),incident=db.health.incidents[index];
-  if(!mpsIncidentCanReview(incident)||incident.status==='Closed')return false;
+  if(!mpsIncidentCanAct(incident)||incident.status==='Closed')return false;
   const followup=val('inc_followup');if(!['No further follow-up required','Follow-up complete','Open follow-up'].includes(followup))return eliiraFieldError('inc_followup','Choose the follow-up outcome.');
   const blocker=mpsIncidentReviewBlocker(incident,followup);
   if(closeRequested&&blocker){
@@ -60566,11 +60589,14 @@ function mpsSaveIncidentReview(id,closeRequested=false){
   }
   const actor=staffActor();if(!actor?.staffId)return false;
   const before=structuredClone(incident),now=mpsPreschoolBusinessNow().toISOString();
-  incident.reviewActor=actor;incident.reviewedAt=now;incident.status=closeRequested?'Closed':'Reviewed';incident.followup=followup==='Open follow-up'?'Open':followup;
-  if(incident.status==='Closed')incident.closedAt=now;
-  incident.reviewHistory=[...(incident.reviewHistory||[]),{actor,at:now,followup,status:incident.status}];
+  const headTeacher=mpsIncidentCanReview(incident);
+  incident.status=closeRequested?'Closed':headTeacher?'Reviewed':incident.status;
+  incident.followup=followup==='Open follow-up'?'Open':followup;
+  incident.followupHistory=[...(incident.followupHistory||[]),{actor,at:now,followup,status:incident.status}];
+  if(headTeacher){incident.reviewActor=actor;incident.reviewedAt=now;incident.reviewHistory=[...(incident.reviewHistory||[]),{actor,at:now,followup,status:incident.status}]}
+  if(closeRequested){incident.closedAt=now;incident.resolvedAt=now;incident.resolutionActor=actor}
   if(!save()){db.health.incidents[index]=before;return false}
-  ui().modal=null;render();showFeedback(closeRequested?'Incident closed.':'Review saved; Incident remains open.');return true;
+  ui().modal=null;render();showFeedback(closeRequested?'Incident closed.':headTeacher?'Review saved; Incident remains open.':'Incident remains open.');return true;
 }
 closeIncident=function(id){return mpsSaveIncidentReview(id,true)};
 function mpsIncidentParentSafeText(value,incident,childId){
@@ -60601,6 +60627,8 @@ function mpsIncidentPdfDocument(incident,childId=null,generatedAt=mpsPreschoolBu
   add('Follow-up',incident.followup);
   add('Recorded by',incident.actor?.name);add('Record saved',incident.at?attendanceRecordedTime(incident.at):null);
   if(incident.reviewActor?.name)add('Reviewed by',`${incident.reviewActor.name}${incident.reviewedAt?` · ${attendanceRecordedTime(incident.reviewedAt)}`:''}`);
+  if(incident.escalation?.actor?.name)add('Escalated to Head Teacher by',`${incident.escalation.actor.name} · ${attendanceRecordedTime(incident.escalation.at)}`);
+  if(incident.resolutionActor?.name)add('Resolved by',`${incident.resolutionActor.name} · ${attendanceRecordedTime(incident.resolvedAt)}`);
   return {preschool:mpsOrganisationName(),reference:incident.id,status:incident.status||'Not recorded',generatedAt:attendanceRecordedTime(generatedAt.toISOString()),fields,photos:mpsIncidentSavedPhotos(incident),acknowledgement:!!selected};
 }
 async function mpsIncidentPdfBlob(incident,childId=null,generatedAt=mpsPreschoolBusinessNow()){
