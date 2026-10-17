@@ -47812,6 +47812,7 @@ function enquirySuggestionDetails(dob,start,config=educationConfig()){
  return {...suggestion,detail:`${age} · ${matches.length>1?'More than one configured level matches this age':'No configured level matches this age'}`};
 }
 function enquirySuggestionHtml(dob,start){
+ if(!dob||!start)return '<span class="enquiry-suggestion"><small>Enter date of birth and preferred start to see a suggested level.</small></span>';
  const suggestion=enquirySuggestionDetails(dob,start);
  return `<span class="enquiry-suggestion"><strong>${esc(suggestion.label)}</strong><small>${esc(suggestion.detail)}</small></span>`;
 }
@@ -48352,7 +48353,8 @@ function mpsReviewStaffAccounts(){
 }
 function mpsReviewStaffPicker(){
  const accounts=mpsReviewStaffAccounts();if(accounts.length<2)return '';
- return `<label class="review-person-picker"><span>View as</span><select aria-label="View as staff member" onchange="mpsReviewSwitchStaff(this.value)">${accounts.map(a=>`<option value="${esc(a.id)}" ${ui().persona===a.id?'selected':''}>${esc(a.name)} · ${esc(a.bundles.includes('Head Teacher')?'Head Teacher':'Class Teacher')}</option>`).join('')}</select></label>`;
+ const current=accounts.some(a=>a.id===ui().persona)?'':`<option value="" selected disabled>Current: ${esc(currentPersona().name)}</option>`;
+ return `<label class="review-person-picker"><span>View as</span><select aria-label="View as staff member" onchange="mpsReviewSwitchStaff(this.value)">${current}${accounts.map(a=>`<option value="${esc(a.id)}" ${ui().persona===a.id?'selected':''}>${esc(a.name)} · ${esc(a.bundles.includes('Head Teacher')?'Head Teacher':'Class Teacher')}</option>`).join('')}</select></label>`;
 }
 function mpsReviewSwitchStaff(id){
  if(!mpsReviewStaffAccounts().some(a=>a.id===id))return false;
@@ -48360,7 +48362,7 @@ function mpsReviewSwitchStaff(id){
  const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
  save();render();return true;
 }
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=4938e630eb92" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=4938e630eb92" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=6c97ab692653" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=6c97ab692653" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -48421,7 +48423,7 @@ function appContinue(caseId){syncApplicationDraft(caseId);let d=db.admissions[ca
 function submitApplication(caseId){syncApplicationDraft(caseId);if(val('pa_confirm')!=='Yes — submit'){alert('Please confirm the information or go back to correct it.');return}let c=db.admissions[caseId];c.application.status='submitted';c.application.snapshot={submittedAt:new Date().toISOString(),data:JSON.parse(JSON.stringify(c.application.draft))};c.childName=c.application.draft.childName;c.dob=c.application.draft.dob;c.guardian=c.application.draft.guardian;c.phone=c.application.draft.phone;c.service=c.application.draft.service;c.start=c.application.draft.start;addEvent(caseId,'application_submitted','Application submitted','Parent reviewed/confirmed the secure form');ui().route='admissions';ui().admissionsCase=caseId;ui().admissionsTab='application';ui().parentApplicationStep=1;save();render()}
 function renderParentApplication(){let id=ui().parentApplicationCase,c=db.admissions[id];if(!c){ui().route='admissions';save();return renderAdmissions()}let d=c.application.draft||(c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start});let s=ui().parentApplicationStep;let body=s===1?`${notice('Please review what the preschool already knows. Correct only what changed or add what is missing.','info')}<div class="form-grid">${field('Child full name',d.childName,'text',false,'pa_childName')}${field('Date of birth',d.dob,'date',false,'pa_dob')}${field('Parent / guardian',d.guardian,'text',false,'pa_guardian')}${field('Registered phone',d.phone,'text',false,'pa_phone')}</div>${selectField('Interested service',['Baby Class','Upper Class','Baby Class + Standard Daycare','Baby Class + Extended Daycare'],d.service,'pa_service')}${field('Desired start',d.start,'date',false,'pa_start')}`:`${notice('This is deliberately a lean Application. Pickup, Health, documents and consent belong to post-enrolment onboarding.','ok')}${selectField('Please confirm the information above is accurate',['Yes — submit','No — I need to correct something'],'Yes — submit','pa_confirm')}`;return `<div class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>${ORG}</strong><p>Secure Application · no MPS account required</p></div><div class="parent-content"><div class="stepper"><span class="active"></span><span class="${s===2?'active':''}"></span></div><div class="eyebrow">Application for ${esc(c.childName)}</div><h2 style="color:var(--navy);font-size:20px;margin:5px 0 12px">${s===1?'Review your details':'Confirm & submit'}</h2>${body}<div class="parent-foot">${btn(s===1?'Back to Admissions':'Back',s===1?`ui().route='admissions';save();render()`:`syncApplicationDraft('${id}');ui().parentApplicationStep=1;save();render()`,'secondary')}${btn(s===1?'Continue':'Submit application',s===1?`appContinue('${id}')`:`submitApplication('${id}')`,'primary')}</div></div></div></div>`}
 
-function ensureOnboarding(caseId){let c=db.admissions[caseId];if(!c.onboarding)c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});return c.onboarding}
+function ensureOnboarding(caseId){let c=db.admissions[caseId];if(!c.onboarding)c.onboarding=seedOnboarding(c.childName,'',c.dob,c.guardian,c.phone,{});return c.onboarding}
 function sendOnboarding(caseId){let o=ensureOnboarding(caseId);o.status='sent';o.sentAt=new Date().toISOString();addEvent(caseId,'onboarding_sent','New Family Onboarding link sent','Secure link via registered WhatsApp');save();render()}
 function openParentOnboarding(caseId){ensureOnboarding(caseId);ui().parentOnboardingCase=caseId;ui().parentOnboardingStep=1;ui().route='parent-onboarding';save();render();window.scrollTo(0,0)}
 function syncOnboarding(caseId,step){let o=ensureOnboarding(caseId),d=o.draft;if(step===1){d.child.legalName=val('po_legal');d.child.preferred=val('po_pref');d.child.dob=val('po_dob');d.child.gender=val('po_gender').startsWith('Select')?'':val('po_gender');d.child.address=val('po_address');d.child.languages=Array.from(document.querySelectorAll('[data-home-language]:checked')).map(x=>x.value);d.child.hasSiblings=val('po_has_siblings').startsWith('Select')?'':val('po_has_siblings');if(d.child.hasSiblings==='No')d.child.siblings=[];else d.child.siblings.forEach((x,i)=>{x.relationship=val(`po_sib${i}_rel`)||x.relationship;x.dob=val(`po_sib${i}_dob`)||x.dob});}if(step===2){d.guardians.forEach((g,i)=>{g.name=val(`po_g${i}_name`);g.relationship=val(`po_g${i}_rel`).startsWith('Select')?'':val(`po_g${i}_rel`);g.dob=val(`po_g${i}_dob`);g.phone=val(`po_g${i}_phone`);g.legalAuthority=val(`po_g${i}_auth`).startsWith('Select')?'':val(`po_g${i}_auth`);g.working=val(`po_g${i}_work`).startsWith('Select')?'':val(`po_g${i}_work`);g.company=g.working==='Yes'?val(`po_g${i}_company`):'';g.jobTitle=g.working==='Yes'?val(`po_g${i}_job_title`):''});d.legalRestrictions={answer:val('po_legal_restrict').startsWith('Select')?'':val('po_legal_restrict'),details:val('po_legal_details')};}if(step===3){d.emergency={name:val('po_em_name'),relationship:val('po_em_rel').startsWith('Select')?'':val('po_em_rel'),phone:val('po_em_phone')};d.pickup.forEach((p,i)=>{p.name=val(`po_p${i}_name`);p.relationship=val(`po_p${i}_rel`).startsWith('Select')?'':val(`po_p${i}_rel`);p.photo=!!p.photo})}if(step===4){d.health={allergies:(val('po_allergy').startsWith('Select')?'':val('po_allergy')),allergyDetails:val('po_allergy_detail'),conditions:(val('po_conditions').startsWith('Select')?'':val('po_conditions')),conditionDetails:val('po_condition_detail'),medication:(val('po_medication').startsWith('Select')?'':val('po_medication')),medicationDetails:val('po_medication_detail'),dietary:(val('po_dietary').startsWith('Select')?'':val('po_dietary')),dietaryDetails:val('po_dietary_detail'),emergencyInstructions:val('po_emergency_medical'),other:(val('po_other').startsWith('Select')?'':val('po_other')),otherDetails:val('po_other_detail')}}if(step===5){d.facebook=val('po_facebook').startsWith('Select')?'':val('po_facebook');captureOnboardingRecipients(caseId);d.starter.uniform=val('po_uniform').startsWith('Select')?'':val('po_uniform');d.starter.books=val('po_books')}save()}
@@ -48444,7 +48446,7 @@ function todayAttentionIcon(icon){const names={"receipt-text":"receipt-text","�
 function todayAttentionSection(actions){return `<div class="section-title today-attention-title">Needs your attention</div>${actions.length?`<div class="grid today-attention-list">${actions.map(x=>`<div class="span-6 action-card ${x.sev==='amber'?'warning':''}" ${x.medicationKey?`data-medication-due="${esc(x.medicationKey)}"`:''}><div class="icon" aria-hidden="true">${todayAttentionIcon(x.icon)}</div><div class="grow"><strong>${x.title}</strong><span>${x.sub}</span></div>${btn(x.actionLabel||'Open',x.go,x.actionStyle||'secondary','sm')}</div>`).join('')}</div>`:'<p class="today-attention-clear">Nothing needs attention right now.</p>'}`}
 function renderToday(){let p=currentPersona(),actions=todayActions();
   if(has('Social Media')&&!has('Head Teacher')){let assets=Object.values(db.media.approvedAssets);return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Your MPS view contains approved public-safe assets only.')}<div class="metric-row"><div class="metric"><strong>${assets.length}</strong><span>Approved assets</span><small>Available for publishing</small></div></div><div class="section-title">Approved assets</div>${assets.length?approvedAssets():`<div class="card"><p>No approved MarketingAssets are currently available. Private child photos, nominations, profiles, Health and assessment data are not exposed to this persona.</p></div>`}`)}
-  if(has('Accounts')&&!has('Head Teacher')){let invs=Object.values(db.billing.invoices),out=invs.filter(i=>i.status==='issued').reduce((sum,i)=>sum+invoiceOutstanding(i),0);return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Finance-only action view. Child Health, teaching and private media are outside this persona.')}${todayAttentionSection(actions)}<div class="section-title">Summary</div><div class="metric-row"><div class="metric"><strong>${money(out)}</strong><span>Outstanding</span><small>Issued balances</small></div><div class="metric"><strong>${invs.filter(i=>invoiceStatus(i).text==='Overdue').length}</strong><span>Overdue</span><small>Staff-led follow-up</small></div><div class="metric"><strong>${Object.values(db.billing.payments).filter(x=>x.status==='pending').length}</strong><span>Payments to verify</span><small>Real-source check</small></div><div class="metric"><strong>${invs.filter(i=>i.status==='draft').length}</strong><span>Draft invoices</span><small>Editable before issue</small></div></div>`)}
+  if(has('Accounts')&&!has('Head Teacher')){let invs=Object.values(db.billing.invoices),out=invs.filter(i=>i.status==='issued').reduce((sum,i)=>sum+invoiceOutstanding(i),0);return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Finance-only action view. Child Health, teaching and private media are outside this persona.')}${todayAttentionSection(actions)}<div class="section-title">Summary</div><div class="metric-row"><div class="metric"><strong>${money(out)}</strong><span>Still to collect</span><small>Issued balances</small></div><div class="metric"><strong>${invs.filter(i=>invoiceStatus(i).text==='Overdue').length}</strong><span>Payments late</span><small>Staff-led follow-up</small></div><div class="metric"><strong>${Object.values(db.billing.payments).filter(x=>x.status==='pending').length}</strong><span>Payments to verify</span><small>Real-source check</small></div><div class="metric"><strong>${invs.filter(i=>i.status==='draft').length}</strong><span>Draft invoices</span><small>Editable before issue</small></div></div>`)}
   if(has('System Administration')){return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'Organisation access and recovery work only; operational child data is not automatically exposed.')}<div class="metric-row"><div class="metric"><strong>${Object.values(db.staff.accounts).filter(x=>x.status==='active').length}</strong><span>Active accounts</span><small>Personal identities</small></div><div class="metric"><strong>${Object.values(db.staff.accounts).filter(x=>x.status==='inactive').length}</strong><span>Inactive</span><small>Historical attribution retained</small></div></div><div class="grid" style="margin-top:14px"><div class="span-6 card"><h3>Access governance</h3><p>Permission bundles are additive. One person uses one account; responsibilities do not require role switching.</p></div><div class="span-6 card"><h3>Recovery</h3><p>Ordinary staff → System Administrator reset. Last/only administrator → configured secure recovery; platform break-glass requires ownership/control verification.</p></div></div>`)}
   let present=attendanceRoster().filter(x=>x.status==='present').length;let daycareCount=daycareRoster().length;let lessonCount=mpsTodayState(ensureTeachingSelection())?.items.length||0;return shell(`${pageHead('Today',`Hello, ${p.name.split(' ')[0]}`,'One personalised operational view built from the permission bundles on this account.')}${todayAttentionSection(actions)}<div class="section-title">Today at ${ORG}</div><div class="grid"><div class="span-8 card soft-blue"><div class="card-header"><div class="grow"><h3>🚩 International Flags Day</h3><p>Whole preschool · staff-created calendar event · Normal Preschool Day</p></div>${badge('Context','blue')}</div><p>Planning context only. It does not change operating-day truth or invent a lesson.</p></div><div class="span-4 card"><h3>🎂 Birthday</h3><p>Amaya Perera · derived from DOB. Calm context, not an alert.</p></div></div><div class="section-title">Summary</div><div class="metric-row"><div class="metric"><strong>${present}</strong><span>Children present</span><small>Physical-presence truth</small></div><div class="metric"><strong>${daycareCount}</strong><span>Daycare expected</span><small>Recurring care and bookings</small></div><div class="metric"><strong>${actions.length}</strong><span>Needs action</span><small>Source-backed work</small></div><div class="metric"><strong>${lessonCount}</strong><span>Lessons today</span><small>Assigned teaching scope</small></div></div><div class="section-title">Teaching today</div>${todayTeachingCard()}`)}
 
@@ -48575,7 +48577,8 @@ function invoiceTotal(inv){return inv.lines.reduce((s,l)=>s+l.amount,0)}
 function invoicePaid(inv){return inv.allocations.reduce((s,a)=>s+a.amount,0)}
 function invoiceOutstanding(inv){return Math.max(0,invoiceTotal(inv)-invoicePaid(inv))}
 function invoiceStatus(inv){if(inv.status==='draft')return {text:'Draft',tone:'blue'};if(inv.status==='void')return {text:'Voided',tone:'grey'};if(invoiceOutstanding(inv)===0)return {text:'Paid',tone:'green'};if(inv.due<TODAY)return {text:'Overdue',tone:'red'};return {text:'Outstanding',tone:'blue'}}
-function renderBilling(){let invs=Object.values(db.billing.invoices);let outstanding=invs.filter(i=>i.status==='issued').reduce((s,i)=>s+invoiceOutstanding(i),0);let overdue=invs.filter(i=>invoiceStatus(i).text.startsWith('Overdue')).length;let pendingPay=Object.values(db.billing.payments).filter(p=>p.status==='pending').length;let drafts=invs.filter(i=>i.status==='draft').length;return shell(`${pageHead('Accounts','Billing','Clear invoice states, verified payments and immutable issued history — without becoming a full accounting system.',btn('Create draft invoice',"openModal('draft-invoice',{newDraft:true})",'primary'))}${latePickupBillingAlerts()}<div class="metric-row"><div class="metric"><strong>${money(outstanding)}</strong><span>Outstanding</span><small>Issued balances</small></div><div class="metric"><strong>${overdue}</strong><span>Overdue</span><small>Staff-led follow-up</small></div><div class="metric"><strong>${pendingPay}</strong><span>Payment to verify</span><small>Real-source verification</small></div><div class="metric"><strong>${drafts}</strong><span>Draft invoices</span><small>Editable before issue</small></div></div><div class="section-title">Invoices</div><div class="table-wrap"><table class="table"><thead><tr><th>Invoice</th><th>Family</th><th>Issued / due</th><th>Total</th><th>Outstanding</th><th>Status</th><th></th></tr></thead><tbody>${invs.map(inv=>{let st=invoiceStatus(inv);return `<tr><td><div class="name">${inv.number}</div></td><td>${profileChildLink(inv.childId,inv.childName)}</td><td>${inv.status==='draft'?'Draft':`${fmtDate(inv.issued)} / ${fmtDate(inv.due)}`}</td><td>${money(invoiceTotal(inv))}</td><td>${inv.status==='draft'?'—':money(invoiceOutstanding(inv))}</td><td>${badge(st.text,st.tone)}</td><td>${btn(inv.status==='draft'?'Review':'Open',`openModal('invoice-detail',{id:'${inv.id}'})`,'secondary','sm')}</td></tr>`}).join('')}</tbody></table>${invs.length?'':'<div class="empty">No invoices yet.</div>'}</div><div class="grid" style="margin-top:14px"><div class="span-6 card"><h3>Pending payment verification</h3>${Object.values(db.billing.payments).filter(p=>p.status==='pending').map(p=>`<div class="child-row"><strong>${money(p.amount)}</strong><span>${badge(p.method,'blue')}</span><span class="hide-mobile">${p.reference}</span><span>${btn('Verify',`openModal('verify-payment',{id:'${p.id}'})`,'primary','sm')}</span></div>`).join('')||'<div class="empty">No pending payments.</div>'}</div><div class="span-6 card soft-amber"><h3>Pending operational charges</h3>${Object.values(db.billing.pendingCharges).map(pc=>`<div class="child-row"><strong>${esc(pc.childName)}</strong><span>${badge(pc.status,pc.status==='proposed'?'amber':'green')}</span><span class="hide-mobile">${esc(pc.description)} · ${money(pc.amount)}</span><span>${pc.status==='proposed'?`${btn('Add to next draft',`addChargeToDraft('${pc.id}')`,'primary','sm')}${btn('Standalone draft',`createChargeDraft('${pc.id}')`,'secondary','sm')}`:(pc.status==='held'?'Awaiting Head Teacher review':pc.status==='cancelled'?'Cancelled':'✓')}</span></div>`).join('')||'<p>No approved operational charge awaiting Accounts review.</p>'}</div></div>`)}
+function billingInvoiceStatusLabel(status){return status==='Overdue'?'Payment late':status==='Outstanding'?'Awaiting payment':status}
+function renderBilling(){let invs=Object.values(db.billing.invoices);let outstanding=invs.filter(i=>i.status==='issued').reduce((s,i)=>s+invoiceOutstanding(i),0);let overdue=invs.filter(i=>invoiceStatus(i).text.startsWith('Overdue')).length;let pendingPay=Object.values(db.billing.payments).filter(p=>p.status==='pending').length;let drafts=invs.filter(i=>i.status==='draft').length;return shell(`${pageHead('Accounts','Billing','Clear invoice states, verified payments and immutable issued history — without becoming a full accounting system.',btn('Create draft invoice',"openModal('draft-invoice',{newDraft:true})",'primary'))}${latePickupBillingAlerts()}<div class="metric-row"><div class="metric"><strong>${money(outstanding)}</strong><span>Still to collect</span><small>Issued balances</small></div><div class="metric"><strong>${overdue}</strong><span>Payments late</span><small>Staff-led follow-up</small></div><div class="metric"><strong>${pendingPay}</strong><span>Payment to verify</span><small>Real-source verification</small></div><div class="metric"><strong>${drafts}</strong><span>Draft invoices</span><small>Editable before issue</small></div></div><div class="section-title">Invoices</div><div class="table-wrap"><table class="table"><thead><tr><th>Invoice</th><th>Family</th><th>Issued / due</th><th>Total</th><th>Outstanding</th><th>Status</th><th></th></tr></thead><tbody>${invs.map(inv=>{let st=invoiceStatus(inv);return `<tr><td><div class="name">${inv.number}</div></td><td>${profileChildLink(inv.childId,inv.childName)}</td><td>${inv.status==='draft'?'Draft':`${fmtDate(inv.issued)} / ${fmtDate(inv.due)}`}</td><td>${money(invoiceTotal(inv))}</td><td>${inv.status==='draft'?'—':money(invoiceOutstanding(inv))}</td><td>${badge(st.text,st.tone)}</td><td>${btn(inv.status==='draft'?'Review':'Open',`openModal('invoice-detail',{id:'${inv.id}'})`,'secondary','sm')}</td></tr>`}).join('')}</tbody></table>${invs.length?'':'<div class="empty">No invoices yet.</div>'}</div><div class="grid" style="margin-top:14px"><div class="span-6 card"><h3>Pending payment verification</h3>${Object.values(db.billing.payments).filter(p=>p.status==='pending').map(p=>`<div class="child-row"><strong>${money(p.amount)}</strong><span>${badge(p.method,'blue')}</span><span class="hide-mobile">${p.reference}</span><span>${btn('Verify',`openModal('verify-payment',{id:'${p.id}'})`,'primary','sm')}</span></div>`).join('')||'<div class="empty">No pending payments.</div>'}</div><div class="span-6 card soft-amber"><h3>Pending operational charges</h3>${Object.values(db.billing.pendingCharges).map(pc=>`<div class="child-row"><strong>${esc(pc.childName)}</strong><span>${badge(pc.status,pc.status==='proposed'?'amber':'green')}</span><span class="hide-mobile">${esc(pc.description)} · ${money(pc.amount)}</span><span>${pc.status==='proposed'?`${btn('Add to next draft',`addChargeToDraft('${pc.id}')`,'primary','sm')}${btn('Standalone draft',`createChargeDraft('${pc.id}')`,'secondary','sm')}`:(pc.status==='held'?'Awaiting Head Teacher review':pc.status==='cancelled'?'Cancelled':'✓')}</span></div>`).join('')||'<p>No approved operational charge awaiting Accounts review.</p>'}</div></div>`)}
 function createSupplementaryInvoice(id,options={}){let pc=db.billing.pendingCharges[id];if(!allowed('billing')||!pc||pc.status!=='proposed'||billingLegacyRetiredCorrectionCharge(pc))return;if(pc.source?.startsWith('LatePickupEvent'))return createChargeDraft(id);let nid='inv_sup_'+crypto.randomUUID();db.billing.invoices[nid]={id:nid,number:'SUPPLEMENTARY-DRAFT',childId:pc.childId,childName:pc.childName,recipientGuardianIds:linkedRecipientIds(pc.childId),status:'draft',issued:null,createdAt:new Date().toISOString(),due:TODAY,lines:[{id:'l_'+Date.now(),description:pc.description,amount:pc.amount,sourceId:id}],allocations:[],history:[{actor:staffActor(),at:new Date().toISOString(),text:'Supplementary draft created from authorised charge'}],evidence:{}};pc.status='placed';if(!options.deferSave){save();render()}}
 function addChargeToDraft(id){
   const pc=db.billing.pendingCharges[id];if(!allowed('billing')||!pc||pc.status!=='proposed'||billingLegacyRetiredCorrectionCharge(pc))return;
@@ -48595,7 +48598,25 @@ function mpsMonthlyDueDate(month,day){
   if(day>new Date(Date.UTC(year,number,0)).getUTCDate())return null;
   return `${month}-${String(day).padStart(2,'0')}`;
 }
-function createDraftInvoice(){const ref=val('draft_child');if(!billingChildren().some(c=>c.id===ref))return;const quote=monthlyQuote(mpsBillingChildPlan(ref)),fees=mpsTenantFees(),invoiceMonth=val('draft_month'),due=mpsMonthlyDueDate(invoiceMonth,fees.monthlyDueDay);if(!quote){alert('Review the agreed care arrangement and fee settings before creating a monthly draft.');return}if(!due){alert('Choose an invoice month that contains the configured monthly due day.');return}const id='inv_'+crypto.randomUUID();db.billing.invoices[id]={id,number:'Monthly draft',childId:ref,childName:profileChildName(ref),recipientGuardianIds:linkedRecipientIds(ref),actor:staffActor(),status:'draft',issued:null,createdAt:new Date().toISOString(),due,lines:quote.components.map((x,i)=>({id:id+'_'+i,description:x.description,amount:x.amount})),policySnapshot:{type:'monthly',...quote,invoiceMonth,dueDay:fees.monthlyDueDay,due},allocations:[],history:[{actor:staffActor(),at:new Date().toISOString(),text:'Monthly draft created from component fee settings'}],evidence:{}};closeOverlay()}
+function createDraftInvoice(){
+  const ref=val('draft_child'),invoiceMonth=val('draft_month'),context=ui().modal?.name==='draft-invoice'?ui().modal.data:null;
+  if(!allowed('billing')||!billingChildren().some(c=>c.id===ref))return false;
+  if(Object.values(db.billing.invoices).some(inv=>inv.childId===ref&&inv.policySnapshot?.type==='monthly'&&inv.policySnapshot.invoiceMonth===invoiceMonth)){
+    alert('A monthly invoice already exists for this child and month. Open the existing invoice.');return false;
+  }
+  if(context?.source==='history-not-invoiced'&&(invoiceMonth!==context.month||!billingMonthlyNotInvoiced(invoiceMonth).some(child=>child.id===ref))){
+    alert('This child is no longer eligible for a monthly draft from this History list. Review the current month and existing invoices.');return false;
+  }
+  const quote=monthlyQuote(mpsBillingChildPlan(ref)),fees=mpsTenantFees(),due=mpsMonthlyDueDate(invoiceMonth,fees.monthlyDueDay);
+  if(!quote){alert('Review the agreed care arrangement and fee settings before creating a monthly draft.');return false}
+  if(!due){alert('Choose an invoice month that contains the configured monthly due day.');return false}
+  const id='inv_'+crypto.randomUUID();
+  const saved=billingTransaction(()=>{
+    db.billing.invoices[id]={id,number:'Monthly draft',childId:ref,childName:profileChildName(ref),recipientGuardianIds:linkedRecipientIds(ref),actor:staffActor(),status:'draft',issued:null,createdAt:new Date().toISOString(),due,lines:quote.components.map((x,i)=>({id:id+'_'+i,description:x.description,amount:x.amount})),policySnapshot:{type:'monthly',...quote,invoiceMonth,dueDay:fees.monthlyDueDay,due},allocations:[],history:[{actor:staffActor(),at:new Date().toISOString(),text:'Monthly draft created from component fee settings'}],evidence:{}};
+  });
+  if(!saved)return false;
+  closeOverlay();return true;
+}
 function updateDraftInvoice(id){let inv=db.billing.invoices[id];if(!inv||inv.status!=='draft'||inv.category==='admission_fee'){alert('Only an ordinary draft invoice can be edited here.');return}inv.due=val('edit_due');if(!inv.lines.length)inv.lines.push({id:'l_'+Date.now(),description:'Charge',amount:0});inv.lines[0].description=val('edit_desc');inv.lines[0].amount=Math.max(0,Number(val('edit_amount')||0));inv.history.push({actor:staffActor(),at:'14 Sep',text:'Draft invoice edited before issue'});closeOverlay()}
 function createChargeDraft(id){let pc=db.billing.pendingCharges[id];if(!allowed('billing')||!pc||pc.status!=='proposed'||billingLegacyRetiredCorrectionCharge(pc))return;if(pc.source?.startsWith('LatePickupEvent')&&!confirm('Use a final standalone invoice only when no future monthly invoice will exist for this child. Confirm this is their final invoice?'))return;let suitable=Object.values(db.billing.invoices).find(i=>i.childId===pc.childId&&i.status==='draft'&&!i.manualDraft&&!['admission_fee','starter_pack'].includes(i.category));if(pc.source?.startsWith('LatePickupEvent')&&suitable){alert('A suitable future draft exists. The approved late-pickup charge should be carried to that draft rather than a standalone invoice.');return}let iid='inv_'+crypto.randomUUID();db.billing.invoices[iid]={id:iid,number:'SUPPLEMENTARY-DRAFT',childId:pc.childId,childName:pc.childName,recipientGuardianIds:linkedRecipientIds(pc.childId),status:'draft',issued:null,createdAt:new Date().toISOString(),due:'2026-09-25',lines:[{id:'l_'+Date.now(),description:pc.description,amount:pc.amount,sourceId:id}],allocations:[],history:[{actor:staffActor(),at:'14 Sep',text:`Standalone draft created from ${pc.source}`}],evidence:{}};pc.status='placed';save();render()}
 
@@ -48711,7 +48732,7 @@ function modalView(m){let n=m.name,d=m.data||{};
   if(n==='incident')return incidentModal(d);
   if(n==='incident-review'){let i=db.health.incidents.find(x=>x.id===d.id);if(!i)return modal('Incident unavailable','',notice('This Incident record is not available.','warn'),btn('Close','closeOverlay()','secondary'));return modal('Review incident','Head Teacher review, guardian contact and follow-up before closure.',`${kv('Category',esc(i.category))}${kv('Children involved',incidentChildrenContext(i))}${kv('What happened',esc(i.what))}${kv('Immediate action',esc(i.action))}${kv('Guardian contact',esc(i.contact))}${selectField('Follow-up',['No further follow-up required','Follow-up complete','Open follow-up'],'No further follow-up required','inc_followup')}`,`${btn('Keep open','closeOverlay()','secondary')}${btn('Close incident',`closeIncident('${i.id}')`,'primary')}`);}
   if(n==='invoice-detail'){let inv=db.billing.invoices[d.id],st=invoiceStatus(inv);let allocs=inv.allocations.map(a=>db.billing.payments[a.paymentId]).filter(Boolean);return modal(`Invoice ${inv.number}`,'Issued snapshot / draft lines, payments and audit history.',`${latePickupBillingAlerts(inv)}${kv('Status',badge(st.text,st.tone))}${invoiceRelatedContext(inv)}${invoiceRecipientContext(inv)}${kv('Total',money(invoiceTotal(inv)))}${inv.status!=='draft'?kv('Verified paid',money(invoicePaid(inv))):''}${inv.status!=='draft'?kv('Outstanding',money(invoiceOutstanding(inv))):''}${billingInvoiceCreditContent(inv)}<div class="section-title">Lines</div>${inv.lines.map(l=>kv(esc(l.description),money(l.amount))).join('')}${allocs.length?`<div class="section-title">Verified payments / receipts</div>${allocs.map(p=>kv(`${money(p.amount)} · ${p.reference}`,`${p.verification||'Verified'} · ${p.receipt||'No receipt file recorded'}`)).join('')}`:''}<div class="section-title">Evidence & history</div>${inv.evidence.invoicePdf?kv('Issued PDF snapshot',inv.evidence.invoicePdf):kv('Issued PDF snapshot',inv.status==='issued'?'Not recorded for this invoice':'Not yet issued')}${inv.history.map(h=>`<div class="notice info">${h.at} · ${esc(h.text)}</div>`).join('')}${inv.status==='issued'?billingInvoiceCorrectionGuidance(inv):notice('Draft remains editable until issue.','info')}`,`${btn('Close','closeOverlay()','secondary')}${billingInvoiceCreditActions(inv)}${inv.status==='draft'?`${btn('Edit draft',`openModal('edit-draft',{id:'${inv.id}'})`,'secondary')}${btn('Issue invoice',`issueInvoice('${inv.id}')`,'primary')}`:`${invoiceOutstanding(inv)>0&&billingInvoicePayments(inv).some(p=>!p.admissionsCaseId)?btn('Record / verify payment',`closeOverlay();openModal('verify-payment',{id:'${billingInvoicePayments(inv).find(p=>!p.admissionsCaseId)?.id}'})`,'primary'):''}`}`)}
-  if(n==='draft-invoice'){return modal('Create monthly draft','The current care package determines the monthly fee.',`${profileChildSelect('Child',billingChildren().map(c=>c.id),'amaya','draft_child')}${field('Invoice month',mpsDefaultInvoiceMonth(),'month',false,'draft_month')}<small>Due on the ${mpsFeeOrdinalDay(mpsTenantFees().monthlyDueDay)} from Preschool settings.</small>`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create draft',"createDraftInvoice()",'primary')}`)}
+  if(n==='draft-invoice'){return modal('Create monthly draft','The current care package determines the monthly fee.',`${profileChildSelect('Child',billingChildren().map(c=>c.id),d.childId||'amaya','draft_child')}${field('Invoice month',d.month||mpsDefaultInvoiceMonth(),'month',false,'draft_month')}<small>Due on the ${mpsFeeOrdinalDay(mpsTenantFees().monthlyDueDay)} from Preschool settings.</small>`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Create draft',"createDraftInvoice()",'primary')}`)}
   if(n==='edit-draft'){let inv=db.billing.invoices[d.id],l=inv.lines[0];return modal('Edit draft invoice','Only DRAFT invoices can be changed freely.',`${field('Due date',inv.due,'date',false,'edit_due')}${field('Line description',l?.description||'','text',false,'edit_desc')}${field('Line amount',String(l?.amount||0),'number',false,'edit_amount')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save draft changes',`updateDraftInvoice('${inv.id}')`,'primary')}`)}
   if(n==='verify-payment'){let p=db.billing.payments[d.id||'p2'];return modal('Verify payment','Every payment is checked against the real source before allocation.',`${kv('Method',p.method)}${kv('Amount',money(p.amount))}${kv('Reference',p.reference)}${kv('Evidence',p.evidence||'No proof file stored')}${selectField('Verification method',['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'],'Bank statement checked','pay_verification')}`,`${btn('Reject','closeOverlay()','secondary')}${btn('Verify & allocate',`verifyPayment('${p.id}')`,'primary')}`)}
   if(n==='marketing-review'){let p=db.media.photos[d.id];return modal('Review final intended Facebook asset','Approve the exact asset/context, not a generic permission.',`${kv('Photo',p.title)}${kv('Identifiable children',p.childIds.map(x=>profileChildLink(x)).join(', '))}${kv('Consent check',mpsFacebookPhotoEligibility(p).ok?'Eligible — current Facebook Yes':'Blocked — one or more children lack current Facebook permission')}${kv('Intended use',p.marketing.use)}${notice('Reject for marketing does not delete the legitimate private classroom photo.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Reject for marketing',`rejectMarketing('${p.id}')`,'danger')}${btn('Approve asset',`approveMarketing('${p.id}')`,'primary')}`)}
@@ -49550,7 +49571,7 @@ function mpsShowSchoolTermError(message,focus=false){
  if(message){(row?[row.querySelector('[id^="school_term_start_"]'),row.querySelector('[id^="school_term_end_"]')]:[byId('school_year_start')]).filter(Boolean).forEach(node=>{node.setAttribute('aria-invalid','true');node.setAttribute('aria-describedby','school_term_error')})}
  if(message&&focus){output.tabIndex=-1;document.querySelector('[data-school-term-settings]').open=true;(row||area||output).scrollIntoView({block:'start',behavior:'instant'});output.focus({preventScroll:true})}
 }
-function mpsSchoolTermPreview(){const start=val('school_year_start'),window=byId('school_year_window'),error=byId('school_term_error');if(window)window.textContent=start&&mpsAcademicYearEnd(start)?`Runs through ${fmtDate(mpsAcademicYearEnd(start))}`:'The year runs for 12 calendar months from this date.';for(let slot=1;slot<=3;slot++){const row=document.querySelector(`[data-school-term-slot="${slot}"]`),days=mpsCalendarDays(val('school_term_start_'+slot),val('school_term_end_'+slot));row?.querySelector('[data-school-term-duration]')?.replaceChildren(document.createTextNode(mpsSchoolTermDuration(days)))}if(error){const form=mpsSchoolTermForm(),begun=form.start||form.terms.some(term=>term.start||term.end),message=begun?mpsSchoolYearShape(form.start,form.terms):'';mpsShowSchoolTermError(message)}}
+function mpsSchoolTermPreview(){const start=val('school_year_start'),window=byId('school_year_window'),error=byId('school_term_error');if(window)window.textContent=start&&mpsAcademicYearEnd(start)?`Runs through ${fmtDate(mpsAcademicYearEnd(start))}`:'The year runs for 12 calendar months from this date.';for(let slot=1;slot<=3;slot++){const row=document.querySelector(`[data-school-term-slot="${slot}"]`),days=mpsCalendarDays(val('school_term_start_'+slot),val('school_term_end_'+slot));row?.querySelector('[data-school-term-duration]')?.replaceChildren(document.createTextNode(mpsSchoolTermDuration(days)))}if(error)mpsShowSchoolTermError('')}
 function mpsReadSchoolTermSettings(){
  if(!byId('school_year_start'))return null;
  const input=mpsSchoolTermForm(),blank=!input.id&&!input.start&&input.terms.every(term=>!term.id&&!term.start&&!term.end);
@@ -49804,11 +49825,22 @@ function admissionScheduleVisit(id){
   if(!val('tour_time')){byId('tour_time_error').hidden=false;byId('tour_time_custom')?.focus();return false}
   return scheduleTour(id);
 }
+function admissionVisitTiming(c){
+  const visit=c?.tour;
+  if(!visit)return 'Not yet scheduled';
+  const scheduled=`${fmtDate(visit.date)}${visit.time?` · ${esc(staffTimeLabel(visit.time))}`:''}`;
+  if(visit.status!=='completed')return `Scheduled · ${scheduled}`;
+  const actual=visit.actualVisit;
+  const actualText=actual?.date&&actual?.time
+    ?`${fmtDate(actual.date)} · ${esc(staffTimeLabel(actual.time))}`
+    :'Not recorded in this historical record';
+  return `${esc(visit.outcome||'Completed')}<div class="sub">Actual visit · ${actualText}</div><div class="sub">Scheduled · ${scheduled}</div>`;
+}
 admissionOverview=function(c){
   let d=admissionDerived(c),action='';
   if(d.stage==='Enquiry')action=actionCard('Next action · Confirm interest','Confirm this is a genuine admission enquiry, the child fits the intake, and the family wants us to continue.',btn('Confirm interest',`openModal('qualify-lead',{caseId:'${c.id}'})`,'primary','sm'));
   else if(d.stage==='Qualified')action=actionCard('Next action · Arrange visit','Keep the visit on the same family admission record.',btn('Schedule visit',`openModal('schedule-tour',{caseId:'${c.id}'})`,'primary','sm'));
-  else if(d.stage==='Tour'&&c.tour?.status==='scheduled')action=actionCard('Next action · Complete visit',`${fmtDate(c.tour.date)} · ${c.tour.time}. Record what actually happened after the visit.`,btn('Complete visit',`openModal('complete-tour',{caseId:'${c.id}'})`,'primary','sm'));
+  else if(d.stage==='Tour'&&c.tour?.status==='scheduled')action=actionCard('Next action · Complete visit',`${fmtDate(c.tour.date)} · ${c.tour.time}. Record what actually happened after the visit.`,`${btn('Complete visit',`openModal('complete-tour',{caseId:'${c.id}'})`,'primary','sm')}${btn('Reschedule visit',`openModal('reschedule-tour',{caseId:'${c.id}',originalDate:'${c.tour.date}',originalTime:'${c.tour.time}'})`,'secondary','sm')}`);
   else if(d.stage==='Tour')action=actionCard('Next action · Send application','The visit is complete and the family wants to proceed.',btn('Send application',`openModal('send-application',{caseId:'${c.id}'})`,'primary','sm'));
   else if(d.status==='Waiting for parent')action=actionCard('Waiting for parent','The secure application link is active. Staff can resend it without leaving this family record.',`${btn('Open parent preview',`openParentApplication('${c.id}')`,'secondary','sm')}${btn('Resend link',`openModal('send-application',{caseId:'${c.id}'})`,'secondary','sm')}`);
   else if(d.status==='Review required')action=actionCard('Next action · Review application','The parent submission is now part of this same admission record.',btn('Review application',"setAdmissionTab('application')",'primary','sm'));
@@ -49823,7 +49855,7 @@ admissionOverview=function(c){
       ?actionCard(c.enrolment?.status==='pending_start'?'Ready to start':'Start requirements met',c.enrolment?.status==='pending_start'?`Starts ${fmtDate(c.enrolment.start)} · Safety and required start checks are complete.`:'Safety and required start checks are complete.',activation)
       :actionCard('Pre-start needs attention','Required start checks still need attention.',reviewAction,'warning');
   }
-  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${kv('Visit',c.tour?`${c.tour.status} · ${fmtDate(c.tour.date)} ${c.tour.time||''}`:'Not yet scheduled')}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.enrolment?c.enrolment.start:c.start))}</div>`
+  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${kv('Visit',admissionVisitTiming(c))}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.enrolment?c.enrolment.start:c.start))}</div>`
 };
 
 const _mpsAdmissionPlainModalView=modalView;
@@ -50281,9 +50313,10 @@ function calendarExceptionModalV2(data={}){
   const x = data.id ? db.calendar.exceptions?.[data.id] : calendarRecordForDate(date);
   const baseline = calendarBaselineForDate(date);
   const active = x && x.active !== false && calendarNormaliseType(x.type)!==baseline;
-  const defaultType = active ? calendarNormaliseType(x.type) : (baseline==='Closed'?'Preschool + Daycare':'Closed');
+  const defaultType = active ? calendarNormaliseType(x.type) : 'Choose operating status';
   const title = active ? 'Amend operating day' : 'Change operating day';
-  const body = `${field('Date',date,'date',!!x,'cal_date')}${selectField('Operating status',['Preschool + Daycare','Daycare Only','Closed'],defaultType,'cal_type')}${textArea('Reason',active?(x.reason||''):'','cal_reason')}${notice(`Automatic weekly schedule for this date: ${baseline}. Choosing that same status restores the automatic schedule instead of keeping a redundant exception.`,'info')}${x?.history?.length?notice('Previous amendments are retained in the date history.','info'):''}`;
+  const dateField = field('Date',date,'date',!!x,'cal_date').replace('id="cal_date"','id="cal_date" onchange="calendarClosureVisitWarningChanged()"');
+  const body = `${dateField}${selectField('Operating status',['Choose operating status','Preschool + Daycare','Daycare Only','Closed'],defaultType,'cal_type','calendarClosureVisitWarningChanged()')}<div id="cal_visit_warning" aria-live="polite">${defaultType==='Closed'?calendarClosedVisitWarning(date):''}</div>${textArea('Reason',active?(x.reason||''):'','cal_reason')}${notice(`Automatic weekly schedule for this date: ${baseline}. Choosing that same status restores the automatic schedule instead of keeping a redundant exception.`,'info')}${x?.history?.length?notice('Previous amendments are retained in the date history.','info'):''}`;
   let foot = `${btn('Cancel','closeOverlay()','secondary')}${btn('Save change',`saveCalendarException(${x?`'${x.id}'`:'null'})`,'primary')}`;
   if(active) foot = `${btn('Cancel','closeOverlay()','secondary')}${btn('Restore normal schedule',`restoreCalendarBaseline('${x.id}')`,'secondary')}${btn('Save change',`saveCalendarException('${x.id}')`,'primary')}`;
   return modal(title,'Set the actual operating state. Special occasions belong in Events, not in the operating status.',body,foot);
@@ -50295,6 +50328,7 @@ saveCalendarException = function(id=null){
   const type = calendarNormaliseType(val('cal_type'));
   const reason = val('cal_reason').trim();
   if(!date)return eliiraFieldError('cal_date','Choose a date.');
+  if(!['Preschool + Daycare','Daycare Only','Closed'].includes(type))return eliiraFieldError('cal_type','Choose the operating status for this day.');
   if(!reason)return eliiraFieldError('cal_reason','Add a short reason for the operating-day change.');
   const baseline = calendarBaselineForDate(date);
   let old = id ? db.calendar.exceptions?.[id] : calendarRecordForDate(date);
@@ -50432,13 +50466,11 @@ function calendarVisibleAdmissionsToursInMonth(monthKey){
     .sort((a,b)=>a.date.localeCompare(b.date)||(a.time||'').localeCompare(b.time||''));
 }
 function openAdmissionsCaseFromCalendar(caseId){
-  if(!calendarCanSeeAdmissionsTours()||!allowed('admissions')) return;
+  if(!calendarCanSeeAdmissionsTours()||!allowed('admissions')||!db.admissions?.[caseId]) return;
   ui().route='admissions';
-  ui().admissionsCase=caseId;
   ui().admissionsTab='overview';
   ui().modal=null;
-  save();
-  render();
+  setAdmissionCase(caseId);
   window.scrollTo({top:0,behavior:'smooth'});
 }
 
@@ -50617,7 +50649,7 @@ admissionOverview = function(c){
   const action = actionCard(title, sub, btn(button, `openModal('qualify-lead',{caseId:'${c.id}'})`, 'primary', 'sm'));
   const followUpRow = followUp ? kv('Next follow-up', fmtDate(followUp)) : '';
 
-  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${followUpRow}${kv('Visit',c.tour?`${c.tour.status} · ${fmtDate(c.tour.date)} ${c.tour.time||''}`:'Not yet scheduled')}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`;
+  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${followUpRow}${kv('Visit',admissionVisitTiming(c))}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`;
 };
 
 function toggleEnquiryContactFields(){
@@ -50686,6 +50718,7 @@ function latestAdmissionEvent(c, types){
 function issue012VisitNote(c){
   if(c.tour?.note) return c.tour.note;
   const e = latestAdmissionEvent(c,'tour');
+  if(e?.actualVisit) return '';
   if(!e?.detail) return '';
   const parts = String(e.detail).split(' · ');
   return parts.length>1 ? parts.slice(1).join(' · ').trim() : '';
@@ -50707,9 +50740,7 @@ admissionApplication = function(c){
   const contactValue = contact
     ? `${esc(contact.title || 'Admissions follow-up')}${contact.detail ? `<div class="sub">${esc(contact.detail)}</div>` : ''}`
     : 'No separate contact detail recorded in this prototype case';
-  const visitValue = c.tour
-    ? `${fmtDate(c.tour.date)}${c.tour.time ? ` · ${esc(c.tour.time)}` : ''}<div class="sub">${esc(c.tour.outcome || c.tour.status || 'Visit recorded')}</div>`
-    : 'No visit recorded';
+  const visitValue = c.tour ? admissionVisitTiming(c) : 'No visit recorded';
 
   return `<div class="grid">
     <div class="span-8 card">
@@ -50841,7 +50872,7 @@ modalView = function(m){
     return modal(
       'Record admission-fee payment',
       'Record what the family says was paid. It remains Pending Verification until an authorised real-source check.',
-      `${kv('Family',c.childName)}${kv('Outstanding',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method')}${field('Amount',String(out),'number',false,'adm_record_amount')}${field('Reference','','text',false,'adm_record_reference')}<div class="field"><label>Optional payment evidence</label><input id="adm_record_evidence" type="file"><small>Attach a screenshot, receipt, deposit slip or other supporting file.</small></div>${notice('Attachment is optional. Verification against the real bank/cash source is still required.','info')}`,
+      `${kv('Family',c.childName)}${kv('Still to collect',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method')}${field('Amount',String(out),'number',false,'adm_record_amount')}${field('Reference','','text',false,'adm_record_reference')}<div class="field"><label>Optional payment evidence</label><input id="adm_record_evidence" type="file"><small>Attach a screenshot, receipt, deposit slip or other supporting file.</small></div>${notice('Attachment is optional. Verification against the real bank/cash source is still required.','info')}`,
       `${btn('Cancel','closeOverlay()','secondary')}${btn('Record payment',`recordAdmissionPayment('${c.id}')`,'primary')}`
     );
   }
@@ -51374,7 +51405,10 @@ submitApplication=function(caseId){
 // Replace the Application review with the existing whole-story design plus a real link artefact.
 admissionApplication=function(c){
   const a=c.application;
-  if(!a || a.status==='not_sent') return `<div class="card"><h3>Application</h3><p>This family has not been sent an Application yet.</p><div style="margin-top:12px">${btn('Generate secure Application',`openModal('send-application',{caseId:'${c.id}'})`,'primary')}</div></div>`;
+  if(!a || a.status==='not_sent'){
+    const visitReady=c.tour?.status==='completed'&&c.tour.outcome==='Family wants to proceed';
+    return `<div class="card"><h3>Application</h3><p>${visitReady?'This family has not been sent an Application yet.':'Complete the visit and record that the family wants to proceed before sending an Application.'}</p>${visitReady?`<div style="margin-top:12px">${btn('Send application',`openModal('send-application',{caseId:'${c.id}'})`,'primary')}</div>`:''}</div>`;
+  }
   const snap=a.snapshot?.data||a.draft||{};
   const contact=latestAdmissionEvent(c,['contact_attempt','qualified']);
   const visitNote=issue012VisitNote(c);
@@ -51505,7 +51539,7 @@ createEnrolment=function(id){
   const className=placement.className||c.acceptedClass||(c.service.includes('Upper')?'Upper Class':'Baby Class');
   const start=placement.startDate||c.start;
   c.enrolment={status:'active',className,service:c.service,start};
-  c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});
+  c.onboarding=seedOnboarding(c.childName,'',c.dob,c.guardian,c.phone,{});
   addEvent(id,'enrolled','Enrolment created',`${className} · ${fmtDate(start)}`);
   ui().admissionsTab='prestart';closeOverlay();
 };
@@ -51528,7 +51562,7 @@ function mpsAdmissionTimelineText(v){
 }
 admissionTimeline=function(c){
   const events=[...(c.events||[])].sort((a,b)=>String(a.at).localeCompare(String(b.at)));
-  return `<div class="card"><h3>Case timeline</h3><p>Derived only from this family’s actual recorded events.</p><div class="timeline">${events.map(e=>`<div class="timeline-item"><b>${esc(mpsAdmissionTimelineText(e.title))}</b><div>${esc(mpsAdmissionTimelineText(e.detail||''))}${e.at?` · ${new Date(e.at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}</div></div>`).join('')}</div></div>`;
+  return `<div class="card"><h3>Case timeline</h3><p>Derived only from this family’s actual recorded events.</p><div class="timeline">${events.map(e=>`<div class="timeline-item"><b>${esc(mpsAdmissionTimelineText(e.title))}</b><div>${esc(mpsAdmissionTimelineText(e.detail||''))}${e.at?` · ${e.actualVisit?'Saved ':''}${new Date(e.at).toLocaleString('en-GB',{day:'2-digit',month:'short',hour:'2-digit',minute:'2-digit'})}`:''}</div></div>`).join('')}</div></div>`;
 };
 
 // ---- Secure onboarding link artefact ----
@@ -51572,6 +51606,15 @@ function admissionPaymentMethodChanged(){
   if(wrap)wrap.hidden=cash;
   if(cash&&reference)reference.value='';
 }
+function admissionPaymentConfirmationChanged(){
+  const confirmed=byId('adm_record_confirmed')?.checked;
+  const method=byId('adm_record_verification_wrap');
+  if(method)method.hidden=!confirmed;
+  const help=byId('adm_record_confirmation_help');
+  if(help)help.textContent=confirmed
+    ? 'The payment will be verified and allocated when you save.'
+    : 'The report will wait for a real-source check and will not reduce the verified balance.';
+}
 const _mpsAuditModalView=modalView;
 modalView=function(m){
   const n=m?.name,d=m?.data||{};
@@ -51593,7 +51636,8 @@ modalView=function(m){
   if(n==='record-admission-payment'){
     const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView(m);
     const out=feeOutstanding(c.fee);
-    return modal('Record admission-fee payment','Record what the family says was paid. It remains Pending Verification until an authorised real-source check.',`${kv('Family',esc(c.childName))}${kv('Outstanding',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method','admissionPaymentMethodChanged()')}${field('Payment date',mpsAdmissionToday(),'date',false,'adm_record_date')}${field('Amount',String(out),'number',false,'adm_record_amount')}<div id="adm_record_reference_wrap">${field('Bank transaction reference (optional)','','text',false,'adm_record_reference')}</div><div class="field"><label>Optional payment evidence</label><input id="adm_record_evidence" type="file"><small>Attach a screenshot, receipt, deposit slip or other supporting file.</small></div>${notice('Attachment is optional. Verification against the real bank/cash source is still required.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record payment',`recordAdmissionPayment('${c.id}')`,'primary')}`);
+    const choice=`<fieldset class="billing-confirmation-choice"><legend>Has this payment been confirmed?</legend><label class="check-row"><input type="radio" name="adm_record_confirmation" id="adm_record_pending" value="pending" checked onchange="admissionPaymentConfirmationChanged()"><span>Not yet confirmed — record as Pending verification</span></label><label class="check-row"><input type="radio" name="adm_record_confirmation" id="adm_record_confirmed" value="confirmed" onchange="admissionPaymentConfirmationChanged()"><span>I have checked that this payment was received</span></label></fieldset><p id="adm_record_confirmation_help" class="muted">The report will wait for a real-source check and will not reduce the verified balance.</p><div id="adm_record_verification_wrap" hidden>${selectField('How was it checked?',['Select how payment was checked…',...admissionFeeVerificationMethods],'Select how payment was checked…','adm_record_verification')}</div>`;
+    return modal('Record admission-fee payment','Record the actual amount against this invoice.',`${billingErrorMarkup()}<input type="hidden" id="adm_record_request_id" value="${billingId()}">${kv('Child',esc(c.childName))}${kv('Invoice',esc(mpsAdmissionFeeInvoice(c)?.number||''))}${kv('Still to collect',money(out))}${selectField('Method',['Bank transfer','Cash'],'Bank transfer','adm_record_method','admissionPaymentMethodChanged()')}${field('Payment date',mpsAdmissionToday(),'date',false,'adm_record_date')}${field('Amount',String(out),'number',false,'adm_record_amount')}${choice}<div id="adm_record_reference_wrap">${field('Bank transaction reference (optional)','','text',false,'adm_record_reference')}</div><div class="field"><label>Optional payment evidence</label><input id="adm_record_evidence" type="file"><small>A supporting file does not verify receipt.</small></div>`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Record payment',`recordAdmissionPayment('${c.id}')`,'primary')}`);
   }
   if(n==='verify-admission-payment'){
     const c=db.admissions[d.caseId],p=c?.fee?.pending?.find(x=>x.id===d.paymentId);if(!c||!p)return _mpsAuditModalView(m);
@@ -51683,7 +51727,7 @@ admissionOverview = function(c){
       'The Visit is complete but the family is not yet recorded as ready for Application. Update the factual Visit outcome when the follow-up is resolved.',
       btn('Update visit outcome',`openModal('complete-tour',{caseId:'${c.id}'})`,'primary','sm')
     );
-    return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}${kv('Visit',`${fmtDate(c.tour.date)} · ${esc(c.tour.time||'')} · ${esc(c.tour.outcome)}`)}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`;
+    return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}${kv('Visit',admissionVisitTiming(c))}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`;
   }
   return _mpsAuditAdmissionOverview2(c);
 };
@@ -51880,7 +51924,7 @@ createEnrolment = function(id){
   // The submitted Application already contains the family's pre-start facts.
   // Keep that pending review when enrolment is created; do not ask for a second form.
   if(!(c.application?.snapshot?.data?.family&&c.onboarding?.status==='submitted'))
-    c.onboarding=seedOnboarding(c.childName,c.childName.split(' ')[0],c.dob,c.guardian,c.phone,{});
+    c.onboarding=seedOnboarding(c.childName,'',c.dob,c.guardian,c.phone,{});
   // BQ-161: snapshot current document definitions when Pre-start begins.
   if(!Array.isArray(c.onboarding.documentAssignments))c.onboarding.documentAssignments=mpsDocumentSnapshot();
   const submittedUniformSize=c.application?.snapshot?.source==='Parent Application'?c.application.snapshot.data?.family?.starter?.uniform:null;
@@ -51900,39 +51944,73 @@ createEnrolment = function(id){
 // Finance ownership: Billing owns the admission-fee invoice, payment entry, verification and allocation.
 const admissionFeeVerificationMethods=['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'];
 recordAdmissionPayment=function(caseId){
-  if(!has('Accounts')){alert('Admission-fee payment entry is handled in Billing by authorised finance staff.');return}
-  const c=db.admissions[caseId],inv=mpsAdmissionFeeInvoice(c);if(!c?.fee||!inv)return;
-  const amount=Math.max(0,Number(val('adm_record_amount')||0));if(!amount){alert('Enter the payment amount.');return}
-  const max=invoiceOutstanding(inv);if(amount>max){alert('The recorded amount cannot exceed the current admission-fee outstanding balance.');return}
+  if(!has('Accounts'))return billingError('Admission-fee payment entry requires Accounts authority.');
+  const c=db.admissions[caseId],inv=c&&mpsAdmissionFeeInvoice(c);
+  if(!c?.fee||!inv||inv.status!=='issued'||inv.admissionsCaseId!==caseId||c.fee.waived)
+    return billingError('Review the current issued admission-fee invoice before recording a payment.');
+  const cents=billingCents(val('adm_record_amount')),max=Math.round(invoiceOutstanding(inv)*100);
+  if(cents===null||cents<=0||cents>max)return billingError('Enter the actual amount received, above zero and no more than the current outstanding balance.');
+  const method=val('adm_record_method'),paymentDate=val('adm_record_date');
+  if(!['Bank transfer','Cash'].includes(method)||!/^\d{4}-\d{2}-\d{2}$/.test(paymentDate))
+    return billingError('Enter a valid payment method and date.');
+  const confirmed=byId('adm_record_confirmed')?.checked;
+  const pending=byId('adm_record_pending')?.checked;
+  if(!confirmed&&!pending)return billingError('Choose whether this payment has been confirmed.');
+  const verification=val('adm_record_verification');
+  if(confirmed&&!admissionFeeVerificationMethods.includes(verification))
+    return billingError('Select how the payment was checked against the real source.');
+  const pid=val('adm_record_request_id');
+  if(!/^fin_[0-9a-f-]{36}$/i.test(pid)||db.billing.payments[pid])
+    return billingError('This payment was already recorded. Reopen the invoice to review it.');
   const file=byId('adm_record_evidence')?.files?.[0]||null;
   const evidence=file?{name:file.name,type:file.type||'',size:file.size||0}:null;
-  const method=val('adm_record_method');
   // Never persist a Bank reference after the staff member switches to Cash.
   const reference=method==='Bank transfer'?val('adm_record_reference').trim():'';
-  const pid='admp_'+crypto.randomUUID();
-  db.billing.payments[pid]={id:pid,childId:c.id,childName:c.childName,admissionsCaseId:c.id,invoiceId:inv.id,amount,paymentDate:val('adm_record_date')||mpsAdmissionToday(),method,reference:reference||'No reference',evidence,status:'pending',recordedBy:mpsAdmissionActor(),recordedById:currentPersona().id,recordedAt:new Date().toISOString()};
-  addEvent(caseId,'fee_payment_recorded','Admission-fee payment recorded',`${money(amount)} · Pending Verification${evidence?` · Evidence attached: ${evidence.name}`:''}`);
-  closeOverlay();
+  const at=new Date().toISOString(),actor=mpsAdmissionActor(),amount=cents/100;
+  if(!billingTransaction(()=>{
+    billingEnsureCustomers(false);
+    const account=billingCustomerForInvoice(inv);
+    if(!account)throw Error('The invoice Customer account is unavailable.');
+    const p={id:pid,childId:c.id,childName:c.childName,admissionsCaseId:c.id,invoiceId:inv.id,amount,paymentDate,method,reference:reference||'No reference',evidence,status:'pending',recordedBy:actor,recordedById:currentPersona().id,recordedAt:at};
+    db.billing.payments[pid]=p;
+    billingFinanceWrite().paymentAccounts[pid]=account.id;
+    inv.history.push({actor,at,text:`Payment recorded · ${money(amount)} · ${confirmed?'Confirmed received':'Pending verification'}`});
+    c.events.push(ev('fee_payment_recorded','Admission-fee payment recorded',`${money(amount)} · ${confirmed?'Confirmed received':'Pending verification'}${evidence?` · Evidence attached: ${evidence.name}`:''}`));
+    if(confirmed){
+      p.status='verified';p.verification=verification;p.verifiedBy=actor;p.verifiedById=currentPersona().id;p.verifiedAt=at;p.allocationInvoiceId=inv.id;
+      inv.allocations.push({paymentId:pid,amount});
+      p.receipt=`REC-${inv.number}-${pid}.pdf`;
+      p.receiptRecipientSnapshot=currentFamilyCommunicationSnapshots(inv);
+      inv.history.push({actor,at,text:`Payment verified and allocated · ${money(amount)} · ${verification} · receipt ${p.receipt}`});
+      c.events.push(ev('fee_verified','Admission-fee payment verified',`${money(amount)} · ${verification} · ${actor}`));
+    }
+  }))return false;
+  closeOverlay();return true;
 };
 verifyAdmissionPayment=function(caseId,paymentId){
-  if(!has('Accounts')){alert('Admission-fee payment verification is handled in Billing by authorised finance staff.');return}
-  const c=db.admissions[caseId],inv=mpsAdmissionFeeInvoice(c),p=db.billing?.payments?.[paymentId];
-  if(!c||!inv||!p||p.admissionsCaseId!==caseId||p.status==='verified')return closeOverlay();
+  if(!has('Accounts'))return billingError('Admission-fee verification requires Accounts authority.');
+  const c=db.admissions[caseId],inv=c&&mpsAdmissionFeeInvoice(c),p=db.billing?.payments?.[paymentId];
+  if(!c||!inv||inv.status!=='issued'||!p||p.admissionsCaseId!==caseId||p.invoiceId!==inv.id||p.status!=='pending'||(inv.allocations||[]).some(a=>a.paymentId===p.id)||!billingSameCustomerPayment(p,inv))
+    return billingError('Review this pending payment and its issued invoice before verifying.');
   const verification=val('adm_verification');
   if(!admissionFeeVerificationMethods.includes(verification)){
-    alert('Select how payment was checked.');
+    billingError('Select how payment was checked.');
     byId('adm_verification')?.focus();
-    return;
+    return false;
   }
-  const alloc=Math.min(Number(p.amount||0),invoiceOutstanding(inv));
-  if(!alloc){alert('This admission-fee invoice has no outstanding balance.');return}
-  p.status='verified';p.verification=verification;p.verifiedBy=mpsAdmissionActor();p.verifiedById=currentPersona().id;p.verifiedAt=new Date().toISOString();p.allocationInvoiceId=inv.id;
-  inv.allocations.push({paymentId:p.id,amount:alloc});
-  p.receipt=`REC-${inv.number}-${p.id}.pdf`;
-  p.receiptRecipientSnapshot=currentFamilyCommunicationSnapshots(inv);
-  inv.history.push({at:mpsAdmissionToday(),text:`Payment verified and allocated · ${money(alloc)} · ${p.verification} · ${p.verifiedBy}`});
-  addEvent(caseId,'fee_verified','Admission-fee payment verified',`${money(alloc)} · ${p.verification} · ${p.verifiedBy}`);
-  closeOverlay();
+  const cents=billingCents(p.amount);
+  if(cents===null||cents<=0||cents>Math.round(invoiceOutstanding(inv)*100))
+    return billingError('This payment exceeds the current invoice balance. Review it before verification.');
+  const at=new Date().toISOString(),actor=mpsAdmissionActor();
+  if(!billingTransaction(()=>{
+    p.status='verified';p.verification=verification;p.verifiedBy=actor;p.verifiedById=currentPersona().id;p.verifiedAt=at;p.allocationInvoiceId=inv.id;
+    inv.allocations.push({paymentId:p.id,amount:p.amount});
+    p.receipt=`REC-${inv.number}-${p.id}.pdf`;
+    p.receiptRecipientSnapshot=currentFamilyCommunicationSnapshots(inv);
+    inv.history.push({actor,at,text:`Payment verified and allocated · ${money(p.amount)} · ${verification} · receipt ${p.receipt}`});
+    c.events.push(ev('fee_verified','Admission-fee payment verified',`${money(p.amount)} · ${verification} · ${actor}`));
+  }))return false;
+  closeOverlay();return true;
 };
 recordOverdueDecision=function(id){
   if(!admissionCanClose(db.admissions[id]))return;
@@ -52054,10 +52132,25 @@ mpsEnsureApplicationLink=function(c){
   return c.application.link;
 };
 
+async function mpsCopyApplicationMessage(){
+  const message=byId('app_message');
+  if(!message)return false;
+  try{
+    if(!navigator.clipboard?.writeText)throw Error('Clipboard unavailable');
+    await navigator.clipboard.writeText(message.value);
+    showFeedback('Message copied. Mark it sent only after you actually send it.');
+    return true;
+  }catch(error){
+    message.focus();message.select();
+    showFeedback('Copy is unavailable here. Select and copy the message, then send it before marking it sent.');
+    return false;
+  }
+}
 sendApplication=function(id){
   const c=db.admissions[id];if(!c)return;
-  if(c?.tour?.status==='completed'&&c.tour.outcome!=='Family wants to proceed'){
-    alert('Resolve the Visit follow-up before sending the Application.');return;
+  if(!allowed('admissions')||c.closed||ui().modal?.name!=='send-application'||ui().modal?.data?.caseId!==id)return;
+  if(c.application?.status==='not_sent'&&!(c.tour?.status==='completed'&&c.tour.outcome==='Family wants to proceed')){
+    alert('Complete the Visit and record that the family wants to proceed before sending the Application.');return;
   }
   if(!c.application.draft)c.application.draft={childName:c.childName,dob:c.dob,guardian:c.guardian,phone:c.phone,service:c.service,start:c.start};
   const link=mpsEnsureApplicationLink(c);link.status='Sent';link.sentAt=new Date().toISOString();c.application.status='sent';
@@ -52096,8 +52189,10 @@ modalView=function(m){
   }
   if(n==='send-application'){
     const c=db.admissions[d.caseId];if(!c)return _mpsAuditModalView2(m);
+    if(c.application?.status==='not_sent'&&!(c.tour?.status==='completed'&&c.tour.outcome==='Family wants to proceed'))
+      return modal('Application','',notice('Complete the Visit and record that the family wants to proceed before sending the Application.','warn'),btn('Close','closeOverlay()','secondary'));
     const link=mpsEnsureApplicationLink(c);
-    return modal('Send secure application','No parent account required.',`${kv('Recipient',`${esc(link.recipientName)} · ${esc(link.recipientPhone)}`)}${kv('Expiry','Time-limited · production duration not yet specified')}${kv('Prefill','Enquiry + Visit information')}${field('Secure link',link.url,'text',true)}${textArea('Prepared WhatsApp message',`Hi ${c.guardian.split(' ')[0]}, thank you for visiting ${mpsOrganisationName()}. Please use this secure link to review the details we already have and submit ${c.childName.split(' ')[0]}’s application.`,'app_message')}${notice('Manual WhatsApp records Sent only — not Delivered or Read.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Copy & mark Sent',`sendApplication('${c.id}')`,'primary')}`);
+    return modal('Send secure application','No parent account required.',`${kv('Recipient',`${esc(link.recipientName)} · ${esc(link.recipientPhone)}`)}${kv('Expiry','Time-limited · production duration not yet specified')}${field('Secure link',link.url,'text',true)}${textArea('Message to parent',`Hi ${c.guardian.split(' ')[0]}, thank you for visiting ${mpsOrganisationName()}. Please use this secure link to review the details we already have and submit ${c.childName.split(' ')[0]}’s application.`,'app_message')}${notice('Copying does not record a send. Mark sent only after the message has actually been sent; delivery and reading are not claimed.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Copy message','mpsCopyApplicationMessage()','secondary')}${btn('Mark sent',`sendApplication('${c.id}')`,'primary')}`);
   }
   if(n==='invoice-detail'&&db.billing.invoices[d.id]?.category==='admission_fee'&&db.billing.invoices[d.id].status==='draft')return modalView({name:'issue-admission-fee',data:{caseId:db.billing.invoices[d.id].admissionsCaseId}});
   if(n==='issue-admission-fee'){
@@ -52128,7 +52223,7 @@ modalView = function(m){
     return modal(
       'Verify admission-fee payment',
       'Check the real finance source before marking Verified.',
-      `${kv('Family',esc(c.childName))}${kv('Payment date',fmtDate(p.paymentDate))}${kv('Method',esc(p.method))}${kv('Amount',money(p.amount))}${kv('Reference',esc(p.reference||'No reference'))}${selectField('Verification method',['Select how payment was checked…',...admissionFeeVerificationMethods],'Select how payment was checked…','adm_verification')}${notice('The optional attachment is supporting evidence, not the control. The authorised real-source check is.','info')}`,
+      `${billingErrorMarkup()}${kv('Child',esc(c.childName))}${kv('Payment date',fmtDate(p.paymentDate))}${kv('Method',esc(p.method))}${kv('Amount',money(p.amount))}${kv('Reference',esc(p.reference||'No reference'))}${selectField('Verification method',['Select how payment was checked…',...admissionFeeVerificationMethods],'Select how payment was checked…','adm_verification')}${notice('The optional attachment is supporting evidence, not the control. The authorised real-source check is.','info')}`,
       `${btn('Cancel','closeOverlay()','secondary')}${btn('Verify payment',`verifyAdmissionPayment('${c.id}','${p.id}')`,'primary')}`
     );
   }
@@ -52187,6 +52282,8 @@ recordEnquiryContactOutcome = function(id){
   if(!c) return;
   const method = val('enq_contact_method');
   const outcome = val('enq_contact_outcome');
+  if(!['Wants to continue','Could not reach parent','Not proceeding'].includes(outcome))
+    return eliiraFieldError('enq_contact_outcome','Choose what happened before saving.');
   const note = val('enq_contact_note').trim();
   const detailNote = note ? ` · ${note}` : '';
 
@@ -52238,7 +52335,7 @@ modalView = function(m){
     if(!c) return _mpsIssue021ModalView(m);
     const existingMethod = ['Phone call','WhatsApp','Email','In person'].includes(c.followUp?.method) ? c.followUp.method : 'Phone call';
     const existingNote = c.followUp?.note || '';
-    const body = `${notice('Record the parent’s response. Choose Confirmed Interest only if they want to continue.','info')}${selectField('Contact method',['Phone call','WhatsApp','Email','In person'],existingMethod,'enq_contact_method')}${selectField('Outcome',['Wants to continue','Could not reach parent','Not proceeding'],'Wants to continue','enq_contact_outcome','toggleEnquiryContactFields()')}${textArea('Factual note',existingNote,'enq_contact_note')}<div id="enq_schedule_wrap">${selectField('Schedule visit now?',['No','Yes'],'No','enq_schedule_visit','toggleEnquiryVisitFields()')}</div><div id="enq_visit_wrap" style="display:none">${field('Visit date','','date',false,'enq_visit_date')}${field('Visit time','','time',false,'enq_visit_time')}${field('Attending contact',c.guardian,'text',false,'enq_visit_contact')}</div><div id="enq_followup_wrap" style="display:none">${field('Next follow-up date',c.followUp?.date||'','date',false,'enq_followup_date')}</div><div id="enq_lost_wrap" style="display:none">${selectField('Non-conversion reason',lostReasons,'No longer interested','enq_lost_reason')}</div>${notice('A visit and ability to pay are not required to confirm interest. If a convenient Visit time is agreed during this conversation, staff can schedule it here now. Otherwise, schedule it later from Confirmed Interest.','info')}`;
+    const body = `${kv('Child',esc(c.childName))}${selectField('Contact method',['Phone call','WhatsApp','Email','In person'],existingMethod,'enq_contact_method')}${selectField('What happened?',['Choose what happened…','Wants to continue','Could not reach parent','Not proceeding'],'Choose what happened…','enq_contact_outcome','toggleEnquiryContactFields()')}${textArea('Notes',existingNote,'enq_contact_note')}<div id="enq_schedule_wrap" style="display:none">${selectField('Schedule visit now?',['No','Yes'],'No','enq_schedule_visit','toggleEnquiryVisitFields()')}</div><div id="enq_visit_wrap" style="display:none">${field('Visit date','','date',false,'enq_visit_date')}${field('Visit time','','time',false,'enq_visit_time')}${field('Who is coming?',c.guardian,'text',false,'enq_visit_contact')}</div><div id="enq_followup_wrap" style="display:none">${field('Next follow-up date',c.followUp?.date||'','date',false,'enq_followup_date')}</div><div id="enq_lost_wrap" style="display:none">${selectField('Non-conversion reason',lostReasons,'No longer interested','enq_lost_reason')}</div>`;
     return modal('Record follow-up','',body,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save follow-up',`recordEnquiryContactOutcome('${c.id}')`,'primary')}`);
   }
   return _mpsIssue021ModalView(m);
@@ -52363,7 +52460,7 @@ modalView=function(m){
     const countrySelect=`<div class="field"><label>Phone region</label><select id="ne_phone_country">${countries.map(x=>`<option value="${x.code}" ${x.code===defaultCountry?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
     const phoneField=`<div class="field"><label>Phone</label><input id="ne_phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(p.phone||'')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
     const dob=p.dob||'',start=p.start||'';
-    const contact=`<div class="form-grid">${field('Parent / contact name',p.guardian||'','text',false,'ne_guardian')}${countrySelect}${phoneField}${field('Email (optional)',p.email||'','email',false,'ne_email')}</div>${notice('Phone is checked for reliable matching. Email is optional.','info')}`;
+    const contact=`<div class="form-grid">${field('Parent / contact name',p.guardian||'','text',false,'ne_guardian')}${field('Email (optional)',p.email||'','email',false,'ne_email')}${countrySelect}${phoneField}</div>${notice('Phone is checked for reliable matching. Email is optional.','info')}`;
     const child=`<div class="form-grid">${field('Child name',p.childName||'','text',false,'ne_child')}${field('Child DOB',dob,'date',false,'ne_dob')}</div>`;
     const placement=`<div class="form-grid">${field('Desired start',start,'date',false,'ne_start')}${mpsEnquiryDaycareSelect(Object.prototype.hasOwnProperty.call(p,'daycarePlanId')?p.daycarePlanId:undefined)}</div>${kv('Likely level','<span id="enquiry_suggestion">'+enquirySuggestionHtml(dob,start)+'</span>')}`;
     const body=`${mpsNewEnquirySection('contact','Parent / contact details',contact)}${mpsNewEnquirySection('child','Child details',child)}${mpsNewEnquirySection('placement','Placement',placement)}${mpsNewEnquirySection('message','Enquiry message',textArea('Message',p.message||'','ne_message'))}${mpsNewEnquirySection('origin','Enquiry source / interest',mpsNewEnquirySourceSelect(p.source)+mpsEnquiryInterestSelect(p.reason))}`;
@@ -52375,7 +52472,7 @@ modalView=function(m){
     const countries=mpsPhoneCountryOptions(),country=c.phoneCountry||mpsDefaultPhoneCountry();
     const countrySelect=`<div class="field"><label for="ne_phone_country">Phone region</label><select id="ne_phone_country">${countries.map(x=>`<option value="${x.code}" ${x.code===country?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
     const phoneField=`<div class="field"><label for="ne_phone">Phone</label><input id="ne_phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(c.phone||'')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
-    const body=`${mpsEnquirySourceSelect(c.source)}${mpsEnquiryInterestSelect(c.reason)}<div class="form-grid">${field('Parent / contact name',c.guardian||'','text',false,'ne_guardian')}${countrySelect}${phoneField}${field('Email (optional)',c.email||'','email',false,'ne_email')}${field('Child name',c.childName||'','text',false,'ne_child')}${field('Child DOB',c.dob||'','date',false,'ne_dob')}${field('Desired start',c.start||'','date',false,'ne_start')}${mpsEditEnquiryDaycareSelect(c.daycarePlanId)}</div>${kv('Likely level','<span id="enquiry_suggestion">'+enquirySuggestionHtml(c.dob,c.start)+'</span>')}${textArea('Enquiry message',c.message||'','ne_message')}`;
+    const body=`${mpsEnquirySourceSelect(c.source)}${mpsEnquiryInterestSelect(c.reason)}<div class="form-grid">${field('Parent / contact name',c.guardian||'','text',false,'ne_guardian')}${field('Email (optional)',c.email||'','email',false,'ne_email')}${countrySelect}${phoneField}${field('Child name',c.childName||'','text',false,'ne_child')}${field('Child DOB',c.dob||'','date',false,'ne_dob')}${field('Desired start',c.start||'','date',false,'ne_start')}${mpsEditEnquiryDaycareSelect(c.daycarePlanId)}</div>${kv('Likely level','<span id="enquiry_suggestion">'+enquirySuggestionHtml(c.dob,c.start)+'</span>')}${textArea('Enquiry message',c.message||'','ne_message')}`;
     return modal('Edit enquiry details','Correct a captured fact when necessary.',body.replace('id="ne_dob"','id="ne_dob" onchange="enquirySuggestion()"').replace('id="ne_start"','id="ne_start" onchange="enquirySuggestion()"'),`${btn('Cancel','closeOverlay()','secondary')}${btn('Save enquiry details',`mpsSaveEnquiryDetails('${c.id}')`,'primary')}`);
   }
   return _mpsBq092ModalView(m);
@@ -52715,6 +52812,20 @@ function calendarTimedRowsForDay(events,tours){
   return rows.sort((a,b)=>a.sortTime.localeCompare(b.sortTime)||a.sortTitle.localeCompare(b.sortTitle)).map(x=>x.html).join('');
 }
 
+// BQ-170: visits stay in Admissions when an operating day closes.
+function calendarClosedVisitWarning(date,includeVisits=true){
+  if(!calendarCanSeeAdmissionsTours()||!allowed('admissions'))return '';
+  const tours=calendarAdmissionsToursOn(date);
+  if(!tours.length)return '';
+  const count=tours.length;
+  return `<div class="notice warn calendar-closed-visits" role="status"><strong>${count} family ${count===1?'visit is':'visits are'} scheduled for this ${includeVisits?'day':'closed day'}.</strong><p>${includeVisits?`Closing the preschool won't cancel ${count===1?'the visit':'these visits'}.`:`${count===1?'The visit remains':'These visits remain'} scheduled.`} Please contact ${count===1?'the family':'the families'} and arrange any change.</p>${includeVisits?`<div class="calendar-closed-visit-list">${tours.map(t=>`<div class="calendar-closed-visit"><span><strong>${esc(t.childName)}</strong> · ${t.time?esc(staffTimeLabel(t.time)):'Time not set'}</span>${btn('Open Admissions',`openAdmissionsCaseFromCalendar('${t.caseId}')`,'secondary','sm')}</div>`).join('')}</div>`:''}</div>`;
+}
+
+function calendarClosureVisitWarningChanged(){
+  const warning=byId('cal_visit_warning');
+  if(warning)warning.innerHTML=val('cal_type')==='Closed'?calendarClosedVisitWarning(val('cal_date')):'';
+}
+
 calendarDayModal=function(date){
   const op=operatingStatusForDate(date);
   const events=calendarEventsOn(date);
@@ -52736,7 +52847,8 @@ calendarDayModal=function(date){
   if(canManage&&record?.history?.length){
     history=`<div class="section-title" style="margin-top:16px">Operating amendment history</div>${record.history.slice().reverse().map(h=>`<div class="calendar-history"><strong>${esc(calendarNormaliseType(h.type))}</strong><span>${esc(h.reason||'No reason recorded')} · ${profileStaffLink(h.byId,h.by||'Staff')}</span></div>`).join('')}`;
   }
-  const body=`${kv('Date',calendarDateLabel(date))}<div class="calendar-operating-summary">${badge(op.text,op.tone)}</div>${canManage&&active?.reason?`<div class="notice info"><strong>Current change reason:</strong> ${esc(active.reason)}</div>`:''}<div class="section-title" style="margin-top:16px">On this day</div>${context||'<div class="empty">No other calendar items for this date.</div>'}${history}`;
+  const visitWarning=op.text==='Closed'?calendarClosedVisitWarning(date,false):'';
+  const body=`${kv('Date',calendarDateLabel(date))}<div class="calendar-operating-summary">${badge(op.text,op.tone)}</div>${canManage&&active?.reason?`<div class="notice info"><strong>Current change reason:</strong> ${esc(active.reason)}</div>`:''}${visitWarning}<div class="section-title" style="margin-top:16px">On this day</div>${context||'<div class="empty">No other calendar items for this date.</div>'}${history}`;
   const editData=record?`{id:'${record.id}',date:'${date}'}`:`{date:'${date}'}`;
   const foot=`${btn('Close','closeOverlay()','secondary')}${btn('Add event',`openModal('calendar-event',{date:'${date}'})`,'secondary')}${canManage?btn('Change operating status',`openModal('calendar-exception',${editData})`,'primary'):''}`;
   return modal(calendarDateLabel(date),'',body,foot);
@@ -53894,33 +54006,78 @@ admissionApplication=function(c){
 };
 
 const _mpsVisitNoteBaseModalView=modalView;
+function mpsVisitActualNow(){
+  const now=mpsPreschoolBusinessNow(),timeZone=mpsPreschoolClockTimezone();
+  const parts=Object.fromEntries(new Intl.DateTimeFormat('en-GB',{
+    timeZone,hour:'2-digit',minute:'2-digit',hourCycle:'h23'
+  }).formatToParts(now).map(part=>[part.type,part.value]));
+  return {date:mpsProductDate(now,timeZone),time:`${parts.hour}:${parts.minute}`};
+}
+function mpsVisitOutcomeCanUpdate(c){
+  return c?.tour?.status==='completed';
+}
 modalView=function(m){
   const n=m?.name,d=m?.data||{};
   if(n==='complete-tour'){
     const c=db.admissions[d.caseId];
     if(!c) return _mpsVisitNoteBaseModalView(m);
-    return modal('Complete visit','Record the visit outcome.',
-      `${selectField('Outcome',['Family wants to proceed','Follow-up needed','Family not proceeding'],c.tour?.outcome||'Family wants to proceed','tour_outcome')}${textArea('Visit note (optional)',c.tour?.note||'','tour_note')}`,
+    const update=mpsVisitOutcomeCanUpdate(c),actual=mpsVisitActualNow();
+    const actualFields=update
+      ?kv('Actual visit',c.tour.actualVisit?.date&&c.tour.actualVisit?.time?`${fmtDate(c.tour.actualVisit.date)} · ${esc(staffTimeLabel(c.tour.actualVisit.time))}`:'Not recorded in this historical record')
+      :`<div class="form-grid admission-visit-fields">${field('Actual visit date',actual.date,'date',false,'tour_actual_date')}${staffTimeField('Actual visit time',actual.time,false,'tour_actual_time')}</div>`;
+    return modal(update?'Update visit outcome':'Complete visit','Record what actually happened.',
+      `${kv('Child',esc(c.childName))}${kv('Scheduled visit',`${fmtDate(c.tour.date)} · ${esc(staffTimeLabel(c.tour.time))}`)}${actualFields}${selectField('What happened?',['Choose what happened…','Family wants to proceed','Follow-up needed','Family not proceeding'],c.tour?.outcome||'Choose what happened…','tour_outcome')}${textArea('Visit note (optional)',c.tour?.note||'','tour_note')}`,
       `${btn('Cancel','closeOverlay()','secondary')}${btn('Save outcome',`completeTour('${c.id}')`,'primary')}`);
   }
   return _mpsVisitNoteBaseModalView(m);
 };
 
 completeTour=function(id){
-  if(!admissionCanClose(db.admissions[id]))return;
+  if(!admissionCanClose(db.admissions[id])||ui().modal?.name!=='complete-tour'||ui().modal?.data?.caseId!==id)return false;
   const c=db.admissions[id];
-  if(!c?.tour) return;
+  const update=mpsVisitOutcomeCanUpdate(c);
+  if(c?.tour?.status!=='scheduled'&&!update) return false;
   const outcome=val('tour_outcome');
+  if(!['Family wants to proceed','Follow-up needed','Family not proceeding'].includes(outcome))
+    return eliiraFieldError('tour_outcome','Choose what happened before saving.');
   const note=val('tour_note').trim();
+  if(update&&outcome===c.tour.outcome&&note===String(c.tour.note||''))
+    return eliiraFieldError('tour_outcome','Change the outcome or note before saving.');
+  const actualDate=update?null:val('tour_actual_date');
+  if(!update&&!educationDate(actualDate))return eliiraFieldError('tour_actual_date','Choose a valid actual Visit date.');
+  const actualTime=update?null:mpsTimeFieldValue('tour_actual_time');
+  if(!update&&actualTime===null)return false;
+  if(!update){
+    const now=mpsVisitActualNow();
+    if(actualDate>now.date)return eliiraFieldError('tour_actual_date','The actual Visit date cannot be in the future.');
+    if(actualDate===now.date&&actualTime>now.time)return eliiraFieldError('tour_actual_time_hour','The actual Visit time cannot be in the future.');
+  }
+  const actor=staffActor(),recordedAt=mpsPreschoolBusinessNow().toISOString();
+  if(!actor?.staffId)return false;
+  const previousTour=structuredClone(c.tour),previousEvents=[...c.events];
+  const scheduledVisit={date:c.tour.date,time:c.tour.time};
+  const actualVisit=update?c.tour.actualVisit||null:{date:actualDate,time:actualTime,timeZone:mpsPreschoolClockTimezone()};
   c.tour.status='completed';
   c.tour.outcome=outcome;
   c.tour.note=note;
+  if(!update){c.tour.actualVisit=actualVisit;c.tour.completedBy=actor;c.tour.completedAt=recordedAt}
   delete c.tour.additionalInfo;
-  const details=[outcome,note].filter(Boolean).join(' · ');
+  const details=update?[outcome,note].filter(Boolean).join(' · '):[outcome,`Actual visit ${fmtDate(actualDate)} ${staffTimeLabel(actualTime)}`,`Scheduled ${fmtDate(scheduledVisit.date)} ${staffTimeLabel(scheduledVisit.time)}`,note].filter(Boolean).join(' · ');
+  const event={type:update?'tour_outcome_updated':'tour',title:update?'Visit outcome updated':'Visit completed',detail:details,...(actualVisit?{actualVisit}:{}),scheduledVisit,actor,at:recordedAt};
   if(outcome==='Family not proceeding'){
-    if(!persistAdmissionsClosure(id,'Withdrawn','Family not proceeding',{type:'tour',title:'Visit completed',detail:details}))return;
-  }else addEvent(id,'tour','Visit completed',details);
+    if(!persistAdmissionsClosure(id,'Withdrawn','Family not proceeding',event)){
+      c.tour=previousTour;
+      return false;
+    }
+  }else{
+    c.events.push({...ev(event.type,event.title,details),...event});
+    if(!save()){
+      c.tour=previousTour;c.events=previousEvents;
+      return false;
+    }
+  }
   closeOverlay();
+  return true;
 };
 
 mpsMigrateSingleVisitNote();
@@ -54555,15 +54712,20 @@ function admissionClosureOptions(c){
 function persistAdmissionsClosure(id,type,reason,event){
   const c=db.admissions[id];
   if(!admissionCanClose(c)||!String(reason||'').trim())return false;
-  const stage=admissionDisplayStage(c),at=new Date().toISOString(),by=mpsAdmissionActor();
+  const previous={closed:c.closed,followUp:c.followUp,events:c.events,stageFilter:ui().admissionsStageFilter,caseId:ui().admissionsCase,tab:ui().admissionsTab,search:admissionsSearchQuery};
+  const stage=admissionDisplayStage(c),at=event?.at||new Date().toISOString(),by=mpsAdmissionActor();
   c.closed={type,stage,reason:String(reason).trim(),at,by};
   if(type==='Released')Object.assign(c.closed,{releasedAt:at,releasedBy:by});
   c.followUp=null;
   const history=event||{type:'case_closed',title:admissionClosureLabel(c),detail:`${c.closed.reason} · ${by}`};
-  c.events.push({...ev(history.type,history.title,history.detail),at});
+  c.events=[...c.events,{...ev(history.type,history.title,history.detail),...history,at}];
   ui().admissionsStageFilter=stage==='Application'?'Closed':'Closed cases';
   ui().admissionsCase=id;ui().admissionsTab='overview';admissionsSearchQuery='';
-  save();
+  if(!save()){
+    c.closed=previous.closed;c.followUp=previous.followUp;c.events=previous.events;
+    ui().admissionsStageFilter=previous.stageFilter;ui().admissionsCase=previous.caseId;ui().admissionsTab=previous.tab;admissionsSearchQuery=previous.search;
+    return false;
+  }
   return true;
 }
 function closeAdmissionsCase(id){
@@ -55126,7 +55288,7 @@ function renderChildren(){
   const learning=has('Head Teacher')||has('Class Teacher');
   const observations=learning?Object.values(db.observations).filter(o=>profileChildId(o.childId)===c.id&&o.visibility!=='Restricted/confidential'):[];
   const rows=Object.values(db.reports).filter(r=>profileChildId(r.childId)===c.id);
-  return shell(`${pageHead('','Children','',btn('All children',"ui().profileChild=null;render()",'secondary'))}<div class="card profile-hero">${childProfilePhotoEditor(c)}<div><h2>${esc(c.preferred||c.legalName)}</h2><p class="profile-context">${childProfileHeaderMeta(c)}</p>${service?`<div class="profile-service">${esc(service)}</div>`:''}${childLifecycleBadges(c)}${childTaskBadges(c)}</div></div><div class="profile-sections">${profileSection('Overview',childPlacementControls(c)+kv('Date of birth',esc(c.dob||'Not recorded'))+kv('Age',profileAge(c.dob)===null?'Not recorded':profileAge(c.dob)+' years')+kv('Gender',esc(c.gender||'Not recorded'))+kv('Home address',esc(c.address||'Not recorded'))+kv('Home languages',esc((c.languages||[]).join(', ')||'Not recorded'))+childOverviewStatus(c,ad))}${childPreschoolJourney(c)}${profileSection('Family & pickup',familyPeopleList(c.id))}${profileSection('Health & safety',canViewChildHealth(c.id)?mpsHealthFacts(c.id,health)+btn('Open Health & safety',`openHealthForChild('${c.id}')`,'secondary'):'<p>Health information is restricted.</p>')}${profileSection('Attendance & daycare',`<div class="child-care-facts">${kv('Today',esc(att?.status?.replace('_',' ')||'No current Attendance record'))}${mpsChildDaycareContent(c)}${kv('Daycare today',esc(book.map(b=>b.care).join(', ')||'No booking'))}</div><div class="child-care-actions">${attendanceCanViewHistory(c.id)?btn('Attendance history',`openModal('child-attendance-history',{childId:'${c.id}'})`,'secondary'):''}${allowed('attendance')?btn('Open Attendance',"setRoute('attendance')",'secondary'):''}${allowed('daycare')?btn('Open Daycare',"setRoute('daycare')",'secondary'):''}</div>`,'profile-care-combined')}${profileSection('Learning',learning?(observations.length||rows.length||childDirectoryGroup(c)!=='prestart'?kv('Observations',observations.length)+kv('Reports',rows.length):'<p class="profile-learning-empty">No learning evidence yet.</p>')+btn('Open learning',`mpsOpenChildProgress('${c.id}')`,'secondary'):'<p>Learning information is restricted.</p>')}${childAdmissionsBackground(c)}${profileSection('Documents & history',(typeof mpsSignedApplicationProfile==='function'?mpsSignedApplicationProfile(c):'')+(typeof mpsChildDocumentsProfile==='function'?mpsChildDocumentsProfile(ad):'')+(has('Head Teacher')?kv('Facebook choice',esc(d?.facebook||'Not recorded')):'')+(allowed('admissions')&&c.caseIds?.length?`<div class="profile-document-actions">${c.caseIds.map(id=>btn('View admissions case',`setAdmissionCase('${id}');setRoute('admissions')`,'secondary')).join('')}</div>`:'')+((c.history||[]).length?`<div class="profile-document-history">${c.history.map(e=>`<p>${esc(e.title)} · ${esc(childProfileAuditTime(e.at))}</p>`).join('')}</div>`:''))}</div>`);
+  return shell(`${pageHead('','Children','',btn('All children',"ui().profileChild=null;render()",'secondary'))}<div class="card profile-hero">${childProfilePhotoEditor(c)}<div><h2>${esc(c.preferred||c.legalName)}</h2><p class="profile-context">${childProfileHeaderMeta(c)}</p>${service?`<div class="profile-service">${esc(service)}</div>`:''}${childLifecycleBadges(c)}${childTaskBadges(c)}</div></div><div class="profile-sections">${profileSection('Overview',childPlacementControls(c)+kv('Date of birth',esc(c.dob||'Not recorded'))+kv('Age',profileAge(c.dob)===null?'Not recorded':profileAge(c.dob)+' years')+kv('Gender',esc(c.gender||'Not recorded'))+kv('Home address',esc(c.address||'Not recorded'))+kv('Home languages',esc((c.languages||[]).join(', ')||'Not recorded'))+childOverviewStatus(c,ad))}${childPreschoolJourney(c)}${profileSection('Family & pickup',familyPeopleList(c.id))}${profileSection('Health & safety',canViewChildHealth(c.id)?mpsHealthFacts(c.id,health)+btn('Open Health & safety',`openHealthForChild('${c.id}')`,'secondary'):'<p>Health information is restricted.</p>')}${profileSection('Attendance & daycare',`<div class="child-care-facts">${kv('Today',esc(att?.status?.replace('_',' ')||'No current Attendance record'))}${mpsChildDaycareContent(c)}${kv('Daycare today',esc(book.map(b=>b.care).join(', ')||'No booking'))}</div><div class="child-care-actions">${attendanceCanViewHistory(c.id)?btn('Attendance history',`openModal('child-attendance-history',{childId:'${c.id}'})`,'secondary'):''}${allowed('attendance')?btn('Open Attendance',"setRoute('attendance')",'secondary'):''}${allowed('daycare')?btn('Open Daycare',"setRoute('daycare')",'secondary'):''}</div>`,'profile-care-combined')}${profileSection('Learning',learning?(observations.length||rows.length||childDirectoryGroup(c)!=='prestart'?kv('Observations',observations.length)+kv('Reports',rows.length):'<p class="profile-learning-empty">No learning evidence yet.</p>')+btn('View learning progress',`mpsOpenChildProgress('${c.id}')`,'secondary'):'<p>Learning information is restricted.</p>')}${childAdmissionsBackground(c)}${profileSection('Documents & history',(typeof mpsSignedApplicationProfile==='function'?mpsSignedApplicationProfile(c):'')+(typeof mpsChildDocumentsProfile==='function'?mpsChildDocumentsProfile(ad):'')+(has('Head Teacher')?kv('Facebook choice',esc(d?.facebook||'Not recorded')):'')+(allowed('admissions')&&c.caseIds?.length?`<div class="profile-document-actions">${c.caseIds.map(id=>btn('View admissions case',`mpsOpenAdmissionFromChildProfile('${id}')`,'secondary')).join('')}</div>`:'')+((c.history||[]).length?`<div class="profile-document-history">${c.history.map(e=>`<p>${esc(e.title)} · ${esc(childProfileAuditTime(e.at))}</p>`).join('')}</div>`:''))}</div>`);
 }
 function guardianProfileModal(linkId){
   const l=db.people.links[linkId];if(!l||!canViewChild(l.childId))return modal('Family information','',notice('This child is outside your current scope.','warn'),btn('Close','closeOverlay()','secondary'));
@@ -56437,7 +56599,7 @@ function applicationFamilySummary(data,historical=false){
   const d=data.family;if(!d)return '<p>No detailed family submission recorded.</p>';
   const rows=(title,body)=>`<section class="card flat" style="margin-bottom:12px"><h3>${title}</h3>${body}</section>`;
   return rows('Child',kv('Legal name',esc(d.child.legalName))+kv('Called name',esc(d.child.preferred))+kv('Date of birth',fmtDate(d.child.dob))+kv('Gender',esc(d.child.gender))+kv('Address',esc(d.child.address))+kv('Home languages',esc(d.child.languages.join(', ')))+kv('Siblings',d.child.hasSiblings==='Yes'?d.child.siblings.map(s=>`${esc(s.relationship)} · ${fmtDate(s.dob)}`).join('<br>'):esc(d.child.hasSiblings)))+
-    rows('Placement',kv('Service',esc(data.service))+kv('Desired start',fmtDate(data.start)))+
+    rows('Placement',kv('Service',esc(agreedServiceDisplay(data.service,data.daycarePlanId)))+kv('Desired start',fmtDate(data.start)))+
     rows('Guardians',d.guardians.map(applicationGuardianReview).join(''))+
     (d.legalRestrictions?.answer?rows('Legal arrangements',kv('Restrictions / special arrangements',esc(d.legalRestrictions.answer)+(d.legalRestrictions.answer.startsWith('Yes')?` · ${esc(d.legalRestrictions.details||'')}`:''))):'')+applicationEmergencySummary(d)+
     rows('Health & care',[['Allergies','allergies','allergyDetails'],['Medical conditions','conditions','conditionDetails'],['Regular medication','medication','medicationDetails'],['Dietary restrictions','dietary','dietaryDetails'],['Other health/care','other','otherDetails']].map(([label,key,detail])=>kv(label,esc(d.health[key])+(d.health[key]==='Yes'?' · '+esc(d.health[detail]):''))).join('')+(d.health.medication==='Yes'?kv('Preschool to give medication',esc(d.health.preschoolAdministration||'Not answered')):'')+kv('Emergency instructions',esc(d.health.emergencyInstructions||'Not supplied')))+
@@ -56520,8 +56682,8 @@ renderParentApplication=function(){
   if(editable)ui().parentApplicationStep=step;
   const d=editable?applicationFamilyDraft(id):null,a=c.application.draft||{};
   const submitted=!!c.application.snapshot||['submitted','accepted','declined','withdrawn'].includes(c.application.status);
-  const body=editable?(step<5?applicationFamilyFields(id,step):applicationFamilySummary({...a,family:d})):notice(submitted?'Your submitted Application is retained. No further parent form is required.':'This Application is not available for submission.','info');
-  return `<div class="parent-view"><div style="max-width:680px;margin:0 auto 8px;text-align:right">${btn('Exit parent preview','exitParentPreview()','secondary','sm')}</div><div class="parent-card"><div class="parent-brand"><strong>${esc(mpsOrganisationName())}</strong><p>Secure Application</p></div><div class="parent-content"><div class="stepper">${applicationSections.map((_,i)=>`<span class="${i<step?'active':''}"></span>`).join('')}</div><div class="eyebrow">${editable?`Step ${step} of 5`:''}</div><h2>${editable?applicationSections[step-1]:(submitted?'Application submitted':'Application unavailable')}</h2>${applicationSaveProblem?applicationSaveMessage():''}${body}${editable?`<div class="parent-foot">${step>1?btn('Back',`applicationFamilyBack('${id}')`,'secondary'):'<span></span>'}${btn(step===5?'Submit application':'Continue',step===5?`submitApplication('${id}')`:`appContinue('${id}')`,'primary')}</div>`:''}</div></div></div>`;
+  const body=editable?(step<5?applicationFamilyFields(id,step):applicationFamilySummary({...a,family:d})):notice(submitted?'Thank you. The preschool will review your Application and contact you.':'This Application is not available for submission.','info');
+  return `<div class="parent-view"><div style="max-width:680px;margin:0 auto 8px;text-align:right">${editable?btn('Exit parent preview','exitParentPreview()','secondary','sm'):''}</div><div class="parent-card"><div class="parent-brand"><strong>${esc(mpsOrganisationName())}</strong><p>Secure Application</p></div><div class="parent-content"><div class="stepper">${applicationSections.map((_,i)=>`<span class="${i<step?'active':''}"></span>`).join('')}</div><div class="eyebrow">${editable?`Step ${step} of 5`:''}</div><h2>${editable?applicationSections[step-1]:(submitted?'Application submitted':'Application unavailable')}</h2>${applicationSaveProblem?applicationSaveMessage():''}${body}${editable?`<div class="parent-foot">${step>1?btn('Back',`applicationFamilyBack('${id}')`,'secondary'):'<span></span>'}${btn(step===5?'Submit application':'Continue',step===5?`submitApplication('${id}')`:`appContinue('${id}')`,'primary')}</div>`:submitted?`<div class="parent-foot">${btn('Exit parent preview','exitParentPreview()','secondary')}</div>`:''}</div></div></div>`;
  }catch(error){
   const id=ui().parentApplicationCase;
   try{applicationRenderDiagnostic=applicationBuildRenderDiagnostic(error,id)}
@@ -56660,7 +56822,7 @@ submitApplication=function(id){
   c.phoneCountry=mpsOnboardingPhoneCountry(id,o.draft.guardians[0]);
   c.events.push(ev('application_submitted','Application submitted','Parent-submitted family information · awaiting authorised review'));
   if(!save()){db=JSON.parse(previous);applicationFocusSaveError();return false}
-  ui().route='admissions';ui().admissionsCase=id;ui().admissionsTab='application';ui().admissionsStageFilter='All';
+  ui().route='parent-application';ui().parentApplicationStep=5;
   if(!applicationSaveNavigation()){
     ui().route='parent-application';ui().parentApplicationStep=5;render();applicationSaveFailed();applicationFocusSaveError();return false;
   }
@@ -56790,7 +56952,7 @@ admissionPrestart=function(c){
   const familyGo=canOpenChildProfile(childId)?`openApplicationFamilySetup('${childId}')`:'';
   const healthGo=allowed('health')&&canViewChildHealth(childId)?`openHealthForChild('${childId}')`:'';
   const healthAction=!o.healthConfirmed&&submitted&&has('Head Teacher')?btn('Review Health',`openModal('review-health',{caseId:'${c.id}'})`,'secondary','sm'):'';
-  const childAction=canManageChild(childId)?btn('Open child profile',`openChildProfile('${childId}')`,'secondary','sm'):'';
+  const childAction=canManageChild(childId)?btn('Open child profile',`mpsOpenPrestartChild('${childId}','${c.id}')`,'secondary','sm'):'';
   const applicationAction=allowed('admissions')?btn('Open Application',"setAdmissionTab('application')",'secondary','sm'):'';
   const applicationGuardianState=applicationGuardianLegalReadiness(c);
   const guardianState=applicationGuardianState??(guardiansOk&&legalOk?'Confirmed':'Outstanding');
@@ -56810,7 +56972,11 @@ admissionPrestart=function(c){
     if(requirement==='required'||requirement==='clarify')safetyEntries.push({done:medReady,html:prestartSourceRow('medication-authorisation','Medication authorisation',requirement==='clarify'?'Review required':medReady?'Current':auth?.pendingReplacement||auth?.status==='awaiting_signed_form'?'Awaiting signed form':auth?mpsMedicationCurrentLabel(auth):'Required',medReady?'green':'amber',allowed('health')?`openMedicationForChild('${childId}')`:'')});
   }
   if(!childOk||!siblingOk||!d.facebook)safetyEntries.push({done:false,html:prestartReadinessRow('child-information','Child information & permissions','Outstanding','amber',applicationAction)});
-  if(!photoOk)safetyEntries.push({done:false,html:prestartReadinessRow('photo','Child photo','Outstanding','amber',childAction)});
+  if(db.people){
+    const photoRecorded=!!db.people.children?.[childId]?.photo;
+    const photoState=photoRecorded?'Recorded':photoOk?'Existing-child exception · photo needed':'Outstanding';
+    safetyEntries.push({done:photoOk,html:prestartReadinessRow('photo','Child photo',photoState,photoRecorded?'green':'amber',childAction)});
+  }
   if(!submitted)safetyEntries.push({done:false,html:prestartReadinessRow('submission','Application submission','Outstanding','amber',applicationAction)});
   if(!safetyReady&&submitted&&guardianReady&&emergencyReady&&pickupReady&&healthReady&&communicationsOk&&childOk&&siblingOk&&d.facebook&&photoOk)safetyEntries.push({done:false,html:prestartReadinessRow('other','Readiness review','Review required','amber',applicationAction)});
   const completedSafety=safetyEntries.filter(entry=>entry.done),pendingSafety=safetyEntries.filter(entry=>!entry.done);
@@ -56822,8 +56988,8 @@ admissionPrestart=function(c){
     return items.length||uniformSize?`<h4 class="prestart-item-scope">${scope}</h4>${uniformSize?kv('Uniform size',esc(uniformSize)):''}${items.map(item=>prestartItemRow(c,item)).join('')}`:'';
   }).join('');
   const signedRequired=typeof mpsSignedApplicationVersion==='function'&&!!mpsSignedApplicationVersion(c),signedReady=signedRequired&&mpsSignedApplicationValid(c);
-  const completeCount=Number(guardianReady)+Number(emergencyReady)+Number(pickupReady)+Number(healthReady)+Number(communicationsOk)+documentComplete+Number(signedReady)+Number(medicationCheck===true)+starterItems.filter(mpsItemDone).length;
-  const percent=Math.round(100*completeCount/(5+documentItems.length+Number(signedRequired)+Number(medicationCheck!==null)+starterItems.length));
+  const completeCount=Number(guardianReady)+Number(emergencyReady)+Number(pickupReady)+Number(healthReady)+Number(communicationsOk)+Number(db.people&&photoOk)+documentComplete+Number(signedReady)+Number(medicationCheck===true)+starterItems.filter(mpsItemDone).length;
+  const percent=Math.round(100*completeCount/(5+Number(!!db.people)+documentItems.length+Number(signedRequired)+Number(medicationCheck!==null)+starterItems.length));
   const starterInvoice=mpsStarterPackInvoice(c);
   const discardedStarter=Object.values(db.billing?.invoices||{}).some(inv=>inv.category==='starter_pack'&&inv.admissionsCaseId===c.id&&inv.status==='discarded');
   const billingLink=starterInvoice?.status==='draft'&&allowed('billing')?`<div class="prestart-starter-billing-link"><span>Starter Pack draft</span>${btn('Open in Billing',`openBillingInvoice('${starterInvoice.id}')`,'secondary','sm')}</div>`
@@ -56831,9 +56997,25 @@ admissionPrestart=function(c){
   const documentTotal=documentItems.length+Number(signedRequired),documentProgress=documentComplete+Number(signedRequired&&signedReady);
   const itemsComplete=starterItems.filter(mpsItemDone).length,itemsTotal=starterItems.length;
   const section=(key,title,icon,summary,complete,content)=>`<details class="prestart-section ${complete?'is-complete':'needs-work'}" data-prestart-section="${key}" ${key==='safety'||!complete?'open':''}><summary>${mpsLineIcon(icon)}<span class="prestart-section-label"><strong>${title}</strong><small>${summary}</small></span><span class="prestart-section-state">${complete?'Complete':'Needs attention'}</span><span class="prestart-section-chevron" aria-hidden="true">⌄</span></summary><div class="prestart-section-body">${content}</div></details>`;
-  return `${db.people?childPhotoPrestart(c):''}<div class="card prestart-readiness"><div class="prestart-setup-summary"><div><h3>Start setup</h3><p>${percent}% complete · ${practicalRemaining?`${practicalRemaining} document${practicalRemaining===1?' or item':'s or items'} remaining`:'Documents and items complete'}</p></div><div class="progress prestart-overall-progress" role="progressbar" aria-label="Overall Pre-start setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><span style="width:${percent}%"></span></div></div>${section('safety','Safety checks','heart-pulse',`${completedSafety.length} of ${safetyEntries.length} confirmed`,pendingSafety.length===0,safetyRows)}${section('documents','Documents','file-text',`${documentProgress} of ${documentTotal} complete`,documentProgress===documentTotal,documentRows||'<p>No documents assigned.</p>')}${section('items','Items & equipment','clipboard-list',`${itemsComplete} of ${itemsTotal} complete`,itemsComplete===itemsTotal,itemRows||'<p>No items assigned.</p>')}${billingLink}</div>`;
+  const requiredReady=admissionRequiredReadinessComplete(c);
+  const readinessContext=`<div class="prestart-required-summary"><div><strong>Ready to Start checks</strong><small>${signedRequired?'Required safety and signed-Application checks':'Required safety checks'}</small></div>${badge(requiredReady?'Complete':'Needs attention',requiredReady?'green':'amber')}</div>`;
+  const paperworkContext=practicalRemaining?'<p class="prestart-paperwork-note">Ordinary documents and items still need follow-up, but do not block Ready to Start.</p>':'';
+  return `${db.people?childPhotoPrestart(c):''}<div class="card prestart-readiness">${readinessContext}<div class="prestart-setup-summary"><div><h3>Overall setup progress</h3><p>${percent}% complete · ${practicalRemaining?`${practicalRemaining} document${practicalRemaining===1?' or item':'s or items'} remaining`:'Documents and items complete'}</p></div><div class="progress prestart-overall-progress" role="progressbar" aria-label="Overall Pre-start setup progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${percent}"><span style="width:${percent}%"></span></div></div>${paperworkContext}${section('safety','Safety checks','heart-pulse',`${completedSafety.length} of ${safetyEntries.length} confirmed`,pendingSafety.length===0,safetyRows)}${section('documents','Documents','file-text',`${documentProgress} of ${documentTotal} complete`,documentProgress===documentTotal,documentRows||'<p>No documents assigned.</p>')}${section('items','Items & equipment','clipboard-list',`${itemsComplete} of ${itemsTotal} complete`,itemsComplete===itemsTotal,itemRows||'<p>No items assigned.</p>')}${billingLink}</div>`;
 };
-function openApplicationFamilySetup(id){if(!canOpenChildProfile(id))return;openChildProfile(id);document.querySelectorAll('.profile-sections summary').forEach(h=>{if(h.textContent==='Family & pickup')h.scrollIntoView({block:'start'})})}
+function mpsOpenPrestartChild(childId,caseId){
+  if(!canOpenChildProfile(childId)||!allowed('admissions'))return;
+  ui().admissionReturnContext={childId,caseId,tab:'prestart'};
+  openChildProfile(childId);
+}
+function mpsOpenAdmissionFromChildProfile(caseId){
+  if(!allowed('admissions')||!db.admissions?.[caseId])return;
+  const context=ui().admissionReturnContext;
+  setAdmissionCase(caseId);
+  if(context?.caseId===caseId&&context.childId===ui().profileChild)ui().admissionsTab=context.tab;
+  ui().admissionReturnContext=null;
+  setRoute('admissions');
+}
+function openApplicationFamilySetup(id){if(!canOpenChildProfile(id))return;const c=Object.values(db.admissions||{}).find(c=>c.childId===id&&c.enrolment);if(c&&ui().admissionsCase===c.id&&ui().admissionsTab==='prestart')ui().admissionReturnContext={childId:id,caseId:c.id,tab:'prestart'};openChildProfile(id);document.querySelectorAll('.profile-sections summary').forEach(h=>{if(h.textContent==='Family & pickup')h.scrollIntoView({block:'start'})})}
 const applicationPreviousReview=admissionApplication;
 admissionApplication=function(c){
   const html=admissionPlacementReview(c)+applicationPreviousReview(c),data=c.application?.snapshot?.data;
@@ -57844,47 +58026,90 @@ function billingPaymentInvoice(payment){
   const candidates=Object.values(db.billing.invoices).filter(inv=>inv.status==='issued'&&inv.category!=='admission_fee'&&!payment.admissionsCaseId&&inv.childId===payment.childId&&invoiceOutstanding(inv)>0&&billingSameCustomerPayment(payment,inv));
   return candidates.length===1?candidates[0]:null;
 }
-function billingInvoicePayments(inv){return billingPriorityPendingPayments().filter(p=>billingPaymentInvoice(p)?.id===inv.id)}
+function billingInvoicePayments(inv){return inv?billingPriorityPendingPayments().filter(p=>billingPaymentInvoice(p)?.id===inv.id):[]}
+
+const billingVerificationMethods=['Bank app/account checked','Bank statement checked','Cash received','Payment-provider confirmation','Other authorised verification'];
+function billingPaymentConfirmationChanged(){
+  const confirmed=byId('billing_record_confirmed')?.checked;
+  const method=byId('billing_record_verification_wrap');
+  if(method)method.hidden=!confirmed;
+  const explanation=byId('billing_record_confirmation_help');
+  if(explanation)explanation.textContent=confirmed?'The amount will be verified and allocated when you save.':'The amount will wait for a real-source check and will not reduce the verified balance.';
+}
+function billingAllocateVerifiedPayment(inv,p,verification,at){
+  if(!allowed('billing')||!billingVerificationMethods.includes(verification)||p.status!=='pending'||inv.status!=='issued'||inv.category==='admission_fee'||inv.admissionsCaseId||p.admissionsCaseId||
+     (inv.allocations||[]).some(a=>a.paymentId===p.id)||!billingSameCustomerPayment(p,inv)||billingPaymentInvoice(p)?.id!==inv.id||
+     billingCents(p.amount)===null||billingCents(p.amount)<=0||billingCents(p.amount)>Math.round(invoiceOutstanding(inv)*100))throw Error('This payment cannot be verified against the current invoice. Review its balance and authority.');
+  p.status='verified';p.verification=verification;p.verifiedBy=currentPersona().name;p.verifiedById=currentPersona().id;p.verifiedAt=at;
+  inv.allocations.push({paymentId:p.id,amount:p.amount});
+  p.receipt=`REC-${inv.number}-${p.id}.pdf`;
+  p.receiptRecipientSnapshot=currentFamilyCommunicationSnapshots(inv);
+  inv.history.push({actor:staffActor(),at,text:`Payment verified and allocated · ${money(p.amount)} · ${verification} · receipt ${p.receipt}`});
+}
 
 // BQ-135: a smaller genuine receipt is a payment fact, never an instalment plan.
 function billingRecordInvoicePaymentModal(invoiceId){
   const inv=db.billing.invoices[invoiceId];
-  if(!allowed('billing')||inv?.status!=='issued'||invoiceOutstanding(inv)<=0||billingInvoicePayments(inv).length)return modal('Record payment','',notice('This invoice is not available for another payment entry.','warn'),btn('Close','closeOverlay()'));
-  return modal('Record payment','Record the amount received. It stays pending until someone verifies it against the bank or cash record.',billingErrorMarkup()+kv('Invoice',esc(inv.number))+kv('Child',esc(inv.childName))+kv('Outstanding',money(invoiceOutstanding(inv)))+selectField('Method',['Bank transfer','Cash'],'Bank transfer','billing_record_method')+field('Payment date',TODAY,'date',false,'billing_record_date')+field('Amount',String(invoiceOutstanding(inv)),'number',false,'billing_record_amount')+field('Reference','','text',false,'billing_record_reference'),btn('Cancel','closeOverlay()','secondary')+btn('Record payment',`billingRecordInvoicePayment('${invoiceId}')`,'primary'));
+  if(!allowed('billing')||inv?.status!=='issued'||inv.category==='admission_fee'||inv.admissionsCaseId||invoiceOutstanding(inv)<=0||billingInvoicePayments(inv).length)return modal('Record payment','',notice('This invoice is not available for another payment entry.','warn'),btn('Close','closeOverlay()'));
+  const choice=`<fieldset class="billing-confirmation-choice"><legend>Has this payment been confirmed?</legend><label class="check-row"><input type="radio" name="billing_record_confirmation" id="billing_record_pending" value="pending" checked onchange="billingPaymentConfirmationChanged()"><span>Not yet confirmed — record as Pending verification</span></label><label class="check-row"><input type="radio" name="billing_record_confirmation" id="billing_record_confirmed" value="confirmed" onchange="billingPaymentConfirmationChanged()"><span>Confirmed received — verify and allocate now</span></label></fieldset><p id="billing_record_confirmation_help" class="muted">The amount will wait for a real-source check and will not reduce the verified balance.</p><div id="billing_record_verification_wrap" hidden>${selectField('How was it checked?',['Select how payment was checked…',...billingVerificationMethods],'Select how payment was checked…','billing_record_verification')}</div>`;
+  return modal('Record payment','Record the amount actually received against this invoice.',billingErrorMarkup()+`<input type="hidden" id="billing_record_request_id" value="${billingId()}">`+kv('Invoice',esc(inv.number))+kv('Child',esc(inv.childName))+kv('Still to collect',money(invoiceOutstanding(inv)))+selectField('Method',['Bank transfer','Cash'],'Bank transfer','billing_record_method')+field('Payment date',TODAY,'date',false,'billing_record_date')+field('Amount',String(invoiceOutstanding(inv)),'number',false,'billing_record_amount')+field('Reference','','text',false,'billing_record_reference')+choice,btn('Cancel','closeOverlay()','secondary')+btn('Record payment',`billingRecordInvoicePayment('${invoiceId}')`,'primary'));
 }
 function billingRecordInvoicePayment(invoiceId){
   if(!allowed('billing'))return billingError('Billing authority is required.');
   const inv=db.billing.invoices[invoiceId],cents=billingCents(val('billing_record_amount'));
-  if(!inv||inv.status!=='issued'||invoiceOutstanding(inv)<=0||billingInvoicePayments(inv).length)return billingError('Review the current invoice and pending payments before recording another payment.');
+  if(!inv||inv.status!=='issued'||inv.category==='admission_fee'||inv.admissionsCaseId||invoiceOutstanding(inv)<=0||billingInvoicePayments(inv).length)return billingError('Review the current invoice and pending payments before recording another payment.');
   if(cents===null||cents<=0||cents>Math.round(invoiceOutstanding(inv)*100))return billingError('Enter the actual amount received, above zero and no more than the current outstanding balance.');
   const date=val('billing_record_date'),method=val('billing_record_method'),reference=val('billing_record_reference').trim();
   if(!/^\d{4}-\d{2}-\d{2}$/.test(date)||!['Bank transfer','Cash'].includes(method))return billingError('Enter a valid payment date and method.');
-  const id=billingId(),at=new Date().toISOString(),amount=cents/100;
+  const confirmation=byId('billing_record_confirmed')?.checked?'confirmed':byId('billing_record_pending')?.checked?'pending':null;
+  if(!confirmation)return billingError('Choose whether this payment has been confirmed.');
+  const verification=val('billing_record_verification');
+  if(confirmation==='confirmed'&&!billingVerificationMethods.includes(verification))return billingError('Select how the payment was checked against the cash or bank source.');
+  const id=val('billing_record_request_id'),at=new Date().toISOString(),amount=cents/100;
+  if(!/^fin_[0-9a-f-]{36}$/i.test(id)||db.billing.payments[id])return billingError('This payment was already recorded. Reopen the invoice to review it.');
   if(!billingTransaction(()=>{
     billingEnsureCustomers(false);
     const accountId=billingCustomerForInvoice(inv)?.id;
     if(!accountId)throw Error('The invoice Customer account is unavailable.');
     db.billing.payments[id]={id,invoiceId:inv.id,childId:inv.childId,childName:inv.childName,amount,paymentDate:date,method,reference:reference||'No reference',status:'pending',recordedBy:staffActor(),recordedById:currentPersona().id,recordedAt:at};
     billingFinanceWrite().paymentAccounts[id]=accountId;
-    inv.history.push({actor:staffActor(),at,text:`Payment recorded · ${money(amount)} · Pending verification`});
+    inv.history.push({actor:staffActor(),at,text:`Payment recorded · ${money(amount)} · ${confirmation==='pending'?'Pending verification':'Confirmed received'}`});
+    if(confirmation==='confirmed')billingAllocateVerifiedPayment(inv,db.billing.payments[id],verification,at);
   }))return false;
   closeOverlay();return true;
 }
+verifyPayment=function(id){
+  if(!allowed('billing'))return billingError('Billing authority is required.');
+  const p=db.billing.payments[id],inv=p&&billingPaymentInvoice(p),verification=val('pay_verification');
+  if(!p||!inv||p.status!=='pending'||inv.category==='admission_fee'||inv.admissionsCaseId||p.admissionsCaseId)return billingError('Review this pending payment and its issued invoice before verifying.');
+  if(!billingVerificationMethods.includes(verification))return billingError('Select how the payment was checked against the cash or bank source.');
+  if(!billingTransaction(()=>billingAllocateVerifiedPayment(inv,p,verification,new Date().toISOString())))return false;
+  closeOverlay();return true;
+};
 const _billingPriorityModal=modalView;
-modalView=function(m){if(m?.name==='record-invoice-payment')return billingRecordInvoicePaymentModal(m.data?.id);return _billingPriorityModal(m)};
+modalView=function(m){
+  if(m?.name==='record-invoice-payment')return billingRecordInvoicePaymentModal(m.data?.id);
+  if(m?.name==='verify-payment'){
+    const p=db.billing.payments[m.data?.id],inv=p&&billingPaymentInvoice(p);
+    if(!allowed('billing')||!p||p.status!=='pending'||!inv||inv.category==='admission_fee'||inv.admissionsCaseId||p.admissionsCaseId)return modal('Verify payment','',notice('This payment is not available for verification.','warn'),btn('Close','closeOverlay()'));
+    return modal('Verify payment','Check the payment against the bank, cash or payment record before marking it verified.',billingErrorMarkup()+kv('Invoice',esc(inv.number))+kv('Method',esc(p.method))+kv('Amount',money(p.amount))+kv('Reference',esc(p.reference||'No reference'))+selectField('How was it checked?',['Select how payment was checked…',...billingVerificationMethods],'Select how payment was checked…','pay_verification'),btn('Cancel','closeOverlay()','secondary')+btn('Verify & allocate',`verifyPayment('${p.id}')`,'primary'));
+  }
+  return _billingPriorityModal(m)
+};
 
 // BQ-134: only a Billing-created monthly snapshot establishes a monthly obligation.
 // Match its recurring components to retained invoice lines; never infer older invoices
 // from their description or the child's current enrolment/fee settings.
-function billingMonthlyParts(inv){
+function billingMonthlySourceParts(inv){
   const snapshot=inv.policySnapshot,components=snapshot?.components;
-  if(!['draft','issued'].includes(inv.status)||inv.category==='admission_fee'||snapshot?.type!=='monthly'||!/^\d{4}-(0[1-9]|1[0-2])$/.test(snapshot.invoiceMonth||'')||!Array.isArray(components)||!components.length||!Array.isArray(inv.lines)||inv.lines.length<components.length)return null;
+  if(inv.category==='admission_fee'||snapshot?.type!=='monthly'||!/^\d{4}-(0[1-9]|1[0-2])$/.test(snapshot.invoiceMonth||'')||!Array.isArray(components)||!components.length||!Array.isArray(inv.lines)||inv.lines.length<components.length)return null;
   if(components[0]?.id!=='preschool'||components.slice(1).some(c=>!['standard','extended'].includes(c.id))||components.length>2)return null;
   if(components.some((c,index)=>!Number.isFinite(c.amount)||c.amount<0||inv.lines[index]?.sourceId||inv.lines[index]?.id!==`${inv.id}_${index}`||inv.lines[index]?.description!==c.description||!Number.isFinite(inv.lines[index]?.amount)||inv.lines[index]?.amount<0))return null;
   const extra=inv.lines.slice(components.length);
   if(extra.some(line=>!Number.isFinite(line.amount)||line.amount<0))return null;
   return {month:snapshot.invoiceMonth,expected:inv.lines.slice(0,components.length).reduce((sum,line)=>sum+line.amount,0),mixed:extra.length>0};
 }
+function billingMonthlyParts(inv){return ['draft','issued'].includes(inv.status)?billingMonthlySourceParts(inv):null}
 function billingVerifiedAllocated(inv){
   return (inv.allocations||[]).reduce((sum,a)=>sum+(db.billing.payments[a.paymentId]?.status==='verified'&&Number.isFinite(a.amount)?a.amount:0),0);
 }
@@ -57909,21 +58134,28 @@ function billingMonthlyValue(amount,incomplete){return incomplete?'<span class="
 function billingMonthLabel(month){return new Intl.DateTimeFormat('en-GB',{month:'long',year:'numeric',timeZone:'UTC'}).format(new Date(month+'-01T12:00:00Z'))}
 function billingMonthlyCurrent(invs){
   const month=TODAY.slice(0,7),figures=billingMonthlyFigures(invs,month);
-  return `<section class="billing-monthly-current" data-billing-monthly-current><div class="section-title billing-monthly-head"><span>${esc(billingMonthLabel(month))} monthly fees</span>${billingChildren().length?btn('Create monthly draft',"openModal('draft-invoice')",'secondary','sm'):''}</div><div class="metric-row billing-monthly-metrics"><div class="metric"><strong>${money(figures.expected)}</strong><span>Expected monthly fees</span></div><div class="metric"><strong>${billingMonthlyValue(figures.received,figures.incomplete)}</strong><span>Received</span></div><div class="metric"><strong>${billingMonthlyValue(figures.outstanding,figures.incomplete)}</strong><span>Still to collect</span></div></div>${figures.incomplete?'<p class="billing-monthly-caveat">A mixed invoice is partly paid. Its payment cannot be split reliably between monthly fees and other charges.</p>':''}</section>`;
-}
-function billingMonthlyHistory(invs){
-  const months=billingMonthlyMonths(invs),figures=months.map(month=>billingMonthlyFigures(invs,month));
-  const overall=figures.reduce((total,row)=>({expected:total.expected+row.expected,received:total.received+row.received,outstanding:total.outstanding+row.outstanding,incomplete:total.incomplete||row.incomplete}),{expected:0,received:0,outstanding:0,incomplete:false});
-  const rows=figures.map(row=>`<tr><td data-label="Month">${esc(billingMonthLabel(row.month))}</td><td data-label="Expected">${money(row.expected)}</td><td data-label="Received">${billingMonthlyValue(row.received,row.incomplete)}</td><td data-label="Outstanding">${billingMonthlyValue(row.outstanding,row.incomplete)}</td><td data-label="Collection %">${row.incomplete?'Incomplete':row.expected?`${Math.round(row.received/row.expected*100)}%`:'—'}</td></tr>`).join('');
-  return `<section data-billing-monthly-history><div class="section-title">Monthly fee collection history</div>${figures.length?`<div class="metric-row compact-metrics billing-monthly-overall" data-billing-monthly-overall><div class="metric"><strong>${money(overall.expected)}</strong><span>Expected overall</span></div><div class="metric"><strong>${billingMonthlyValue(overall.received,overall.incomplete)}</strong><span>Received overall</span></div><div class="metric"><strong>${billingMonthlyValue(overall.outstanding,overall.incomplete)}</strong><span>Outstanding overall</span></div></div><div class="table-wrap"><table class="table"><thead><tr><th>Month</th><th>Expected</th><th>Received</th><th>Outstanding</th><th>Collection %</th></tr></thead><tbody>${rows}</tbody></table></div>`:'<div class="empty operational-empty"><strong>No established monthly fee invoices yet.</strong></div>'}${overall.incomplete?'<p class="billing-monthly-caveat">A partly paid invoice also contains another charge. Received, Outstanding and Collection % are incomplete until its monthly portion can be identified.</p>':''}</section>`;
+  return `<section class="billing-monthly-current" data-billing-monthly-current><div class="section-title billing-monthly-head"><span>${esc(billingMonthLabel(month))} · Monthly fees</span>${billingChildren().length?btn('Create monthly draft',"openModal('draft-invoice')",'secondary','sm'):''}</div><div class="metric-row billing-monthly-metrics"><div class="metric"><strong>${money(figures.expected)}</strong><span>Expected monthly fees</span></div><div class="metric"><strong>${billingMonthlyValue(figures.received,figures.incomplete)}</strong><span>Verified received</span></div><div class="metric"><strong>${billingMonthlyValue(figures.outstanding,figures.incomplete)}</strong><span>Still to collect</span></div></div>${figures.incomplete?'<p class="billing-monthly-caveat">A mixed invoice is partly paid. Its payment cannot be split reliably between monthly fees and other charges.</p>':''}</section>`;
 }
 let billingPriorityView='current';
 function billingShowView(view){billingPriorityView=view==='history'?'history':'current';render()}
-function billingPriorityTabs(){return `<div class="tabs billing-view-tabs" role="group" aria-label="Billing view"><button class="tab ${billingPriorityView==='current'?'active':''}" onclick="billingShowView('current')">Current</button><button class="tab ${billingPriorityView==='history'?'active':''}" onclick="billingShowView('history')">History</button></div>`}
+function billingPriorityTabs(){return `<div class="tabs billing-view-tabs" role="group" aria-label="Billing view"><button class="tab ${billingPriorityView==='current'?'active':''}" onclick="billingShowView('current')">To do</button><button class="tab ${billingPriorityView==='history'?'active':''}" onclick="billingShowView('history')">By month</button></div>`}
 
 function billingPrioritySummary(invs){
-  const overdue=invs.filter(i=>invoiceStatus(i).text.startsWith('Overdue')).length,pending=billingPriorityPendingPayments().length,drafts=invs.filter(i=>i.status==='draft').length;
-  return `<div class="metric-row compact-metrics billing-summary" data-billing-summary><div class="metric"><strong>${overdue}</strong><span>Overdue</span></div><div class="metric"><strong>${pending}</strong><span>${pending===1?'Payment':'Payments'} to verify</span></div><div class="metric"><strong>${drafts}</strong><span>Draft ${drafts===1?'invoice':'invoices'}</span></div></div>`;
+  const collectible=invs.filter(i=>i.status==='issued'),unpaid=collectible.filter(inv=>invoiceOutstanding(inv)>0);
+  const outstanding=collectible.reduce((cents,inv)=>cents+Math.round(invoiceOutstanding(inv)*100),0)/100;
+  const late=unpaid.filter(inv=>invoiceStatus(inv).text==='Overdue').length,awaiting=unpaid.length-late;
+  return `<section class="billing-all-outstanding" data-billing-all-outstanding><div class="billing-collectible" data-billing-summary><span>Total still to collect</span><strong>${money(outstanding)}</strong><small>${unpaid.length} unpaid ${unpaid.length===1?'invoice':'invoices'} · ${late} late · ${awaiting} awaiting payment</small></div></section>`;
+}
+
+// BQ-167: these are views of existing child, invoice and payment records.
+function billingCurrentWork(invs){
+  const month=TODAY.slice(0,7),uninvoiced=billingMonthlyNotInvoiced(month),drafts=invs.filter(inv=>inv.status==='draft').sort((a,b)=>billingInvoiceDate(b).localeCompare(billingInvoiceDate(a))||String(b.number||'').localeCompare(String(a.number||'')));
+  const pending=billingPriorityPendingPayments().filter(p=>billingPaymentInvoice(p));
+  const childRows=uninvoiced.map(child=>`<div class="billing-work-row" data-work-child="${esc(child.id)}"><div><strong>${esc(child.legalName||child.preferred||'Child')}</strong><small>${esc(billingMonthLabel(month))} · Monthly Fee · Not invoiced</small></div>${btn('Create draft',`billingOpenNotInvoicedDraft('${esc(child.id)}','${esc(month)}')`,'secondary','sm')}</div>`).join('');
+  const draftRows=drafts.map(inv=>`<div class="billing-work-row" data-work-draft="${esc(inv.id)}"><div><strong>${esc(inv.childName||profileChildName(inv.childId)||'Child')}</strong><small>${esc(inv.number||'Draft')} · ${esc(billingFeeGroup(inv)||'Fee type not recorded')} · ${money(invoiceTotal(inv))} · Draft</small></div>${btn('Review',`openModal('invoice-detail',{id:'${esc(inv.id)}'})`,'secondary','sm')}</div>`).join('');
+  const paymentRows=pending.map(p=>{const inv=billingPaymentInvoice(p),admission=inv.category==='admission_fee'&&inv.admissionsCaseId;return `<div class="billing-work-row" data-work-payment="${esc(p.id)}"><div><strong>${esc(inv.childName||profileChildName(inv.childId)||'Child')}</strong><small>${esc(inv.number||'Invoice')} · ${money(p.amount)} · Pending verification</small></div>${btn('Verify',admission?`openModal('verify-admission-payment',{caseId:'${esc(inv.admissionsCaseId)}',paymentId:'${esc(p.id)}'})`:`openModal('verify-payment',{id:'${esc(p.id)}'})`,'secondary','sm')}</div>`}).join('');
+  const group=(title,rows,count,kind)=>rows?`<section class="billing-work-group" data-work-group="${kind}"><h3>${title} · ${count}</h3>${rows}</section>`:'';
+  return `<section class="billing-current-work" data-billing-work><div class="billing-work-head"><h2>Work to finish</h2></div>${group('Not invoiced',childRows,uninvoiced.length,'not-invoiced')}${group('Draft invoices',draftRows,drafts.length,'drafts')}${group('Payments to verify',paymentRows,pending.length,'payments')}${!childRows&&!draftRows&&!paymentRows?'<p class="muted billing-work-empty">Nothing to finish right now.</p>':''}</section>`;
 }
 
 function billingInvoiceDate(inv){
@@ -57932,16 +58164,142 @@ function billingInvoiceDate(inv){
   const first=inv.createdAt||inv.created||inv.history?.[0]?.at||'';
   return /^\d{4}-\d{2}-\d{2}/.test(first)?first.slice(0,10):'';
 }
+// BQ-165: use retained source identity, never a description or invoice-number guess.
+const billingFeeGroups=['Monthly Fee','Admission Fee','Onboarding Fee','Late Pickup Fee','Other Fee'];
+function billingLatePickupLine(line,childId){
+  const source=line?.sourceId,charge=source&&db.billing?.pendingCharges?.[source],event=source&&db.daycare?.latePickups?.[source];
+  return !!(charge&&event&&charge.eventId===source&&charge.source===`LatePickupEvent ${source}`&&charge.childId===childId&&event.childId===childId);
+}
+function billingFeeGroup(inv){
+  if(billingMonthlySourceParts(inv))return 'Monthly Fee';
+  if(inv.category==='admission_fee')return 'Admission Fee';
+  if(inv.category==='starter_pack'||inv.category==='item_charge')return 'Onboarding Fee';
+  if(inv.lines?.length&&inv.lines.every(line=>billingLatePickupLine(line,inv.childId)))return 'Late Pickup Fee';
+  if(inv.category==='other'||inv.manualDraft===true)return 'Other Fee';
+  return null;
+}
+function billingHistoryInvoiceDate(inv){
+  const raw=inv.status==='draft'?(inv.createdDate||inv.createdAt||inv.created||''):(inv.issued||'');
+  const day=/^\d{4}-\d{2}-\d{2}/.test(raw)?raw.slice(0,10):'';
+  return day&&educationDate(day)?day:'';
+}
+function billingHistoryInvoiceMonth(inv){
+  const monthly=billingMonthlySourceParts(inv);
+  if(monthly)return monthly.month<=TODAY.slice(0,7)?monthly.month:undefined;
+  // Issue month is authoritative for nonmonthly issued invoices. A draft has
+  // no issue date; its saved creation month is explicitly shown as draft work.
+  const day=billingHistoryInvoiceDate(inv);
+  return day?day.slice(0,7):null;
+}
+function billingHistoryGroupFigures(invs,group,month){
+  const issued=invs.filter(inv=>inv.status==='issued'),drafts=invs.filter(inv=>inv.status==='draft');
+  return {billed:issued.reduce((sum,inv)=>sum+invoiceTotal(inv),0),
+    received:issued.reduce((sum,inv)=>sum+billingVerifiedAllocated(inv),0),
+    outstanding:issued.reduce((sum,inv)=>sum+invoiceOutstanding(inv),0),
+    draftAmount:drafts.reduce((sum,inv)=>sum+invoiceTotal(inv),0),drafts:drafts.length};
+}
+function billingHistoryInvoiceRow(inv){
+  const late=(inv.lines||[]).filter(line=>billingLatePickupLine(line,inv.childId)).reduce((sum,line)=>sum+line.amount,0);
+  const detail=late&&billingFeeGroup(inv)==='Monthly Fee'?`<small>Includes Late Pickup Fee ${money(late)} in this invoice</small>`:'';
+  const date=billingHistoryInvoiceDate(inv),state=invoiceStatus(inv);
+  const statuses=`<div class="billing-history-invoice-status">${badge(billingInvoiceStatusLabel(state.text),state.tone)}${billingInvoicePayments(inv).length?badge('Payment to verify','amber'):''}</div>`;
+  return `<div class="billing-history-invoice" data-invoice-id="${esc(inv.id)}"><div class="billing-history-invoice-main"><strong>${esc(inv.number||'Invoice number not recorded')}</strong><span>${esc(inv.childName||profileChildName(inv.childId)||'Child not recorded')}</span>${statuses}<small>${date?fmtDate(date):'Date not recorded'}</small>${detail}</div><div class="billing-history-invoice-action"><strong>${money(invoiceTotal(inv))}</strong>${btn(inv.status==='draft'?'Review':'Open',`openModal('invoice-detail',{id:'${esc(inv.id)}'})`,'secondary','sm')}</div></div>`;
+}
+function billingHistorySorted(invs){return [...invs].sort((a,b)=>billingHistoryInvoiceDate(b).localeCompare(billingHistoryInvoiceDate(a))||String(b.number||'').localeCompare(String(a.number||'')))}
+// BQ-166: a child follow-up, not an invoice or calculated obligation. Limit
+// this to the current month: older fixture enrolments have no complete dated
+// care/exit history from which to reconstruct past monthly eligibility.
+function billingMonthlyNotInvoiced(month){
+  if(!allowed('billing')||month!==TODAY.slice(0,7))return [];
+  const first=month+'-01';
+  const invoiced=new Set(Object.values(db.billing.invoices).filter(inv=>inv.policySnapshot?.type==='monthly'&&inv.policySnapshot.invoiceMonth===month).map(inv=>inv.childId));
+  return Object.values(db.people?.children||{}).filter(child=>{
+    const e=childEnrolment(child);
+    if(!e||e.status!=='active'||!educationDate(e.start)||e.start>first||e.careReview||invoiced.has(child.id)||childDirectoryGroup(child,TODAY)!=='current')return false;
+    // The dated enrolment establishes Preschool-only care or its original
+    // Daycare plan. A later ongoing arrangement cannot be inferred backwards.
+    const plan=e.daycarePlanId;
+    if(!(plan===null||plan&&daycarePlan(plan)))return false;
+    return !!monthlyQuote(plan);
+  }).sort((a,b)=>(a.legalName||'').localeCompare(b.legalName||''));
+}
+function billingOpenNotInvoicedDraft(childId,month){
+  if(!allowed('billing')||month!==TODAY.slice(0,7)||!billingMonthlyNotInvoiced(month).some(child=>child.id===childId)){
+    alert('This child is no longer available for a monthly draft here. Review the current month and existing invoices.');
+    render();
+    return false;
+  }
+  openModal('draft-invoice',{source:'history-not-invoiced',childId,month});
+  return true;
+}
+function billingHistoryStatusRows(invs,month,group){
+  const outstanding=invs.filter(inv=>inv.status==='issued'&&invoiceOutstanding(inv)>0);
+  const drafts=invs.filter(inv=>inv.status==='draft');
+  const paid=invs.filter(inv=>inv.status==='issued'&&invoiceOutstanding(inv)===0);
+  const other=invs.filter(inv=>!['issued','draft'].includes(inv.status));
+  const monthly=group==='Monthly Fee';
+  const notInvoiced=monthly?billingMonthlyNotInvoiced(month):[];
+  const rows=(items)=>billingHistorySorted(items).map(billingHistoryInvoiceRow).join('');
+  const attrs=(kind)=>`data-history-state="${kind}"${monthly?` data-monthly-state="${kind}"`:''}`;
+  const disclosure=(kind,label,items,open=false)=>items.length?`<details class="billing-history-subgroup billing-history-${kind}" ${attrs(kind)}${open?' open':''}><summary>${label} · ${items.length}</summary>${rows(items)}</details>`:'';
+  const draft=drafts.length?`<section class="billing-history-subgroup" ${attrs('draft')}><h4>Draft invoices · ${drafts.length}</h4>${rows(drafts)}</section>`:'';
+  return disclosure('outstanding','Unpaid invoices',outstanding,true)
+    +draft
+    +(notInvoiced.length?`<details class="billing-history-subgroup billing-history-not-invoiced" ${attrs('not-invoiced')}><summary>Not invoiced · ${notInvoiced.length}</summary>${notInvoiced.map(child=>`<div class="billing-history-invoice" data-not-invoiced-child="${esc(child.id)}"><div class="billing-history-invoice-main"><strong>${esc(child.legalName||child.preferred||'Child')}</strong><span>${badge('Not invoiced','grey')}</span></div><div class="billing-history-invoice-action">${btn('Create draft',"billingOpenNotInvoicedDraft(this.closest('[data-not-invoiced-child]').dataset.notInvoicedChild,this.closest('[data-history-month]').dataset.historyMonth)",'secondary','sm')}</div></div>`).join('')}</details>`:'')
+    +disclosure('paid','Paid invoices',paid)
+    +disclosure('past','Cancelled or voided',other);
+}
+function billingHistoryGroupCard(group,invs,month){
+  const figures=billingHistoryGroupFigures(invs,group,month);
+  const values=[['Billed',money(figures.billed)],['Verified received',money(figures.received)],['Still outstanding',money(figures.outstanding)]];
+  const metric=values.map(([label,value])=>`<div class="billing-history-figure"><strong>${value}</strong><span>${label}</span></div>`).join('');
+  const draft=figures.drafts?`<p class="billing-history-draft">${figures.drafts} ${figures.drafts===1?'draft invoice':'draft invoices'} · ${money(figures.draftAmount)} not yet billed</p>`:'';
+  const adjusted=Math.abs(figures.billed-figures.received-figures.outstanding)>0.01?'<p class="billing-history-note">Saved credits or adjustments also affect the balance.</p>':'';
+  const historical=invs.some(inv=>!['draft','issued'].includes(inv.status))?'<p class="billing-history-note">Cancelled or voided invoices remain available below; they do not add to these figures.</p>':'';
+  const rows=billingHistoryStatusRows(invs,month,group);
+  return `<details class="billing-history-group" data-history-group="${esc(group)}"><summary><div class="billing-history-group-head"><span class="billing-history-group-title">${esc(group)}</span><span class="billing-history-group-count">${invs.length} ${invs.length===1?'invoice':'invoices'}</span></div><div class="billing-history-figures">${metric}</div>${draft}${adjusted}${historical}</summary><div class="billing-history-invoices">${rows}</div></details>`;
+}
+function billingHistoryMonthSection(month,invs){
+  const known=billingFeeGroups.map(group=>({group,invoices:invs.filter(inv=>billingFeeGroup(inv)===group)})).filter(entry=>entry.invoices.length||entry.group==='Monthly Fee'&&billingMonthlyNotInvoiced(month).length);
+  const unknown=invs.filter(inv=>!billingFeeGroup(inv));
+  const unknownMarkup=unknown.length?`<details class="billing-history-group billing-history-unknown" data-history-unclassified><summary><div class="billing-history-group-head"><span class="billing-history-group-title">Fee type not recorded</span><span class="billing-history-group-count">${unknown.length} ${unknown.length===1?'invoice':'invoices'}</span></div><p class="billing-history-note">The saved source does not establish a fee group. Invoice balances and history remain available.</p></summary><div class="billing-history-invoices">${billingHistorySorted(unknown).map(billingHistoryInvoiceRow).join('')}</div></details>`:'';
+  return `<section class="billing-history-month" data-history-month="${esc(month||'undated')}"><h3 class="billing-history-month-title">${month?esc(billingMonthLabel(month)):'Date not recorded'}</h3>${known.map(entry=>billingHistoryGroupCard(entry.group,entry.invoices,month)).join('')}${unknownMarkup}</section>`;
+}
+function billingMonthFirstHistory(invs){
+  const byMonth=new Map();
+  for(const inv of invs){
+    const month=billingHistoryInvoiceMonth(inv);
+    if(month===undefined)continue; // A future monthly fee belongs in Current until its month arrives.
+    const key=month||'';
+    if(!byMonth.has(key))byMonth.set(key,[]);
+    byMonth.get(key).push(inv);
+  }
+  const current=TODAY.slice(0,7);
+  if(billingMonthlyNotInvoiced(current).length&&!byMonth.has(current))byMonth.set(current,[]);
+  const months=[...byMonth.keys()].filter(Boolean).sort().reverse();
+  if(byMonth.has(''))months.push('');
+  return `<section data-billing-month-first-history><div class="section-title">Fee collection history</div>${months.length?months.map(month=>billingHistoryMonthSection(month,byMonth.get(month))).join(''):'<div class="empty operational-empty"><strong>No invoices to show yet.</strong></div>'}</section>`;
+}
+let billingPriorityGroup='all';
+function billingShowFeeGroup(group){billingPriorityGroup=billingFeeGroups.includes(group)?group:'all';render()}
 function billingPriorityInvoices(invs){
-  const ordered=[...invs].sort((a,b)=>billingInvoiceDate(b).localeCompare(billingInvoiceDate(a))||(b.number||'').localeCompare(a.number||''));
+  invs=invs.filter(inv=>inv.status==='issued'&&invoiceOutstanding(inv)>0);
+  const counts=Object.fromEntries(billingFeeGroups.map(group=>[group,invs.filter(inv=>billingFeeGroup(inv)===group).length]));
+  const visible=billingPriorityGroup==='all'?invs:invs.filter(inv=>billingFeeGroup(inv)===billingPriorityGroup);
+  const ordered=[...visible].sort((a,b)=>Number(invoiceStatus(b).text==='Overdue')-Number(invoiceStatus(a).text==='Overdue')||String(a.due||'').localeCompare(String(b.due||''))||String(a.number||'').localeCompare(String(b.number||'')));
   const rows=ordered.map(inv=>{
-    const state=invoiceStatus(inv),payments=billingInvoicePayments(inv),admission=inv.category==='admission_fee',caseId=inv.admissionsCaseId;
+    const state=invoiceStatus(inv),payments=billingInvoicePayments(inv),admission=inv.category==='admission_fee',caseId=inv.admissionsCaseId,group=billingFeeGroup(inv);
     const paymentActions=payments.map(p=>`<div class="billing-row-payment">${badge('Payment to verify','amber')} ${btn('Verify',admission?`openModal('verify-admission-payment',{caseId:'${caseId}',paymentId:'${p.id}'})`:`openModal('verify-payment',{id:'${p.id}'})`,'secondary','sm')}</div>`).join('');
     const recordAction=inv.status==='issued'&&invoiceOutstanding(inv)>0&&!payments.length?(admission&&caseId?btn('Record payment',`openModal('record-admission-payment',{caseId:'${caseId}'})`,'secondary','sm'):!admission?btn('Record payment',`openModal('record-invoice-payment',{id:'${inv.id}'})`,'secondary','sm'):''):'';
-    return `<tr data-invoice-id="${esc(inv.id)}"><td data-label="Invoice"><div class="name">${esc(inv.number)}</div>${admission?'<small>Admission fee</small>':inv.category==='starter_pack'?'<small>Starter Pack</small>':''}</td><td data-label="Child">${profileChildLink(inv.childId,inv.childName)}</td><td data-label="Date / due">${billingInvoiceDate(inv)?fmtDate(billingInvoiceDate(inv)):'—'} / ${inv.due?fmtDate(inv.due):'Not set yet'}</td><td data-label="Total">${money(invoiceTotal(inv))}</td><td data-label="Outstanding">${['draft','cancelled','void'].includes(inv.status)?'—':money(invoiceOutstanding(inv))}</td><td data-label="Status">${badge(state.text,state.tone)}</td><td data-label="Action"><div class="billing-row-actions">${btn(inv.status==='draft'?'Review':'Open',`openModal('invoice-detail',{id:'${inv.id}'})`,'secondary','sm')}${recordAction}${paymentActions}</div></td></tr>`;
+    return `<tr data-invoice-id="${esc(inv.id)}"><td data-label="Invoice"><div class="name">${esc(inv.number)}</div><small>${esc(group||'Fee type not recorded')}</small></td><td data-label="Child">${profileChildLink(inv.childId,inv.childName)}</td><td data-label="Issued on">${inv.issued?fmtDate(inv.issued):'Not recorded'}</td><td data-label="Payment due">${inv.due?fmtDate(inv.due):'Not recorded'}</td><td data-label="To pay">${money(invoiceOutstanding(inv))}</td><td data-label="Status">${badge(billingInvoiceStatusLabel(state.text),state.tone)}</td><td data-label="Action"><div class="billing-row-actions">${btn('Open',`openModal('invoice-detail',{id:'${inv.id}'})`,'secondary','sm')}${recordAction}${paymentActions}</div></td></tr>`;
   }).join('');
   const lookup='<div class="billing-lookup"><input aria-label="Find invoice" placeholder="Find by child or invoice number…" onkeydown="if(event.key===\'Enter\')mpsBillingInvoiceSearch(this.value)"/><button class="btn secondary sm" onclick="mpsBillingInvoiceSearch(this.previousElementSibling.value)">Find</button></div>';
-  return `<section data-billing-history><div class="section-title">Invoices</div>${invs.length?lookup:''}<div class="table-wrap"><table class="table"><thead><tr><th>Invoice</th><th>Child</th><th>Date / due</th><th>Total</th><th>Outstanding</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>${invs.length?'':'<div class="empty operational-empty"><strong>No invoices yet.</strong><span>Invoices appear here when a child reaches a Billing step.</span></div>'}</div></section>`;
+  const picker=`<label class="billing-fee-filter">Fee group <select aria-label="Fee group" onchange="billingShowFeeGroup(this.value)"><option value="all"${billingPriorityGroup==='all'?' selected':''}>All fees (${invs.length})</option>${billingFeeGroups.map(group=>`<option value="${group}"${billingPriorityGroup===group?' selected':''}>${group} (${counts[group]})</option>`).join('')}</select></label>`;
+  const monthlyAction=billingChildren().length?btn('Create monthly draft',"openModal('draft-invoice')",'secondary','sm'):'';
+  const newAction=allowed('billing')?btn('+ New invoice',"openModal('new-manual-invoice')",'secondary','sm'):'';
+  const filters=invs.length?`<div class="billing-filter-controls" data-billing-filters>${picker}${lookup}</div>`:'';
+  const actions=newAction||monthlyAction?`<div class="billing-create-actions" data-billing-create-actions>${newAction}${monthlyAction}</div>`:'';
+  return `<section data-billing-history><div class="section-title">Unpaid invoices</div>${filters||actions?`<div class="billing-invoice-tools">${filters}${actions}</div>`:''}<div class="table-wrap billing-unpaid-table"><table class="table"><thead><tr><th>Invoice</th><th>Child</th><th>Issued on</th><th>Payment due</th><th>To pay</th><th>Status</th><th>Action</th></tr></thead><tbody>${rows}</tbody></table>${invs.length?(visible.length?'':'<div class="empty operational-empty"><strong>No unpaid invoices in this group.</strong></div>'):'<div class="empty operational-empty"><strong>No unpaid invoices.</strong></div>'}</div></section>`;
 }
 
 function billingPriorityExceptions(){
@@ -57954,9 +58312,9 @@ function billingPriorityExceptions(){
 
 renderBilling=function(){
   if(allowed('billing'))billingEnsureCustomers();
-  const invoices=Object.values(db.billing.invoices),create=allowed('billing')?btn('+ New invoice',"openModal('new-manual-invoice')",'primary'):'';
+  const invoices=Object.values(db.billing.invoices);
   const active=invoices.filter(inv=>inv.status!=='discarded');
-  return shell(`${pageHead('Accounts','Billing','',create)}${billingPriorityTabs()}${billingPriorityView==='history'?billingMonthlyHistory(active)+billingDiscardedHistory(invoices):billingMonthlyCurrent(active)+billingPrioritySummary(active)+billingPriorityInvoices(active)+billingPriorityExceptions()}`);
+  return shell(`${pageHead('Accounts','Billing','')}${billingPriorityTabs()}${billingPriorityView==='history'?billingMonthFirstHistory(active)+billingDiscardedHistory(invoices):billingPrioritySummary(active)+billingCurrentWork(active)+billingPriorityExceptions()+billingPriorityInvoices(active)}`);
 };
 // BQ-138: a Starter Pack draft is created from the child's saved Pre-start items.
 function mpsStarterPackInvoice(c){
@@ -57996,7 +58354,8 @@ function mpsSetStarterPackDueDate(id){
   closeOverlay();return true;
 }
 function mpsStarterPackDraftModal(inv){
-  const body=billingErrorMarkup()+kv('Status',badge('Draft','blue'))+invoiceRelatedContext(inv)+invoiceRecipientContext(inv)
+  const body=billingErrorMarkup()+kv('Status',badge('Draft','blue'))+invoiceRelatedContext(inv)
+    +(billingCurrentChildFacts(inv)?'':invoiceRecipientContext(inv))+billingCurrentChildContext(inv)
     +kv('Due date',inv.due?fmtDate(inv.due):'Not set yet')+kv('Total',money(invoiceTotal(inv)))
     +`<div class="section-title">Items from this child’s Pre-start</div>`
     +inv.lines.map(line=>kv(esc(line.description),money(line.amount))).join('')
@@ -58011,10 +58370,11 @@ function mpsStarterPackDraftModal(inv){
 function mpsStarterPackIssuedModal(inv){
   const allocs=inv.allocations.map(a=>db.billing.payments[a.paymentId]).filter(Boolean);
   const recipients=inv.recipientSnapshot||[];
-  const body=kv('Status',badge(invoiceStatus(inv).text,invoiceStatus(inv).tone))+invoiceRelatedContext(inv)
+  const body=kv('Status',badge(billingInvoiceStatusLabel(invoiceStatus(inv).text),invoiceStatus(inv).tone))+invoiceRelatedContext(inv)
     +kv('Family communications at issue',recipients.length?recipientSnapshotDisplay(recipients):'No authorised recipient recorded at issue')
+    +billingCurrentChildContext(inv)
     +kv('Due date',fmtDate(inv.due))+kv('Total',money(invoiceTotal(inv)))
-    +kv('Verified paid',money(invoicePaid(inv)))+kv('Outstanding',money(invoiceOutstanding(inv)))
+    +kv('Verified paid',money(invoicePaid(inv)))+kv('Still to collect',money(invoiceOutstanding(inv)))
     +billingInvoiceCreditContent(inv)+`<div class="section-title">Lines</div>`
     +inv.lines.map(line=>kv(esc(line.description),money(line.amount))).join('')
     +(allocs.length?`<div class="section-title">Verified payments / receipts</div>`+allocs.map(p=>kv(`${money(p.amount)} · ${esc(p.reference||'No reference')}`,`${esc(p.verification||'Verified')} · ${esc(p.receipt||'No receipt file recorded')}`)).join(''):'')
@@ -58036,7 +58396,7 @@ modalView=function(m){
       +field('Due date',inv.due||'','date',false,'starter_pack_due'),
       btn('Cancel','closeOverlay()','secondary')+btn('Save due date',`mpsSetStarterPackDueDate('${inv.id}')`,'primary'));
   }
-  if(inv?.category==='starter_pack'&&m?.name==='invoice-detail')return inv.status==='draft'?mpsStarterPackDraftModal(inv):mpsStarterPackIssuedModal(inv);
+  if(inv?.category==='starter_pack'&&m?.name==='invoice-detail'&&allowed('billing'))return inv.status==='draft'?mpsStarterPackDraftModal(inv):mpsStarterPackIssuedModal(inv);
   if(inv?.category==='starter_pack'&&m?.name==='edit-draft')return modalView({name:'starter-pack-due',data:{id:inv.id}});
   return mpsPreviousStarterPackModal(m);
 };
@@ -58209,7 +58569,7 @@ modalView=function(m){
   if(m?.name==='add-ongoing-daycare')return mpsOngoingDaycareModal(m.data?.childId);
   const inv=db.billing?.invoices?.[m?.data?.id];
   if(m?.name==='item-charge-due'&&inv?.category==='item_charge'&&inv.status==='draft')return modal('Due date','Items & equipment draft',billingErrorMarkup()+field('Due date',inv.due||'','date',false,'item_charge_due'),btn('Cancel','closeOverlay()','secondary')+btn('Save due date',`mpsSaveItemChargeDue('${inv.id}')`,'primary'));
-  if(inv?.category==='item_charge'&&m?.name==='invoice-detail'&&inv.status==='draft')return modal(`Invoice ${esc(inv.number)}`,'Items & equipment draft',billingErrorMarkup()+kv('Child',profileChildLink(inv.childId))+kv('Status',badge(invoiceStatus(inv).text,invoiceStatus(inv).tone))+kv('Item',esc(inv.lines[0].description))+kv('Total',money(invoiceTotal(inv)))+kv('Due date',inv.due?fmtDate(inv.due):'Not set yet')+kv('Source','Saved child item')+inv.history.map(h=>`<p>${esc(h.text)} · ${esc(staffHistoryDate(h.at))}</p>`).join(''),btn('Close','closeOverlay()','secondary')+btn('Set due date',`openModal('item-charge-due',{id:'${inv.id}'})`,'secondary')+btn('Issue invoice',`issueInvoice('${inv.id}')`,'primary'));
+  if(inv?.category==='item_charge'&&m?.name==='invoice-detail'&&inv.status==='draft')return modal(`Invoice ${esc(inv.number)}`,'Items & equipment draft',billingErrorMarkup()+kv('Child',profileChildLink(inv.childId))+kv('Status',badge(billingInvoiceStatusLabel(invoiceStatus(inv).text),invoiceStatus(inv).tone))+kv('Item',esc(inv.lines[0].description))+kv('Total',money(invoiceTotal(inv)))+kv('Due date',inv.due?fmtDate(inv.due):'Not set yet')+kv('Source','Saved child item')+inv.history.map(h=>`<p>${esc(h.text)} · ${esc(staffHistoryDate(h.at))}</p>`).join(''),btn('Close','closeOverlay()','secondary')+btn('Set due date',`openModal('item-charge-due',{id:'${inv.id}'})`,'secondary')+btn('Issue invoice',`issueInvoice('${inv.id}')`,'primary'));
   return mpsItemsBaseModal(m);
 };
 function mpsSaveItemChargeDue(id){const inv=db.billing?.invoices?.[id];if(!allowed('billing')||inv?.category!=='item_charge'||inv.status!=='draft')return false;if(!educationDate(val('item_charge_due')))return billingError('Choose a valid due date.');inv.due=val('item_charge_due');inv.history.push({at:new Date().toISOString(),actor:staffActor(),text:'Due date set before issue'});closeOverlay();return true}
@@ -58518,7 +58878,7 @@ function mpsChildProgressView(data={}){
  const section=(title,items,empty)=>`<section class="progress-group"><h3>${title}</h3>${items||`<p class="muted">${empty}</p>`}</section>`;
  const earlier=groups.earlierAssessments.length?`<details class="progress-earlier-assessments"><summary>Earlier assessment records · ${groups.earlierAssessments.length}</summary>${groups.earlierAssessments.map(item=>mpsProgressAssessmentCard(item.record)).join('')}</details>`:'';
  const body=`<section class="child-progress-workspace" data-child-progress="${esc(cid)}"><div class="progress-month"><label for="progress_month">Month</label><input id="progress_month" type="month" value="${esc(month)}" onchange="mpsProgressSet('month',this.value)"></div>${section('Activities with assessment',groups.assessed.map(g=>mpsProgressActivityGroup(g,month)).join(''),'No assessed activities recorded this month.')}${section('Other activities observed',groups.explored.map(g=>mpsProgressActivityGroup(g,month)).join(''),'No other activity observations recorded this month.')}${section('Individual observations',groups.standalone.map(item=>mpsProgressObservationCard(item.record,month)).join(''),'No standalone observations recorded this month.')}${earlier}</section>`;
- return drawer(`${esc(profileChildName(cid))} · learning`,'',body);
+ return drawer(`${esc(profileChildName(cid))} · Learning progress`,'',body);
 }
 const mpsBatchDBaseDrawerView=drawerView;
 drawerView=function(d){return d?.name==='child-progress'?mpsChildProgressView(d.data):mpsBatchDBaseDrawerView(d)};
@@ -58850,11 +59210,117 @@ const mpsCleanStartBaseTodayActions=todayActions;
 todayActions=function(){
  const actions=mpsCleanStartBaseTodayActions();
  if(!cleanHeadTeacherReview||!has('Head Teacher'))return actions;
- if(!Object.keys(mpsAcademicYears()).length)return [{sev:'blue',icon:'⚙',title:'Set up your preschool',sub:'Start with the academic year and terms in Preschool settings.',go:'mpsOpenPreschoolSettings()'},...actions];
- if(!Object.keys(db.people?.children||{}).length&&!Object.keys(db.admissions||{}).length)return [{sev:'blue',icon:'◎',title:'Add your first child',sub:'Start with a family enquiry in Admissions.',go:"setRoute('admissions')"},...actions];
+ if(!Object.keys(mpsAcademicYears()).length)return [{sev:'blue',icon:'⚙',title:'Set academic year and terms',sub:'Choose the school-year and Term dates.',actionLabel:'Set dates',go:'mpsOpenSchoolTermSetup()'},...actions];
+ if(!Object.keys(db.people?.children||{}).length&&!Object.keys(db.admissions||{}).length)return [{sev:'blue',icon:'◎',title:'Record your first enquiry',sub:'Start with the family’s enquiry.',actionLabel:'New enquiry',go:"setRoute('admissions');openModal('new-enquiry')"},...actions];
  return actions;
 };
 render();
+// LQA-037: reconstruct a readable document from the saved issued invoice.
+// The old invoicePdf value is a filename, never a retrievable file or proof of PDF bytes.
+function mpsInvoicePdfFacts(id){
+  if(!allowed('billing'))return null;
+  const inv=db.billing?.invoices?.[id];
+  if(!inv||inv.status!=='issued'||!String(inv.number||'').trim()||!Array.isArray(inv.lines)||!inv.lines.length)return null;
+  if(inv.lines.some(line=>!line||!String(line.description||'').trim()||!Number.isFinite(line.amount)||line.amount<0))return null;
+  const recipients=Array.isArray(inv.recipientSnapshot)?inv.recipientSnapshot:[];
+  return {
+    number:String(inv.number),child:String(inv.childName||'Not recorded on invoice'),
+    issued:inv.issued&&educationDate(String(inv.issued).slice(0,10))?fmtDate(String(inv.issued).slice(0,10)):'Not recorded on invoice',
+    due:inv.due&&educationDate(String(inv.due).slice(0,10))?fmtDate(String(inv.due).slice(0,10)):'Not recorded on invoice',
+    recipients:recipients.map(row=>[row?.name,row?.phone].filter(Boolean).join(' · ')).filter(Boolean),
+    lines:inv.lines.map(line=>({description:String(line.description),amount:line.amount})),
+    total:invoiceTotal(inv),currencyDisplay:billingCurrency(inv).currencyDisplay
+  };
+}
+function mpsInvoicePdfBlob(facts){
+  if(!facts||!facts.lines?.length)return null;
+  const width=1240,height=1754,left=100,right=width-100,bottom=height-130,pages=[];
+  let canvas,ctx,y,pageNumber=0;
+  const begin=()=>{
+    canvas=document.createElement('canvas');canvas.width=width;canvas.height=height;
+    ctx=canvas.getContext('2d');if(!ctx)throw new Error('PDF drawing unavailable');
+    ctx.fillStyle='#fff';ctx.fillRect(0,0,width,height);pageNumber++;
+    ctx.fillStyle='#154c4a';ctx.fillRect(left,78,78,8);
+    ctx.font='bold 27px Arial, sans-serif';ctx.fillText(mpsOrganisationName(),left,130,right-left);
+    ctx.font='17px Arial, sans-serif';ctx.fillStyle='#5a6d6b';ctx.fillText(`Invoice ${facts.number}`,left,161,right-left);
+    ctx.strokeStyle='#d7e5e0';ctx.beginPath();ctx.moveTo(left,184);ctx.lineTo(right,184);ctx.stroke();
+    ctx.fillStyle='#667773';ctx.fillText(`Page ${pageNumber}`,right-65,height-75);
+    y=226;
+  };
+  const store=()=>pages.push(atob(canvas.toDataURL('image/jpeg',0.94).split(',')[1]));
+  const room=needed=>{if(y+needed>bottom){store();begin()}};
+  const wrap=(value,font,maxWidth)=>{
+    ctx.font=font;const result=[];
+    for(const paragraph of String(value).split('\n')){
+      let line='';
+      for(const word of paragraph.split(/\s+/)){
+        if(!word)continue;
+        const next=line?`${line} ${word}`:word;
+        if(ctx.measureText(next).width<=maxWidth){line=next;continue}
+        if(line){result.push(line);line=''}
+        let segment='';
+        for(const character of word){
+          if(segment&&ctx.measureText(segment+character).width>maxWidth){result.push(segment);segment=''}
+          segment+=character;
+        }
+        line=segment;
+      }
+      result.push(line);
+    }
+    return result;
+  };
+  const section=title=>{room(95);y+=14;ctx.fillStyle='#e7f2ee';ctx.fillRect(left,y-3,right-left,40);ctx.fillStyle='#174b48';ctx.font='bold 23px Arial, sans-serif';ctx.fillText(title,left+14,y+26);y+=60};
+  const row=(label,value)=>{
+    const lines=wrap(value,'21px Arial, sans-serif',right-left-300),height=Math.max(1,lines.length)*28+15;
+    room(height);ctx.font='18px Arial, sans-serif';ctx.fillStyle='#61736f';ctx.fillText(label,left,y+19);
+    ctx.font='21px Arial, sans-serif';ctx.fillStyle='#172f2e';lines.forEach((text,index)=>ctx.fillText(text,left+300,y+20+index*28));y+=height;
+  };
+  begin();ctx.fillStyle='#143f3e';ctx.font='bold 46px Arial, sans-serif';ctx.fillText('INVOICE',left,y+34);y+=78;
+  row('Invoice number',facts.number);row('Child',facts.child);row('Issued on',facts.issued);row('Payment due',facts.due);
+  section('RECIPIENTS AT ISSUE');
+  if(facts.recipients.length)facts.recipients.forEach((recipient,index)=>row(`Recipient ${index+1}`,recipient));
+  else row('Recipients','Not recorded on this invoice');
+  section('INVOICE ITEMS');
+  for(const line of facts.lines){
+    const amount=mpsFeeDisplay(line.amount,facts.currencyDisplay);
+    const descriptionLines=wrap(line.description,'21px Arial, sans-serif',right-left-250);
+    const needed=Math.max(1,descriptionLines.length)*29+20;room(needed);
+    ctx.font='21px Arial, sans-serif';ctx.fillStyle='#172f2e';descriptionLines.forEach((text,index)=>ctx.fillText(text,left,y+21+index*29));
+    ctx.font='bold 21px Arial, sans-serif';ctx.fillStyle='#143f3e';ctx.textAlign='right';ctx.fillText(amount,right,y+21);ctx.textAlign='left';y+=needed;
+  }
+  room(95);ctx.strokeStyle='#cdded8';ctx.beginPath();ctx.moveTo(left,y+10);ctx.lineTo(right,y+10);ctx.stroke();y+=28;
+  ctx.font='bold 25px Arial, sans-serif';ctx.fillStyle='#143f3e';ctx.fillText('Invoice total',left,y+23);
+  ctx.textAlign='right';ctx.fillText(mpsFeeDisplay(facts.total,facts.currencyDisplay),right,y+23);ctx.textAlign='left';
+  store();
+  const chunks=['%PDF-1.4\n'],offsets=[0];let length=chunks[0].length;
+  const add=(id,body)=>{offsets[id]=length;const part=`${id} 0 obj\n${body}\nendobj\n`;chunks.push(part);length+=part.length};
+  const references=pages.map((_,index)=>`${3+index*3} 0 R`).join(' ');
+  add(1,'<< /Type /Catalog /Pages 2 0 R >>');add(2,`<< /Type /Pages /Count ${pages.length} /Kids [${references}] >>`);
+  pages.forEach((jpeg,index)=>{
+    const page=3+index*3,image=page+1,content=page+2;
+    add(page,`<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /XObject << /Im${index} ${image} 0 R >> >> /Contents ${content} 0 R >>`);
+    add(image,`<< /Type /XObject /Subtype /Image /Width ${width} /Height ${height} /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length ${jpeg.length} >>\nstream\n${jpeg}\nendstream`);
+    const stream=`q\n595 0 0 842 0 0 cm\n/Im${index} Do\nQ\n`;
+    add(content,`<< /Length ${stream.length} >>\nstream\n${stream}endstream`);
+  });
+  const start=length;chunks.push(`xref\n0 ${offsets.length}\n0000000000 65535 f \n`);
+  for(let index=1;index<offsets.length;index++)chunks.push(`${String(offsets[index]).padStart(10,'0')} 00000 n \n`);
+  chunks.push(`trailer\n<< /Size ${offsets.length} /Root 1 0 R >>\nstartxref\n${start}\n%%EOF`);
+  return new Blob([Uint8Array.from(chunks.join(''),character=>character.charCodeAt(0))],{type:'application/pdf'});
+}
+function mpsInvoicePdfAction(id,action){
+  if(action!=='view'&&action!=='download')return false;
+  const facts=mpsInvoicePdfFacts(id);if(!facts)return false;
+  let blob;try{blob=mpsInvoicePdfBlob(facts)}catch(error){console.error('Invoice PDF generation failed',error);alert('The invoice PDF could not be prepared. The saved invoice has not changed.');return false}
+  if(!blob)return false;
+  const url=URL.createObjectURL(blob),link=document.createElement('a');
+  link.href=url;link.rel='noopener';
+  if(action==='view')link.target='_blank';
+  else link.download=`invoice-${facts.number.replace(/[^A-Za-z0-9._-]+/g,'-')}.pdf`;
+  document.body.append(link);link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),300000);
+  return true;
+}
 // One presentation for saved invoices. The underlying invoice, payment and
 // correction writers remain owned by their existing Billing/Admissions modules.
 function billingDetailKind(inv){
@@ -58882,12 +59348,33 @@ function billingDetailEvents(inv){
   billingInvoiceApplications(inv).forEach(a=>events.push({at:a.at,title:a.type==='release'?'Credit released':'Credit applied',amount:a.amount,detail:'Customer credit',actor:staffHistoryActor(a)}));
   return events.sort((a,b)=>String(b.at).localeCompare(String(a.at))).map(e=>`<div class="invoice-detail-event"><div><strong>${esc(e.title)}</strong><span>${billingMoney(e.amount,inv)}</span></div>${e.detail?`<p>${esc(e.detail)}</p>`:''}<small>${e.actor?'Recorded by '+esc(e.actor)+(e.at?' · ':''):''}${esc(billingDetailWhen(e.at))}</small></div>`).join('');
 }
+// BQ-163: a narrow Billing read path. It does not grant Child Profile access.
+function billingCurrentChildFacts(inv){
+  if(!allowed('billing')||!inv?.id||db.billing?.invoices?.[inv.id]!==inv)return null;
+  const child=db.people?.children?.[profileChildId(inv.childId)];
+  if(!child)return null;
+  const enrolment=childEnrolment(child),service=childCurrentServiceLabel(child);
+  const plan=enrolment?.status==='active'&&!enrolment.careReview?enrolment.daycarePlanId:undefined;
+  const quote=plan===undefined?null:monthlyQuote(plan);
+  return {classroom:childClass(child),service:service||'Not currently active',quote,
+    recipients:recipientSnapshots(linkedRecipientIds(child.id))};
+}
+function billingCurrentChildContext(inv){
+  const facts=billingCurrentChildFacts(inv);
+  if(!facts)return '';
+  return billingDetailSection('Current billing context',
+    kv('Preschool / Classroom',esc(facts.classroom))
+    +kv('Current care',esc(facts.service))
+    +kv('Current configured monthly fee',facts.quote?esc(mpsFeeDisplay(facts.quote.amount,facts.quote.currencyDisplay)):'Not currently configured')
+    +kv('Current confirmed Family communications recipients',facts.recipients.length
+      ?recipientSnapshotDisplay(facts.recipients):'No confirmed recipients recorded'));
+}
 function billingDetailContext(inv){
   const date=billingInvoiceDate(inv);
   const itemId=inv.category==='item_charge'?inv.policySnapshot?.childItemId:null;
   const itemLink=itemId&&canOpenChildProfile(profileChildId(inv.childId))&&mpsChildItemSources(inv.childId).some(item=>item.id===itemId)
     ?' · '+btn('Open child item',`mpsOpenChildItem('${esc(profileChildId(inv.childId))}','${esc(itemId)}')`,'secondary','sm'):'';
-  const contact=inv.status==='discarded'?''
+  const contact=inv.status==='discarded'||inv.status==='draft'&&billingCurrentChildFacts(inv)?''
     :inv.category==='starter_pack'&&inv.status!=='draft'&&inv.recipientSnapshot?.length
     ?kv('Family communications at issue',recipientSnapshotDisplay(inv.recipientSnapshot))
     :invoiceRecipientContext(inv);
@@ -58945,21 +59432,23 @@ function billingDetailView(inv,issueRoute=false){
   const items=(inv.lines||[]).map(line=>{
     const quantity=Number.isSafeInteger(line.quantity)&&line.quantity>1&&Number.isFinite(line.unitPrice)?line.quantity:null;
     const label=quantity?`${quantity} × ${esc(line.description)} · ${billingMoney(line.unitPrice,inv)} each`:esc(line.description);
-    return billingDetailRow(label,billingMoney(line.amount,inv));
+    const sourceLabel=billingLatePickupLine(line,inv.childId)?'<small class="billing-line-source">Late Pickup Fee</small> ':'';
+    return billingDetailRow(sourceLabel+label,billingMoney(line.amount,inv));
   }).join('');
   const body=billingErrorMarkup()+latePickupBillingAlerts(inv)
     +billingDetailSection('Invoice details',billingDetailContext(inv))
+    +billingCurrentChildContext(inv)
     +billingDetailSection('Invoice items',items)
     +billingDetailSection('Balance',billingDetailBalance(inv))
     +(events?billingDetailSection('Payments & adjustments',events):'')
-    +billingDetailSection('Invoice document',pdf?`<p class="invoice-detail-document">${esc(pdf)}<small>Document reference · file not available to open here</small></p>`:`<p class="invoice-detail-muted">${inv.status==='draft'?'Available after issue':inv.status==='discarded'?'No invoice document was issued.':'No document recorded for this invoice.'}</p>`)
+    +billingDetailSection('Invoice document',mpsInvoicePdfFacts(inv.id)?`<div class="invoice-detail-document"><p>Generated from this invoice's saved issue details${pdf?` · ${esc(pdf)}`:''}</p><div class="invoice-document-actions">${btn('View invoice PDF',`mpsInvoicePdfAction('${esc(inv.id)}','view')`,'secondary','sm')}${btn('Download invoice PDF',`mpsInvoicePdfAction('${esc(inv.id)}','download')`,'secondary','sm')}</div></div>`:`<p class="invoice-detail-muted">${inv.status==='draft'?'Available after issue':inv.status==='discarded'?'No invoice document was issued.':'Saved invoice information is insufficient to create a PDF.'}</p>`)
     +billingDetailHistory(inv)
     +billingDetailRelatedInvoices(inv)
     +(available?`<p class="invoice-detail-available">Available customer credit · ${billingMoney(available,inv)}</p>`:'')
     +billingInvoiceApplyActions(inv)
     +(inv.status==='issued'&&billingVerifiedAllocated(inv)>0?notice('This invoice has verified payment history and stays unchanged. If more is owed, create a related invoice. If a payment is wrong, use the restricted payment correction process.','info'):'');
   const title=issueRoute||inv.category==='admission_fee'&&inv.status==='draft'?'Review admission-fee invoice':inv.status==='draft'&&/draft/i.test(inv.number)?esc(inv.number):`Invoice ${esc(inv.number)}`;
-  const sub=`<span>${esc(billingDetailKind(inv))} · ${esc(inv.childName||profileChildName(inv.childId)||'')}</span> ${badge(state.text,state.tone)}`;
+  const sub=`<span>${esc(billingDetailKind(inv))} · ${esc(inv.childName||profileChildName(inv.childId)||'')}</span> ${badge(billingInvoiceStatusLabel(state.text),state.tone)}`;
   return modal(title,sub,body,billingDetailActions(inv)).replace('<div class="modal"','<div class="modal invoice-detail"')
     .replace('<div class="modal-foot">',`<div class="modal-foot${inv.status==='draft'?' invoice-detail-draft-actions':''}">`);
 }
@@ -59224,6 +59713,9 @@ function mpsTodayHomeCalendarContext(){
 }
 function mpsTodayHomeExceptions(){
  const actions=[];
+ if(operatingStatusForDate(TODAY).text==='Closed'&&calendarCanSeeAdmissionsTours()&&allowed('admissions')){
+  calendarAdmissionsToursOn(TODAY).forEach(t=>actions.push({sev:'amber',icon:'circle-alert',title:`${esc(t.childName)} · Visit still scheduled`,sub:`${t.time?staffTimeLabel(t.time)+' · ':''}Preschool closed · Contact the family and arrange any change`,go:`openAdmissionsCaseFromCalendar('${t.caseId}')`,actionLabel:'Open visit'}));
+ }
  const incidents=(db.health?.incidents||[]).filter(incident=>incident.status!=='Closed'&&mpsIncidentCanView(incident));
  const contact=incidents.filter(incident=>incidentChildIds(incident).some(id=>['pending','attempted'].includes(mpsIncidentContactState(incident,id))));
  const followup=incidents.filter(incident=>mpsIncidentCanReview(incident)&&['Open','Open follow-up'].includes(incident.followup));
@@ -59713,7 +60205,7 @@ function mpsSignedApplicationDocument(c,version){
   field('Siblings',child.hasSiblings);
   if(child.hasSiblings==='Yes')(child.siblings||[]).forEach((s,i)=>field(`Sibling ${i+1}`,`${s.relationship||'Sibling'}${s.dob?' · '+date(s.dob):''}`));
   section('Placement / service');
-  field('Service',data.service);
+  field('Service',agreedServiceDisplay(data.service,data.daycarePlanId));
   field('Desired start',date(data.start));
   section('Guardians');
   guardians.forEach((g,i)=>{
@@ -59724,9 +60216,11 @@ function mpsSignedApplicationDocument(c,version){
     field('Family communications',g.communicationRequested===true?'Receives communications':g.communicationRequested===false?'Does not receive communications':'Not recorded');
     if(!['Mother','Father'].includes(g.relationship))field('Legal guardian',g.legalAuthority);
   });
-  section('Legal arrangements');
-  field('Restrictions or special arrangements',family.legalRestrictions?.answer);
-  if(String(family.legalRestrictions?.answer||'').startsWith('Yes'))field('Parent-submitted details',family.legalRestrictions.details);
+  if(family.legalRestrictions?.answer){
+    section('Legal arrangements');
+    field('Restrictions or special arrangements',family.legalRestrictions.answer);
+    if(String(family.legalRestrictions.answer).startsWith('Yes'))field('Parent-submitted details',family.legalRestrictions.details);
+  }
   section('Emergency contact');
   field('Contact',family.emergency?.name);
   field('Relationship',family.emergency?.relationship);
@@ -59790,7 +60284,9 @@ function mpsSignedApplicationPdfBlob(c,version=mpsSignedApplicationVersion(c)){
   for(let index=0;index<pdfDocument.blocks.length;index++){
     const block=pdfDocument.blocks[index];
     if(block.type==='section'){
-      ensure(block.title==='Guardians'?350:104);y+=12;ctx.fillStyle='#e7f2ee';ctx.fillRect(left,y-4,right-left,40);
+      const next=pdfDocument.blocks[index+1];
+      const firstFieldHeight=next?.type==='field'?23+Math.max(1,wrap(next.value,'21px Arial, sans-serif',right-left).length)*27+5:0;
+      ensure(Math.max(block.title==='Guardians'?350:104,71+firstFieldHeight));y+=12;ctx.fillStyle='#e7f2ee';ctx.fillRect(left,y-4,right-left,40);
       ctx.fillStyle='#174b48';ctx.font='bold 24px Arial, sans-serif';ctx.fillText(block.title.toUpperCase(),left+15,y+25);y+=59;
     }else if(block.type==='subheading'){
       ensure(190);y+=8;ctx.fillStyle='#194c49';ctx.font='bold 23px Arial, sans-serif';ctx.fillText(block.title,left,y+20);y+=42;
@@ -61253,5 +61749,53 @@ function mpsTeachingWeekActualDetail(actual){if(!actual)return '';const title=ac
 function mpsTeachingWeekActivity(activity,state,date){const lib=mpsResolveActivity(mpsLibraryActivity(activity.libId,state.week),activity),title=lib?.title||'Activity unavailable',upcoming=date>TODAY,actual=state.future||upcoming?null:mpsTeachingWeekActual(activity,state),status=actual?mpsActualLabel(actual.outcome):upcoming?'Planned':'Not recorded',materials=activity.materialsAdaptation||lib?.materials,offers=activity.guidanceSnapshot?.offers||[],chosen=offers.find(offer=>offer.code==='C'||activity.guidanceSnapshot?.themeBands?.includes(offer.band))||offers[0],preparation=activity.guidanceSnapshot?.safeguards;return `<article class="teaching-week-activity" data-week-activity="${esc(activity.uid)}"><div class="teaching-week-activity-head"><h4>${esc(title)}</h4>${state.future?'':badge(status,actual?mpsActualTone(actual.outcome):'grey')}</div>${activity.adaptation?`<p><strong>Planned change:</strong> ${esc(activity.adaptation)}</p>`:''}${materials?`<p><strong>${activity.materialsAdaptation?'Materials change':'Materials'}:</strong> ${esc(materials)}</p>`:''}${(state.future||upcoming)&&preparation?`<p><strong>Preparation:</strong> ${esc(preparation)}</p>`:''}${(state.future||upcoming)&&chosen?.offer?`<p><strong>For the class:</strong> ${esc(chosen.offer)}</p>`:''}${actual?mpsTeachingWeekActualDetail(actual):''}${!actual&&date<TODAY?'<p class="teaching-week-unrecorded">No delivery outcome was recorded.</p>':''}${lib?`<details class="teaching-week-details"><summary>Activity details</summary>${mpsTodayPlannedGuidance(activity)}${mpsTodayGuidance(lib,activity.guidanceSnapshot)}</details>`:''}</article>`}
 function mpsTeachingWeekAdditional(actual){const title=actual.experience?.kind==='library'?actual.experience.snapshot?.title:actual.experience?.description;return `<article class="teaching-week-activity teaching-week-additional" data-week-actual="${esc(actual.id)}"><div class="teaching-week-activity-head"><h4>${esc(title||'Additional experience')}</h4>${badge('Recorded','blue')}</div>${actual.note?`<p><strong>Useful note:</strong> ${esc(actual.note)}</p>`:''}${(actual.history||[]).length?`<details class="teaching-week-audit"><summary>Correction history (${actual.history.length})</summary><ol>${actual.history.map(entry=>`<li><div><b>Original:</b> ${mpsActualFactHtml(entry.before)}</div><div><b>Corrected:</b> ${mpsActualFactHtml(entry.after)}</div><p>Reason: ${esc(entry.reason||'')}</p></li>`).join('')}</ol></details>`:''}</article>`}
 function renderTeachingWeek(){const rooms=teachingRooms().filter(room=>mpsTeachingAccess(room.id)),room=rooms.some(item=>item.id===ui().lessonClass)?ui().lessonClass:rooms[0]?.id,monday=mpsTeachingWeekStart(),state=mpsTeachingWeekState(room,monday);if(!state)return shell(`${mpsTeachingHeader('Teaching week')}<p class="teaching-view-message">Teaching access is required.</p><div class="card">No teaching access for this classroom.</div>`);const end=isoAddDays(monday,4),label=`${fmtDate(monday)}–${fmtDate(end)}`,roomControl=rooms.length>1?`<div class="field teaching-week-room"><label for="teachingWeekRoom">Classroom</label><select id="teachingWeekRoom" onchange="chooseTeachingWeekClassroom(this.value)">${rooms.map(item=>`<option value="${esc(item.id)}" ${item.id===room?'selected':''}>${esc(classroomLabel(item.id,true))}</option>`).join('')}</select></div>`:`<div class="teaching-week-room-name">${esc(classroomLabel(room,true))}</div>`,days=state.days.filter(day=>day.planned.length||day.additional.length),body=!state.published&&!days.length?'<div class="card teaching-week-empty">No published plan for this week.</div>':!days.length?'<div class="card teaching-week-empty">No published activities for this week.</div>':days.map(day=>`<section class="card teaching-week-day" data-teaching-date="${esc(day.date)}"><h3><time datetime="${esc(day.date)}">${esc(fmtDate(day.date))}</time>${day.date===TODAY?' · Today':''}</h3>${day.planned.map(activity=>mpsTeachingWeekActivity(activity,state,day.date)).join('')}${day.additional.length?`<div class="teaching-week-additional-list"><h4>Additional experiences</h4>${day.additional.map(mpsTeachingWeekAdditional).join('')}</div>`:''}</section>`).join('');return shell(`${mpsTeachingHeader('Teaching week')}<p class="teaching-view-message">Published plans and what was recorded for this Classroom.</p><div class="teaching-week-controls">${roomControl}<div class="teaching-week-period"><strong>${esc(label)}</strong><div class="teaching-week-actions"><button type="button" class="btn secondary sm" onclick="changeTeachingWeek(-1)" ${mpsTeachingWeekAllowed(isoAddDays(monday,-7))?'':'disabled aria-disabled="true"'}>‹ Previous</button><button type="button" class="btn secondary sm" onclick="changeTeachingWeek(1)" ${mpsTeachingWeekAllowed(isoAddDays(monday,7))?'':'disabled aria-disabled="true"'}>Next ›</button>${monday===mpsMondayForDate(TODAY)?'':btn('Current week','currentTeachingWeek()','secondary','sm')}</div></div></div><div class="teaching-week-list">${body}</div>`)}
+// LQA-017 — move the existing source-owned Admissions visit, retaining its story.
+let admissionVisitRescheduledCase = null;
+const admissionOverviewBeforeRescheduleNotice = admissionOverview;
+admissionOverview = function(c){
+  const html = admissionOverviewBeforeRescheduleNotice(c);
+  if(admissionVisitRescheduledCase!==c.id)return html;
+  const holder=document.createElement('div');holder.innerHTML=html;
+  holder.querySelector('.action-card')?.insertAdjacentHTML('afterend',notice('Visit rescheduled','ok'));
+  return holder.innerHTML;
+};
+
+const admissionModalBeforeReschedule = modalView;
+modalView = function(m){
+  if(m.name!=='reschedule-tour')return admissionModalBeforeReschedule(m);
+  const c=db.admissions[m.data?.caseId];
+  if(!allowed('admissions')||!c||c.closed||admissionDisplayStage(c)!=='Visit'||c.tour?.status!=='scheduled')
+    return modal('Visit unavailable','',notice('This scheduled visit can no longer be changed.','warn'),btn('Close','closeOverlay()','secondary'));
+  const slot=c.tour;
+  return modal('Reschedule visit',esc(c.childName),
+    `${kv('Attending contact',esc(slot.contact||c.guardian||'Not recorded'))}<div class="form-grid admission-visit-fields">${field('Visit date',slot.date,'date',false,'tour_date')}${admissionVisitTimeField(slot.time)}</div>`,
+    `${btn('Cancel','closeOverlay()','secondary')}${btn('Save changes',`rescheduleAdmissionVisit('${c.id}')`,'primary')}`);
+};
+
+function rescheduleAdmissionVisit(id){
+  const c=db.admissions[id],m=ui().modal,old=c?.tour;
+  if(!allowed('admissions')||!c||c.closed||admissionDisplayStage(c)!=='Visit'||
+     old?.status!=='scheduled'||m?.name!=='reschedule-tour'||m.data?.caseId!==id)return false;
+  if(m.data.originalDate!==old.date||m.data.originalTime!==old.time)return false;
+  const date=val('tour_date'),time=mpsTimeFieldValue('tour_time');
+  if(!educationDate(date))return eliiraFieldError('tour_date','Choose a valid Visit date.');
+  if(time===null)return false;
+  if(date===old.date&&time===old.time)return eliiraFieldError('tour_date','Choose a different date or time.');
+  const previous={date:old.date,time:old.time},actor=staffActor(),at=new Date().toISOString();
+  const originalEvents=c.events,events=Array.isArray(originalEvents)?originalEvents:[];
+  const updated={...old,date,time};
+  const event={...ev('tour_rescheduled','Visit rescheduled',
+    `${fmtDate(previous.date)} · ${staffTimeLabel(previous.time)} → ${fmtDate(date)} · ${staffTimeLabel(time)} · ${actor?.name||mpsAdmissionActor()}`),
+    at,actor,previousSlot:previous,newSlot:{date,time}};
+  c.tour=updated;
+  c.events=[...events,event];
+  if(!save()){
+    c.tour=old;c.events=originalEvents;
+    return false;
+  }
+  admissionVisitRescheduledCase=id;
+  closeOverlay();
+  return true;
+}
 
 finishEducationBoot();
