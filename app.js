@@ -48432,7 +48432,7 @@ function mpsReviewSwitchStaff(id){
  const rooms=staffClassrooms(db.staff.accounts[id]);ui().lessonClass=rooms[0]||teachingRooms()[0]?.id||null;
  save();render();return true;
 }
-function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=6e5256b6a84c" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=6e5256b6a84c" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
+function shell(content){let p=currentPersona();return `<div class="app"><aside class="sidebar"><div class="brand"><img class="brand-logo" src="assets/brand/eliira-horizontal-colour-descriptor-free.svg?v=545dfb309cf0" alt="" aria-hidden="true"><h1 class="sr-only">Eliira</h1></div>${navList()}${headTeacherReview||prototypeReviewToolsActive?`<div class="nav-group review-nav-group"><div class="nav-label">Review</div>${mpsReviewStaffPicker()}<button class="nav-item" onclick="resetDemo()"><span class="ico">${mpsLineIcon('rotate-ccw')}</span>Reset review data</button></div>`:""}</aside><main class="main"><header class="topbar${populatedQaFixture?' review-date-header':''}"><div class="mobile-head"><img class="brand-symbol" src="assets/brand/eliira-symbol-colour.svg?v=545dfb309cf0" alt="Eliira"></div><div class="tenant"><b>${ORG}</b><span>Configured tenant · Eliira product</span></div><div class="top-spacer"></div>${(has('Admissions')||has('Accounts')||has('Head Teacher'))?`<input class="search" placeholder="Search child, family, invoice…" onkeydown="if(event.key==='Enter')globalSearch(this.value)"/>`:''}<div class="user-meta"><b>${p.name}</b><span>${p.bundles.join(' · ')}</span></div><div class="avatar">${p.initials}</div></header>${!prototypeReviewToolsActive?'':`<div class="review-harness"><strong>${populatedQaFixture?`Prototype review · ${mpsReviewDateKind()}: ${fmtDate(TODAY)}`:'Prototype review'}</strong>${mpsReviewDateControl()}<span>View as sample user only — real staff never switch roles.</span>${personaSelect()}</div>`}<div class="content">${content}</div></main>${mobileNav()}</div>`}
 function pageHead(eye,title,sub,actions=''){return `<div class="page-head"><div class="left"><div class="eyebrow">${eye}</div><h2>${title}</h2><p>${sub}</p></div>${actions?`<div class="page-actions">${actions}</div>`:''}</div>`}
 function globalSearch(q){q=(q||'').trim().toLowerCase();if(!q)return;if(allowed('admissions')){let a=Object.values(db.admissions).find(c=>c.childName.toLowerCase().includes(q)||c.guardian.toLowerCase().includes(q));if(a){ui().admissionsCase=a.id;ui().admissionsTab='overview';setRoute('admissions');return}}if(allowed('billing')){let inv=Object.values(db.billing.invoices).find(i=>i.number.toLowerCase().includes(q)||i.childName.toLowerCase().includes(q));if(inv){setRoute('billing');openModal('invoice-detail',{id:inv.id});return}}alert('No record in your authorised prototype scope matched that search.') }
 
@@ -48473,7 +48473,7 @@ function admissionOverview(c){let d=admissionDerived(c);let action='';
   else if(d.status==='Admission fee')action=actionCard('Admission fee in progress',`${money(c.fee.amount-c.fee.verified)} verified balance remaining.`,btn('Open payments',"setAdmissionTab('payments')",'primary','sm'));
   else if(d.status==='Fee satisfied')action=actionCard('Fee gate satisfied','Create the enrolment from the accepted Application; do not retype the family.',btn('Create enrolment',`openModal('create-enrolment',{caseId:'${c.id}'})`,'primary','sm'));
   else if(d.stage==='Enrolled')action=actionCard(`Pre-start · ${d.status}`,'Parent onboarding and staff review live here; safety readiness is separate from non-critical checklist completion.',btn('Open pre-start',"setAdmissionTab('prestart')",'primary','sm'),d.status==='Pre-start review'?'warning':'');
-  return `${action}<div class="grid" style="margin-top:12px"><div class="span-7 card"><h3>Family snapshot</h3>${kv('Lead source',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${kv('Tour',c.tour?`${c.tour.status} · ${fmtDate(c.tour.date)} ${c.tour.time||''}`:'Not yet scheduled')}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div><div class="span-5 card"><h3>Current state</h3>${kv('Stage',d.stage)}${kv('Status',badge(d.status,d.statusTone))}${kv('Next action',d.next)}${c.fee?kv('Admission fee',`${money(c.fee.amount)} · ${money(c.fee.verified)} verified`):''}</div></div>`}
+  return `${action}<div class="grid" style="margin-top:12px"><div class="span-7 card"><h3>Family snapshot</h3>${kv('How they heard about us',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${kv('Tour',c.tour?`${c.tour.status} · ${fmtDate(c.tour.date)} ${c.tour.time||''}`:'Not yet scheduled')}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div><div class="span-5 card"><h3>Current state</h3>${kv('Stage',d.stage)}${kv('Status',badge(d.status,d.statusTone))}${kv('Next action',d.next)}${c.fee?kv('Admission fee',`${money(c.fee.amount)} · ${money(c.fee.verified)} verified`):''}</div></div>`}
 function actionCard(title,sub,buttons,cls=''){return `<div class="action-card ${cls}"><div class="icon">${cls==='warning'?'!':'→'}</div><div class="grow"><strong>${title}</strong><span>${sub}</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${buttons}</div></div>`}
 function applicationSummary(c){let s=c.application.status;let labels={not_sent:'Not sent',sent:'Sent · waiting for parent',submitted:'Submitted · review required',accepted:'Accepted',waitlisted:'Waitlisted',declined:'Declined'};return labels[s]||s}
 function admissionApplication(c){let a=c.application;if(a.status==='not_sent')return `<div class="card"><h3>Application</h3><p>This family has not been sent an Application yet.</p><div style="margin-top:12px">${btn('Generate secure Application',`openModal('send-application',{caseId:'${c.id}'})`,'primary')}</div></div>`;
@@ -48511,7 +48511,7 @@ function pickupCard(p,i,caseId){return `<div class="card flat" style="margin-bot
 function parentFamilyFields(id,s){let c=db.admissions[id],d=ensureOnboarding(id).draft,body='';if(s===1)body=`${notice('Admissions information is prefilled. Complete or confirm the remaining pre-start family details.','info')}<div class="form-grid">${db.people?childPhotoInput(id,true):''}${field('Child full legal name',d.child.legalName,'text',false,'po_legal')}${field('Preferred / called name',d.child.preferred,'text',false,'po_pref')}${field('Date of birth',d.child.dob,'date',false,'po_dob')}${selectField('Gender',['Select…','Male','Female'],d.child.gender||'Select…','po_gender')}${field('Residential address',d.child.address,'text',false,'po_address')}<div class="field"><label>Primary language(s) spoken at home</label><div class="check-stack">${['Sinhala','English','Tamil'].map(x=>`<label class="check-row"><input data-home-language type="checkbox" value="${x}" ${checked((Array.isArray(d.child.languages)?d.child.languages:[d.child.languages]).includes(x))}> ${x}</label>`).join('')}</div></div></div>${selectField('Does the child have siblings?',['Select…','Yes','No'],d.child.hasSiblings||'Select…','po_has_siblings')}${d.child.hasSiblings==='Yes'?`<div class="section-title">Siblings</div>${d.child.siblings.map((x,i)=>`<div class="form-grid">${selectField(`Sibling ${i+1} relationship`,['Brother','Sister'],x.relationship,`po_sib${i}_rel`)}${field('Sibling date of birth',x.dob,'date',false,`po_sib${i}_dob`)}</div>`).join('')}${btn('+ Add sibling',`syncOnboarding('${id}',1);addSibling('${id}')`,'secondary','sm')}`:''}`;if(s===2)body=`${d.guardians.map(guardianCard).join('')}${btn('+ Add another guardian',`syncOnboarding('${id}',2);addGuardian('${id}')`,'secondary','sm')}<div class="section-title">Legal arrangements</div>${selectField('Are there any legal restrictions or special arrangements we should know about?',['Select…','No','Yes — provide details'],d.legalRestrictions?.answer||'Select…','po_legal_restrict')}${textArea('Details when Yes',d.legalRestrictions?.details||'','po_legal_details')}`;if(s===3)body=`<h3>Emergency contact</h3><div class="form-grid">${field('Name',d.emergency.name,'text',false,'po_em_name')}${selectField('Relationship',['Select…','Mother','Father','Stepmother','Stepfather','Grandmother','Grandfather','Aunt','Uncle','Adult sibling','Other'],d.emergency.relationship||'Select…','po_em_rel')}${field('Phone',d.emergency.phone,'text',false,'po_em_phone')}</div><div class="section-title">Authorised pickup people</div>${d.pickup.map((p,i)=>pickupCard(p,i,id)).join('')}${btn('+ Add pickup person',`syncOnboarding('${id}',3);addPickup('${id}')`,'secondary','sm')}`;if(s===4)body=`${selectField('Allergies',['Select…','No','Yes'],d.health.allergies||'Select…','po_allergy')}${field('Allergy details when Yes',d.health.allergyDetails,'text',false,'po_allergy_detail')}${selectField('Medical conditions',['Select…','No','Yes'],d.health.conditions||'Select…','po_conditions')}${field('Medical condition details when Yes',d.health.conditionDetails||'','text',false,'po_condition_detail')}${selectField('Regular medication',['Select…','No','Yes'],d.health.medication||'Select…','po_medication')}${field('Medication details when Yes',d.health.medicationDetails||'','text',false,'po_medication_detail')}${selectField('Dietary restrictions relevant to care',['Select…','No','Yes'],d.health.dietary||'Select…','po_dietary')}${field('Dietary details when Yes',d.health.dietaryDetails||'','text',false,'po_dietary_detail')}${field('Emergency medical instructions (if applicable)',d.health.emergencyInstructions||'','text',false,'po_emergency_medical')}${selectField("Anything else about your child's health or care?",['Select…','No','Yes'],d.health.other||'Select…','po_other')}${field('Other health / care details when Yes',d.health.otherDetails||'','text',false,'po_other_detail')}${notice('This submission is parent-provided evidence. It does not overwrite authoritative Health until staff review.','warn')}`;if(s===5)body=`${selectField('Is it okay if your child appears in photos we post on our Facebook page?',['Select…','Yes, that\'s okay','No, please don\'t include my child'],d.facebook||'Select…','po_facebook')}<div class="field"><label>Family communications</label><p class="field-help">Choose one or both authorised guardians for routine reports, invoices, receipts and preschool notices.</p>${onboardingRecipientFields(id)}</div>${kv('Agreed daycare arrangement',c.service)}${selectField('Uniform size',['Select size…','Size 22','Size 24','Size 26','Size 28'],d.starter.uniform||'Select size…','po_uniform')}${selectField('Books / accessories status',['Pending collection','Collected'],d.starter.books,'po_books')}`;return body}
 function renderParentOnboarding(){let id=ui().parentOnboardingCase,c=db.admissions[id];if(!c){ui().route='admissions';save();return renderAdmissions()}let o=ensureOnboarding(id),d=o.draft,s=ui().parentOnboardingStep,body='';body=parentFamilyFields(id,s);return `<div class="parent-view"><div class="parent-card"><div class="parent-brand"><strong>${ORG}</strong><p>New Family Onboarding · secure link · no parent account</p></div><div class="parent-content"><div class="stepper">${[1,2,3,4,5].map(i=>`<span class="${s>=i?'active':''}"></span>`).join('')}</div><div class="eyebrow">${esc(c.childName)} · pre-start</div><h2 style="color:var(--navy);font-size:20px;margin:5px 0 12px">${['Child & family','Guardians','Emergency & pickup','Health','Consent & starter'][s-1]}</h2>${body}<div class="parent-foot">${btn(s===1?'Back to MPS':'Back',s===1?`ui().route='admissions';ui().admissionsTab='prestart';save();render()`:`onboardingBack('${id}')`,'secondary')}${btn(s===5?'Submit onboarding':'Continue',s===5?`submitOnboarding('${id}')`:`onboardingNext('${id}')`,'primary')}</div></div></div></div>`}
 
-function todayActions(){let a=[];let dilan=db.attendance.dilan;if(dilan&&dilan.status==='present'&&activeTemporaryPickup('dilan')&&childInClassroomScope(db.people?.children?.dilan))a.push({sev:'red',icon:'!',title:'Dilan Jayasinghe still checked in',sub:'Temporary pickup instruction active · verify collector before handover',go:"setRoute('attendance')"});let sen=db.admissions.senuri;if(sen&&admissionDerived(sen).status==='Fee overdue'&&has('Admissions'))a.push({sev:'amber',icon:'receipt-text',title:'Senuri Peris · admission fee overdue',sub:'Admissions decision required — Extend, Waive or Release place',go:"ui().admissionsCase='senuri';setRoute('admissions')"});let hu=Object.values(db.health.updates).find(x=>x.status==='pending');if(hu&&has('Head Teacher'))a.push({sev:'amber',icon:'heart-pulse',title:'Health update awaiting review',sub:`${hu.childName} · parent submitted new medical information`,go:`ui().healthChild='${hu?.childId||''}';setRoute('health')`});let n=db.admissions.nethmi;if(n&&admissionDerived(n).stage==='Tour'&&has('Admissions'))a.push({sev:'blue',icon:'user-round-plus',title:'Nethmi Silva · admissions follow-up due',sub:'Tour completed · family wants to proceed',go:"ui().admissionsCase='nethmi';setRoute('admissions')"});let p=currentPersona();if(has('Accounts')){let pend=Object.values(db.billing.payments).find(x=>x.status==='pending');if(pend)a.push({sev:'amber',icon:'receipt-text',title:'Payment awaiting verification',sub:`${money(pend.amount)} · ${pend.reference}`,go:"setRoute('billing')",paymentId:pend.id})}return a}
+function todayActions(){let a=[];let dilan=db.attendance.dilan;if(dilan&&dilan.status==='present'&&activeTemporaryPickup('dilan')&&childInClassroomScope(db.people?.children?.dilan))a.push({sev:'red',icon:'!',title:'Dilan Jayasinghe still checked in',sub:'Temporary pickup instruction active · verify collector before handover',go:"setRoute('attendance')",actionLabel:'View attendance'});let sen=db.admissions.senuri;if(sen&&admissionDerived(sen).status==='Fee overdue'&&has('Admissions'))a.push({sev:'amber',icon:'receipt-text',title:'Senuri Peris · admission fee overdue',sub:'Admissions decision required — Extend, Waive or Release place',go:"ui().admissionsCase='senuri';setRoute('admissions')",actionLabel:'Review case'});let hu=Object.values(db.health.updates).find(x=>x.status==='pending');if(hu&&has('Head Teacher'))a.push({sev:'amber',icon:'heart-pulse',title:'Health update awaiting review',sub:`${hu.childName} · parent submitted new medical information`,go:`ui().healthChild='${hu?.childId||''}';setRoute('health')`,actionLabel:'Review health update'});let n=db.admissions.nethmi;if(n&&admissionDerived(n).stage==='Tour'&&has('Admissions'))a.push({sev:'blue',icon:'user-round-plus',title:'Nethmi Silva · admissions follow-up due',sub:'Tour completed · family wants to proceed',go:"ui().admissionsCase='nethmi';setRoute('admissions')",actionLabel:'Review enquiry'});let p=currentPersona();if(has('Accounts')){let pend=Object.values(db.billing.payments).find(x=>x.status==='pending');if(pend)a.push({sev:'amber',icon:'receipt-text',title:'Payment awaiting verification',sub:`${money(pend.amount)} · ${pend.reference}`,go:"setRoute('billing')",paymentId:pend.id,actionLabel:'Review payment'})}return a}
 function todayAttentionIcon(icon){const names={"receipt-text":"receipt-text","₨":"receipt-text","heart-pulse":"heart-pulse","user-round-plus":"user-round-plus","users-round":"users-round","settings":"settings","⚙":"settings","◎":"user-round-plus"};return names[icon]?mpsLineIcon(names[icon]):'<span aria-hidden="true">!</span>'}
 function todayAttentionSection(actions){return `<div class="section-title today-attention-title">Needs your attention</div>${actions.length?`<div class="grid today-attention-list">${actions.map(x=>`<div class="span-6 action-card ${x.sev==='amber'?'warning':''}" ${x.medicationKey?`data-medication-due="${esc(x.medicationKey)}"`:''}><div class="icon" aria-hidden="true">${todayAttentionIcon(x.icon)}</div><div class="grow"><strong>${x.title}</strong><span>${x.sub}</span></div>${btn(x.actionLabel||'Open',x.go,x.actionStyle||'secondary','sm')}</div>`).join('')}</div>`:'<p class="today-attention-clear">Nothing needs attention right now.</p>'}`}
 function renderToday(){let p=currentPersona(),actions=todayActions();
@@ -48735,7 +48735,7 @@ function renderMedia(){let socialOnly=has('Social Media')&&!has('Head Teacher')&
 function privateMedia(){let photos=Object.values(db.media.photos).filter(p=>!p.deletedAt&&canViewPrivatePhoto(p));return `<div class="media-grid">${photos.map(p=>`<div class="media-card"><div class="media-thumb">${p.image?.data?.startsWith('data:image/jpeg;base64,')?`<img src="${esc(p.image.data)}" alt="${esc(p.title)}">`:'◩'}</div><div class="media-body"><strong>${p.title}</strong><span>${lessonEvidenceVisibility(p.visibility).text} · ${p.date}</span><div>${p.childIds.map(id=>profileChildLink(id)).join(', ')}</div><div class="media-actions">${p.observationId&&!mpsObservationPhotoPublicReady(p)?badge('Staff evidence','grey'):p.marketing.status==='not_nominated'?btn('Nominate',`nominatePhoto('${p.id}')`,'secondary','sm'):p.marketing.status==='pending'?badge('Marketing review','amber'):p.marketing.status==='approved'?badge('Approved asset','green'):badge(p.marketing.status,'grey')}<details class="media-item-menu"><summary class="btn secondary sm" role="button" aria-label="Photo actions for ${esc(p.title)}"><span aria-hidden="true">⋯</span></summary><div class="media-item-menu-options" role="menu"><button type="button" role="menuitem" onclick="openModal('delete-photo',{id:'${p.id}'})">Delete</button></div></details></div></div></div>`).join('')||'<div class="empty operational-empty"><strong>No photos are available here yet.</strong><span>Add a photo while recording an Observation. Eligible photos will appear here for review.</span></div>'}</div>`}
 function nominatePhoto(id){let p=db.media.photos[id];if(!canViewPrivatePhoto(p))return;p.marketing.nominatedActor=staffActor();p.marketing.status='pending';p.marketing.use='Facebook';ui().mediaTab='review';save();render()}
 function marketingReview(){let photos=Object.values(db.media.photos).filter(p=>!p.deletedAt&&p.marketing.status==='pending');return `<div class="card"><h3>Marketing queue</h3>${photos.map(p=>`<div class="child-row"><strong>${p.title}</strong><span>${badge('Awaiting review','amber')}</span><span class="hide-mobile">${p.marketing.use}</span><span>${btn('Review',`openModal('marketing-review',{id:'${p.id}'})`,'primary','sm')}</span></div>`).join('')||'<div class="empty">No items awaiting review.</div>'}</div>`}
-function approvedAssets(){let assets=Object.values(db.media.approvedAssets);return `<div class="media-grid">${assets.map(a=>`<div class="media-card"><div class="media-thumb">▧</div><div class="media-body"><strong>${a.title}</strong><span>${a.use} · approved ${a.approvedAt}</span><div class="media-actions">${badge('Public-safe asset','green')}</div></div></div>`).join('')||'<div class="empty operational-empty"><strong>No approved public-use photos yet.</strong></div>'}</div>`}
+function approvedAssets(){let assets=Object.values(db.media.approvedAssets);return `<div class="media-grid">${assets.map(a=>`<div class="media-card"><div class="media-thumb">▧</div><div class="media-body"><strong>${a.title}</strong><span>${a.use} · approved ${a.approvedAt}</span><div class="media-actions">${badge('Public-safe asset','green')}</div></div></div>`).join('')||'<div class="empty operational-empty"><strong>No photos approved for public use yet.</strong></div>'}</div>`}
 function approveMarketing(id){let p=db.media.photos[id];p.marketing.decisionActor=staffActor();p.marketing.status='approved';p.marketing.decision='Approved';let aid='asset_'+id;db.media.approvedAssets[aid]={id:aid,photoId:id,title:p.title,use:p.marketing.use,approvedAt:'14 Sep 2026',approvedBy:currentPersona().name,approvedById:currentPersona().id};closeOverlay()}
 function rejectMarketing(id){let p=db.media.photos[id];p.marketing.decisionActor=staffActor();p.marketing.status='rejected';p.marketing.decision='Rejected for marketing';closeOverlay()}
 function deletePhoto(id){let p=db.media.photos[id];if(!canViewPrivatePhoto(p))return;p.deletedActor=staffActor();p.deletedAt=new Date().toISOString();db.media.recycle[id]={photoId:id,deletedAt:p.deletedAt,deleteAfter:'30 days',reason:val('delete_reason'),hold:p.hold};closeOverlay()}
@@ -49197,11 +49197,11 @@ function removePlannedActivity(uid){const p=planActivityByUid(uid);if(!plannedAc
 saveAdaptation=function(uid){const p=planActivityByUid(uid);if(!plannedActivityCanChange(p))return;const before=plannedActivityFacts(p),classChangeNote=val('classChangeNote').trim();if(before.classChangeNote!==classChangeNote){p.a.classChangeNote=classChangeNote;p.a.adaptedActor=staffActor();recordPublishedPlanAmendment(p.wk,'adapted',before,plannedActivityFacts(p));save()}ui().drawer=null;render()}
 function mpsPlannedCardDescription(activity,lib){
  const frozen=activity?.guidanceSnapshot?.reviewedGuide;
- if(frozen){const about=frozen.id===lib?.id&&Array.isArray(frozen.questions)&&frozen.questions.length===5?frozen.questions[0]:null;return typeof about==='string'&&about.trim()?about.trim():'Reviewed description not saved with this plan.'}
+ if(frozen){const about=frozen.id===lib?.id&&Array.isArray(frozen.questions)&&frozen.questions.length===5?frozen.questions[0]:null;return typeof about==='string'&&about.trim()?about.trim():'No description was saved for this plan.'}
  // A source summary is not the reviewed, Level-appropriate answer. Older
  // occurrences without that frozen answer retain their source facts, but the
  // card must not pass an older summary off as current teaching guidance.
- if(mpsApprovedReviewGuide(lib))return 'Reviewed description not saved with this plan.';
+ if(mpsApprovedReviewGuide(lib))return 'No description was saved for this plan.';
  return typeof lib?.summary==='string'?lib.summary.trim():'';
 }
 function mpsPlanGuidanceSnapshot(lib,day){
@@ -50235,7 +50235,7 @@ function admissionOverview(c){
   else if(d.status==='Admission fee')action=actionCard('Admission fee in progress',`${money(c.fee.amount-c.fee.verified)} verified balance remaining.`,btn('Open payments',"setAdmissionTab('payments')",'primary','sm'));
   else if(d.status==='Fee satisfied')action=actionCard('Fee gate satisfied','Create the enrolment from the accepted Application; do not retype the family.',btn('Create enrolment',`openModal('create-enrolment',{caseId:'${c.id}'})`,'primary','sm'));
   else if(d.stage==='Enrolled')action=actionCard(`Pre-start · ${d.status}`,'Parent onboarding and staff review live here; safety readiness is separate from non-critical checklist completion.',btn('Open pre-start',"setAdmissionTab('prestart')",'primary','sm'),d.status==='Pre-start review'?'warning':'');
-  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${kv('Tour',c.tour?`${c.tour.status} · ${fmtDate(c.tour.date)} ${c.tour.time||''}`:'Not yet scheduled')}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`
+  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('How they heard about us',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${kv('Tour',c.tour?`${c.tour.status} · ${fmtDate(c.tour.date)} ${c.tour.time||''}`:'Not yet scheduled')}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`
 }
 
 // Owner Issue 005 — one plain-language Admissions stage vocabulary across the staff UI.
@@ -50383,7 +50383,7 @@ admissionOverview=function(c){
       ?actionCard(c.enrolment?.status==='pending_start'?'Ready to start':'Start requirements met',c.enrolment?.status==='pending_start'?`Starts ${fmtDate(c.enrolment.start)} · Safety and required start checks are complete.`:'Safety and required start checks are complete.',activation)
       :actionCard('Pre-start needs attention','Required start checks still need attention.',reviewAction,'warning');
   }
-  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${kv('Visit',admissionVisitTiming(c))}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.enrolment?c.enrolment.start:c.start))}</div>`
+  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('How they heard about us',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${kv('Visit',admissionVisitTiming(c))}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.enrolment?c.enrolment.start:c.start))}</div>`
 };
 
 const _mpsAdmissionPlainModalView=modalView;
@@ -51177,7 +51177,7 @@ admissionOverview = function(c){
   const action = actionCard(title, sub, btn(button, `openModal('qualify-lead',{caseId:'${c.id}'})`, 'primary', 'sm'));
   const followUpRow = followUp ? kv('Next follow-up', fmtDate(followUp)) : '';
 
-  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${followUpRow}${kv('Visit',admissionVisitTiming(c))}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`;
+  return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('How they heard about us',`${c.source} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',c.reason||'—')}${followUpRow}${kv('Visit',admissionVisitTiming(c))}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`;
 };
 
 function toggleEnquiryContactFields(){
@@ -51283,7 +51283,7 @@ admissionApplication = function(c){
       ${a.snapshot?.data?.note?kv('Historical parent-submitted note',`${esc(a.snapshot.data.note)} ${prov('Parent submitted','parent')}`):''}
 
       <div class="section-title">Admissions context</div>
-      ${kv('Lead source',`${esc(c.source||'—')} ${prov('Admissions history','staff')}`)}
+      ${kv('How they heard about us',`${esc(c.source||'—')} ${prov('Admissions history','staff')}`)}
       ${kv('Reason for choice',esc(c.reason||'—'))}
       ${kv('Confirmed Interest / follow-up',contactValue)}
       ${kv('Visit',visitValue)}
@@ -51958,7 +51958,7 @@ admissionApplication=function(c){
     ${kv('Requested service',esc(agreedServiceDisplay(snap.service||c.service,snap.daycarePlanId)))}${kv('Desired start',fmtDate(snap.start||c.start))}
     ${a.snapshot?.data?.note?kv('Historical parent-submitted note',`${esc(a.snapshot.data.note)} ${prov('Parent submitted','parent')}`):''}
     <div class="section-title">Admissions context</div>
-    ${kv('Lead source',`${esc(c.source||'—')} ${prov('Admissions history','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}
+    ${kv('How they heard about us',`${esc(c.source||'—')} ${prov('Admissions history','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}
     ${kv('Confirmed Interest / follow-up',contactValue)}${kv('Visit',visitValue)}
     ${visitNote?kv('Visit note',`${esc(visitNote)} ${prov('Staff recorded','staff')}`):''}
     ${additionalInfo?kv('Additional information',`${esc(additionalInfo)} ${prov('Staff recorded at Visit','staff')}`):kv('Additional information','None recorded — this is optional and case-specific.')}
@@ -52255,7 +52255,7 @@ admissionOverview = function(c){
       'The Visit is complete but the family is not yet recorded as ready for Application. Update the factual Visit outcome when the follow-up is resolved.',
       btn('Update visit outcome',`openModal('complete-tour',{caseId:'${c.id}'})`,'primary','sm')
     );
-    return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}${kv('Visit',admissionVisitTiming(c))}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`;
+    return `${action}<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('How they heard about us',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}${kv('Visit',admissionVisitTiming(c))}${kv('Application',applicationSummary(c))}${kv('Planned start',fmtDate(c.start))}</div>`;
   }
   return _mpsAuditAdmissionOverview2(c);
 };
@@ -52596,7 +52596,7 @@ admissionOverview=function(c){
   if(admissionDisplayStage(c)==='Accepted'&&!c.fee){
     const p=c.application?.acceptedPlacement||{};
     const action=actionCard('Accepted · waiting for admission-fee invoice','Billing will review and issue the admission-fee invoice.',has('Accounts')?(mpsAdmissionFeeDraft(c)?btn('Review & issue invoice',`openAdmissionFeeBilling('${c.id}')`,'secondary'):btn('Prepare admission-fee draft',`mpsReprepareAdmissionFeeDraft('${c.id}')`,'secondary')):badge('Waiting for Billing','blue'));
-    const details=`<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}${kv('Application',applicationSummary(c))}${kv(p.levelId?'Accepted level':'Accepted programme',esc(p.programme||c.acceptedProgramme||'—'))}${kv('Accepted classroom',esc(p.classroom||p.className||c.acceptedClassroom||'—'))}${kv('Accepted start',fmtDate(p.startDate||c.start))}</div>`;
+    const details=`<div class="card" style="margin-top:12px"><h3>Admission details</h3>${kv('How they heard about us',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`)}${kv('Reason for choice',esc(c.reason||'—'))}${kv('Application',applicationSummary(c))}${kv(p.levelId?'Accepted level':'Accepted programme',esc(p.programme||c.acceptedProgramme||'—'))}${kv('Accepted classroom',esc(p.classroom||p.className||c.acceptedClassroom||'—'))}${kv('Accepted start',fmtDate(p.startDate||c.start))}</div>`;
     const management=mpsEstablishedDuplicateEligible(c)?`<div class="card" style="margin-top:12px"><div class="card-header"><div class="grow"><h3>Record management</h3><p>Use only when staff later confirms this Admissions record is a duplicate of another record.</p></div>${btn('Mark as duplicate',`mpsOpenEstablishedDuplicate('${c.id}')`,'secondary','sm')}</div></div>`:'';
     return `${action}${details}${management}`;
   }
@@ -52624,7 +52624,7 @@ todayActions=function(){
       const admission=invoice?.category==='admission_fee'&&caseId&&mpsAdmissionFeeInvoice(db.admissions[caseId])?.id===invoice.id;
       const go=admission?`setRoute('billing');openModal('verify-admission-payment',{caseId:'${caseId}',paymentId:'${p.id}'})`:invoice?`setRoute('billing');openModal('verify-payment',{id:'${p.id}'})`:"setRoute('billing')";
       const name=p.childName||db.admissions[caseId]?.childName||invoice?.childName;
-      return {sev:'amber',icon:'₨',paymentId:p.id,title:admission?`${esc(name||'Admission')} · payment awaiting verification`:`${name?esc(name)+' · ':''}Payment awaiting verification`,sub:`${admission?'Admission fee · ':''}${money(p.amount)} · ${esc(p.reference||'No reference')}`,go};
+      return {sev:'amber',icon:'₨',paymentId:p.id,title:admission?`${esc(name||'Admission')} · payment awaiting verification`:`${name?esc(name)+' · ':''}Payment awaiting verification`,sub:`${admission?'Admission fee · ':''}${money(p.amount)} · ${esc(p.reference||'No reference')}`,go,actionLabel:'Review payment'};
     });
     a.unshift(...paymentActions);
     if(!pending.length){
@@ -52778,7 +52778,7 @@ admissionOverview=function(c){
   const messageRow=mpsEnquiryMessageRow(c);
   if(!messageRow) return html;
 
-  const leadSourceRow=kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`);
+  const leadSourceRow=kv('How they heard about us',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`);
   if(html.includes(leadSourceRow)) return html.replace(leadSourceRow,`${leadSourceRow}${messageRow}`);
 
   const detailsHeading='<h3>Admission details</h3>';
@@ -52934,7 +52934,7 @@ function mpsEnquiryInterestSelect(value='',id='ne_interest_reason'){
   const current=String(value||''),approved=mpsEnquiryInterestReasons();
   const values=current&&!approved.includes(current)?['',current,...approved]:['',...approved];
   const options=values.map(x=>`<option value="${esc(x)}" ${x===current?'selected':''}>${x?esc(x):'Select if recorded'}</option>`).join('');
-  return `<div class="field"><label for="${id}">What made you interested in ${esc(mpsOrganisationName())}?</label><select id="${id}">${options}</select></div>`;
+  return `<div class="field"><label for="${id}">What interested the family in ${esc(mpsOrganisationName())}?</label><select id="${id}">${options}</select></div>`;
 }
 function mpsEnquirySourceSelect(value='',id='ne_source'){
   const current=String(value||''),values=current&&!sources.includes(current)?[current,...sources]:sources;
@@ -52942,7 +52942,7 @@ function mpsEnquirySourceSelect(value='',id='ne_source'){
 }
 function mpsNewEnquirySourceSelect(value=''){
   const current=String(value||'');
-  return `<div class="field"><label for="ne_source">How did you hear about us?</label><select id="ne_source"><option value="" ${current?'':'selected'} disabled>Select lead source</option>${sources.map(x=>`<option value="${esc(x)}" ${x===current?'selected':''}>${esc(x)}</option>`).join('')}</select></div>`;
+  return `<div class="field"><label for="ne_source">How did you hear about us?</label><select id="ne_source"><option value="" ${current?'':'selected'} disabled>Choose how they heard about us</option>${sources.map(x=>`<option value="${esc(x)}" ${x===current?'selected':''}>${esc(x)}</option>`).join('')}</select></div>`;
 }
 function mpsNewEnquirySection(id,title,content){
   return `<section class="new-enquiry-section" data-enquiry-group="${esc(id)}" aria-labelledby="new-enquiry-${esc(id)}"><h3 id="new-enquiry-${esc(id)}">${esc(title)}</h3>${content}</section>`;
@@ -52960,7 +52960,7 @@ function mpsSaveEnquiryDetails(id){
   eliiraBeginValidation('ne_child');
   const childName=val('ne_child').trim(),guardian=val('ne_guardian').trim(),dob=val('ne_dob'),start=val('ne_start');
   if(!childName)return eliiraFieldError('ne_child','Enter the child name.');
-  if(!guardian)return eliiraFieldError('ne_guardian','Enter the parent / guardian name.');
+  if(!guardian)return eliiraFieldError('ne_guardian','Enter the contact name.');
   if(!dob)return eliiraFieldError('ne_dob','Enter the child date of birth.');
   if(!start)return eliiraFieldError('ne_start','Enter the desired start date.');
   const phone=mpsNormalisePhone(val('ne_phone'),val('ne_phone_country'));
@@ -52988,10 +52988,10 @@ modalView=function(m){
     const countrySelect=`<div class="field"><label>Phone region</label><select id="ne_phone_country">${countries.map(x=>`<option value="${x.code}" ${x.code===defaultCountry?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
     const phoneField=`<div class="field"><label>Phone</label><input id="ne_phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(p.phone||'')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
     const dob=p.dob||'',start=p.start||'';
-    const contact=`<div class="form-grid">${field('Parent / contact name',p.guardian||'','text',false,'ne_guardian')}${field('Email (optional)',p.email||'','email',false,'ne_email')}${countrySelect}${phoneField}</div>${notice('Phone is checked for reliable matching. Email is optional.','info')}`;
-    const child=`<div class="form-grid">${field('Child name',p.childName||'','text',false,'ne_child')}${field('Child DOB',dob,'date',false,'ne_dob')}</div>`;
+    const contact=`<div class="form-grid">${field('Contact name',p.guardian||'','text',false,'ne_guardian')}${field('Email (optional)',p.email||'','email',false,'ne_email')}${countrySelect}${phoneField}</div>${notice('Phone is checked for reliable matching. Email is optional.','info')}`;
+    const child=`<div class="form-grid">${field('Child name',p.childName||'','text',false,'ne_child')}${field("Child's date of birth",dob,'date',false,'ne_dob')}</div>`;
     const placement=`<div class="form-grid">${field('Desired start',start,'date',false,'ne_start')}${mpsEnquiryDaycareSelect(Object.prototype.hasOwnProperty.call(p,'daycarePlanId')?p.daycarePlanId:undefined)}</div>${kv('Likely level','<span id="enquiry_suggestion">'+enquirySuggestionHtml(dob,start)+'</span>')}`;
-    const body=`${mpsNewEnquirySection('contact','Parent / contact details',contact)}${mpsNewEnquirySection('child','Child details',child)}${mpsNewEnquirySection('placement','Placement',placement)}${mpsNewEnquirySection('message','Enquiry message',textArea('Message',p.message||'','ne_message'))}${mpsNewEnquirySection('origin','Enquiry source / interest',mpsNewEnquirySourceSelect(p.source)+mpsEnquiryInterestSelect(p.reason))}`;
+    const body=`${mpsNewEnquirySection('contact','Contact details',contact)}${mpsNewEnquirySection('child','Child details',child)}${mpsNewEnquirySection('placement','Placement',placement)}${mpsNewEnquirySection('message','Enquiry message',textArea('Message',p.message||'','ne_message'))}${mpsNewEnquirySection('origin','How they found us and what interested them',mpsNewEnquirySourceSelect(p.source)+mpsEnquiryInterestSelect(p.reason))}`;
     return modal('New enquiry','',body.replace('id="ne_dob"','id="ne_dob" onchange="enquirySuggestion()"').replace('id="ne_start"','id="ne_start" onchange="enquirySuggestion()"'),`${btn('Cancel','closeOverlay()','secondary')}${btn('Save enquiry','mpsSaveValidatedEnquiry()','primary')}`);
   }
   if(n==='edit-enquiry-details'){
@@ -53000,7 +53000,7 @@ modalView=function(m){
     const countries=mpsPhoneCountryOptions(),country=c.phoneCountry||mpsDefaultPhoneCountry();
     const countrySelect=`<div class="field"><label for="ne_phone_country">Phone region</label><select id="ne_phone_country">${countries.map(x=>`<option value="${x.code}" ${x.code===country?'selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
     const phoneField=`<div class="field"><label for="ne_phone">Phone</label><input id="ne_phone" type="tel" inputmode="tel" autocomplete="tel" value="${esc(c.phone||'')}" oninput="this.value=mpsPhoneInput(this.value)" /></div>`;
-    const body=`${mpsEnquirySourceSelect(c.source)}${mpsEnquiryInterestSelect(c.reason)}<div class="form-grid">${field('Parent / contact name',c.guardian||'','text',false,'ne_guardian')}${field('Email (optional)',c.email||'','email',false,'ne_email')}${countrySelect}${phoneField}${field('Child name',c.childName||'','text',false,'ne_child')}${field('Child DOB',c.dob||'','date',false,'ne_dob')}${field('Desired start',c.start||'','date',false,'ne_start')}${mpsEditEnquiryDaycareSelect(c.daycarePlanId)}</div>${kv('Likely level','<span id="enquiry_suggestion">'+enquirySuggestionHtml(c.dob,c.start)+'</span>')}${textArea('Enquiry message',c.message||'','ne_message')}`;
+    const body=`${mpsEnquirySourceSelect(c.source)}${mpsEnquiryInterestSelect(c.reason)}<div class="form-grid">${field('Contact name',c.guardian||'','text',false,'ne_guardian')}${field('Email (optional)',c.email||'','email',false,'ne_email')}${countrySelect}${phoneField}${field('Child name',c.childName||'','text',false,'ne_child')}${field("Child's date of birth",c.dob||'','date',false,'ne_dob')}${field('Desired start',c.start||'','date',false,'ne_start')}${mpsEditEnquiryDaycareSelect(c.daycarePlanId)}</div>${kv('Likely level','<span id="enquiry_suggestion">'+enquirySuggestionHtml(c.dob,c.start)+'</span>')}${textArea('Enquiry message',c.message||'','ne_message')}`;
     return modal('Edit enquiry details','Correct a captured fact when necessary.',body.replace('id="ne_dob"','id="ne_dob" onchange="enquirySuggestion()"').replace('id="ne_start"','id="ne_start" onchange="enquirySuggestion()"'),`${btn('Cancel','closeOverlay()','secondary')}${btn('Save enquiry details',`mpsSaveEnquiryDetails('${c.id}')`,'primary')}`);
   }
   return _mpsBq092ModalView(m);
@@ -53010,7 +53010,7 @@ function mpsSaveValidatedEnquiry(){
   eliiraBeginValidation('ne_child');
   const childName=val('ne_child').trim(), guardian=val('ne_guardian').trim(), dob=val('ne_dob'), start=val('ne_start');
   if(!childName)return eliiraFieldError('ne_child','Enter the child name.');
-  if(!guardian)return eliiraFieldError('ne_guardian','Enter the parent / guardian name.');
+  if(!guardian)return eliiraFieldError('ne_guardian','Enter the contact name.');
   if(!dob)return eliiraFieldError('ne_dob','Enter the child date of birth.');
   if(!start)return eliiraFieldError('ne_start','Enter the desired start date.');
   const phone=mpsNormalisePhone(val('ne_phone'),val('ne_phone_country'));
@@ -53045,7 +53045,7 @@ const _mpsBq092AdmissionOverview=admissionOverview;
 admissionOverview=function(c){
   const html=_mpsBq092AdmissionOverview(c);
   if(!c.email) return html;
-  const leadSourceRow=kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`);
+  const leadSourceRow=kv('How they heard about us',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`);
   const emailRow=kv('Email',`${esc(c.email)} ${prov(c.source==='Website'?'Parent submitted':'Staff recorded',c.source==='Website'?'parent':'staff')}`);
   return html.includes(leadSourceRow) ? html.replace(leadSourceRow,`${leadSourceRow}${emailRow}`) : html;
 };
@@ -53165,7 +53165,7 @@ admissionOverview=function(c){
   const messageRow=typeof mpsEnquiryMessageRow==='function' ? mpsEnquiryMessageRow(c) : '';
   if(messageRow && html.includes(messageRow)) return html.replace(messageRow,`${messageRow}${noteRow}`);
 
-  const leadSourceRow=kv('Lead source',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`);
+  const leadSourceRow=kv('How they heard about us',`${esc(c.source||'—')} ${prov('Recorded in Admissions','staff')}`);
   if(html.includes(leadSourceRow)) return html.replace(leadSourceRow,`${leadSourceRow}${noteRow}`);
 
   const detailsHeading='<h3>Admission details</h3>';
@@ -53853,7 +53853,7 @@ function mpsRefreshTeachingClassrooms(id){
   field.querySelectorAll('[data-staff-room]').forEach(input=>input.disabled=!visible);
 }
 function mpsResponsibilityFields(selected=[],roomId='access_rooms'){
-  return `<fieldset class="staff-responsibilities"><legend>Responsibilities</legend>${mpsBundleOptions().map(b=>`<label class="check-row"><input data-bundle type="checkbox" value="${b}" ${checked(selected.includes(b))} onchange="mpsRefreshTeachingClassrooms('${roomId}')"> ${b}</label>`).join('')}</fieldset>`;
+  return `<fieldset class="staff-responsibilities"><legend>Roles and access</legend>${mpsBundleOptions().map(b=>`<label class="check-row"><input data-bundle type="checkbox" value="${b}" ${checked(selected.includes(b))} onchange="mpsRefreshTeachingClassrooms('${roomId}')"> ${b}</label>`).join('')}</fieldset>`;
 }
 function mpsManageAccessModal(id){
   const a=mpsAccount(id);if(!a)return modal('Manage access','',notice('Staff account not found.','warn'),btn('Close','closeOverlay()','secondary'));
@@ -54931,7 +54931,7 @@ function mpsSimplifyPageHeadings(root){
       if(heading==='Staff'){
         const action=head.querySelector('.page-actions button');
         if(action?.getAttribute('onclick')==="openModal('staff-account')"&&!action.querySelector('.workspace-action-label-mobile')){
-          action.innerHTML='<span class="workspace-action-label-desktop">Add staff account</span><span class="workspace-action-label-mobile">Add staff</span>';
+          action.innerHTML='<span class="workspace-action-label-desktop">Invite a staff member</span><span class="workspace-action-label-mobile">Invite staff</span>';
         }
       }
     }
@@ -55597,7 +55597,7 @@ function invoiceRecipientContext(inv){
   if(issued&&!rows.length){
     const c=db.admissions?.[inv.admissionsCaseId];
     const current=c&&!c.enrolment?admissionsFamilyContactSnapshot(c.id):[];
-    return kv('Recipient at issue','Not recorded on this earlier invoice')+(current.length?kv('Current Parent / Guardian contact',esc(current.map(x=>x.name).join(', '))):'');
+    return kv('Recipient when issued','Not recorded on this earlier invoice')+(current.length?kv('Current Parent / Guardian contact',esc(current.map(x=>x.name).join(', '))):'');
   }
   return kv(issued&&label==='Family communications'?'Family communications at issue':label,rows.length?recipientSnapshotDisplay(rows):label==='Parent / Guardian contact'?'No eligible Parent / Guardian contact recorded':'Choose an authorised guardian in Family communications');
 }
@@ -55940,7 +55940,7 @@ function renderStaffProfiles(){
     if(section==='Security')body=mpsOwnSecurityContent(id);
     return shell(`${pageHead('','Staff','',btn('All staff',"ui().profileStaff=null;render()",'secondary'))}<div class="card profile-hero">${staffProfilePhotoEditor(a)}<div><h2>${esc(a.name)}</h2><p>${esc(staffAssignmentLabel(a))} · ${esc(staffAccountState(a))}</p></div></div><div class="tabs profile-tabs staff-profile-tabs">${tabs.map(s=>`<button class="tab ${section===s?'active':''}" onclick="ui().staffProfileSection='${s}';render()">${s}</button>`).join('')}</div><div class="card">${body}</div>`);
   }
-  const group=ui().staffGroup||'current',accounts=Object.values(db.staff.accounts).filter(a=>group==='former'?a.status==='inactive':a.status!=='inactive');return shell(`${pageHead('','Staff','People and responsibilities.',mpsCurrentIsAccountAdmin()?btn('Add staff account',"openModal('staff-account')",'primary'):'')}${directoryTabs('staff')}<div class="profile-list">${accounts.map(a=>`<div class="card"><button class="person-choice" onclick="openStaffProfile('${a.id}')">${personPhoto(a.profile?.photo,a.name)}<span><strong>${esc(a.name)}</strong><small>${esc(staffAssignmentLabel(a))} · ${esc(a.status==='pending_profile'?'Pending profile completion':a.status)}</small></span><span>›</span></button><div class="staff-roster-responsibility">${esc(a.bundles?.[0]||'No responsibilities assigned')}${a.bundles?.length>1?` · ${a.bundles.length} responsibilities`:''}</div>${staffRosterAttention(a)}</div>`).join('')}</div>`);
+  const group=ui().staffGroup||'current',accounts=Object.values(db.staff.accounts).filter(a=>group==='former'?a.status==='inactive':a.status!=='inactive');return shell(`${pageHead('','Staff','People and responsibilities.',mpsCurrentIsAccountAdmin()?btn('Invite a staff member',"openModal('staff-account')",'primary'):'')}${directoryTabs('staff')}<div class="profile-list">${accounts.map(a=>`<div class="card"><button class="person-choice" onclick="openStaffProfile('${a.id}')">${personPhoto(a.profile?.photo,a.name)}<span><strong>${esc(a.name)}</strong><small>${esc(staffAssignmentLabel(a))} · ${esc(a.status==='pending_profile'?'Pending profile completion':a.status)}</small></span><span>›</span></button><div class="staff-roster-responsibility">${esc(a.bundles?.[0]||'No responsibilities assigned')}${a.bundles?.length>1?` · ${a.bundles.length} responsibilities`:''}</div>${staffRosterAttention(a)}</div>`).join('')}</div>`);
 }
 function staffBirthdaysOn(date){
   const y=+date.slice(0,4),leap=y%4===0&&(y%100!==0||y%400===0);
@@ -56879,7 +56879,7 @@ function daycareActivityCoverage(){
 }
 function daycareGroupLabel(group){return group==='daycare'?'Daycare':group==='extension'?'Late care extension':careLabel(group,true)}
 function daycareGroupShortLabel(group){return daycarePlan(group)?.name||daycareGroupLabel(group)}
-function daycareActivityRequirement(){const missing=daycareActivityCoverage();return missing.length?notice(`Activity still needed today for ${missing.map(daycareGroupLabel).join(' and ')}.`,'warn'):''}
+function daycareActivityRequirement(){const missing=daycareActivityCoverage();return missing.length?notice(`Record an activity today for ${missing.map(daycareGroupShortLabel).join(' and ')}.`,'warn'):''}
 function daycareRecordTime(record){
  if(record.time)return record.time;
  if(!record.at||Number.isNaN(Date.parse(record.at)))return null;
@@ -57060,7 +57060,9 @@ function applicationFamilyFields(id,step){
   let html=parentFamilyFields(id,step>2?step+1:step);
   if(step===1){
     html=html.replace(childPhotoInput(id,true),'');
-    html=html.replace('Admissions information is prefilled. Complete or confirm the remaining pre-start family details.','Please check the details already provided and complete the remaining information.');
+    html=html.replace('Admissions information is prefilled. Complete or confirm the remaining pre-start family details.',"Check what we already have, then add what's missing.");
+    html=html.replace('Preferred / called name','What should we call your child? (optional)');
+    html=html.replace('Primary language(s) spoken at home','Main languages spoken at home');
     html=html.replace('id="po_has_siblings"',`id="po_has_siblings" onchange="syncApplicationDraft('${id}');render()"`);
     html+=`<div class="section-title">Placement</div>${careSelect('pa_service',a.daycarePlanId!==undefined?a.daycarePlanId:c.daycarePlanId)}${field('Desired start',a.start||c.start,'date',false,'pa_start')}`;
   }
@@ -57115,7 +57117,7 @@ function applicationRecipientChoices(id){
 }
 function applicationGuardianReview(g){
   const parent=['Mother','Father'].includes(g.relationship);
-  const communication=g.communicationRequested===true?'Receives family communications':g.communicationRequested===false?'Does not receive family communications':'Family communications not recorded';
+  const communication=g.communicationRequested===true?'Receives family communications':g.communicationRequested===false?'Does not receive family communications':'Family communications choice not recorded';
   return `<div class="application-review-guardian"><h4>${esc(g.name)}</h4><p class="application-review-guardian-context">${esc(g.relationship)} · ${fmtDate(g.dob)}</p><p class="application-review-guardian-phone"><span>Phone:</span> ${esc(g.phone)}</p>${parent?'':`<p class="application-review-guardian-detail"><span>Legal guardian:</span> ${esc(g.legalAuthority||'Not recorded')}</p>`}${g.working==='Yes'?`<div class="application-review-guardian-work"><strong>Work</strong><p class="application-review-guardian-detail"><span>Job title:</span> ${esc(g.jobTitle||'Not recorded')}</p><p class="application-review-guardian-detail"><span>Workplace / company:</span> ${esc(g.company||'Not recorded')}</p></div>`:`<p class="application-review-guardian-detail">${g.working==='No'?'Not currently working':'Work status not recorded'}</p>`}<p class="application-review-guardian-communications">${communication}</p></div>`;
 }
 function applicationEmergencySummary(d){
@@ -57788,7 +57790,7 @@ function mpsRequestOwnPasswordLink(){
 }
 function mpsCreateStaffModal(){
   if(!mpsCurrentIsAccountAdmin())return '';
-  return modal('Create staff account','Give this person only the access they need.',`${mpsAuthField('Full name','','text',false,'staff_name')}${mpsAuthField('Email','','email',false,'staff_email')}${mpsResponsibilityFields([], 'staff_rooms')}${staffRoomFields(null,'staff_rooms',[])}<p>A personal email is fine. The staff member accepts an invitation to set up their account.</p>`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Send invitation','createStaff()','primary')}`);
+  return modal('Invite a staff member','Give this person only the access they need.',`${mpsAuthField('Full name','','text',false,'staff_name')}${mpsAuthField('Email','','email',false,'staff_email')}${mpsResponsibilityFields([], 'staff_rooms')}${staffRoomFields(null,'staff_rooms',[])}<p>A personal email is fine. The staff member accepts an invitation to set up their account.</p>`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Send invitation','createStaff()','primary')}`);
 }
 createStaff=function(){
   if(!mpsCurrentIsAccountAdmin())return;
@@ -59110,7 +59112,7 @@ todayAttentionSection=function(actions){
   const items=mpsItemOutstanding();
   const base=mpsItemsBaseTodayAttention(actions);
   if(!items.length)return base;
-  return base+`<section class="card today-items" data-today-items><h3>Items needing attention · ${items.length}</h3>${items.map(item=>`<div class="starter-setting-row"><div><strong>${esc(profileChildName(item.childId))} · ${item.quantity>1?item.quantity+' × ':''}${esc(item.name)}</strong><small>${esc(item.scope)} · ${esc(item.status)}</small></div>${btn('Open',`mpsOpenChildItem('${item.childId}','${item.id}')`,'secondary','sm')}</div>`).join('')}</section>`;
+  return base+`<section class="card today-items" data-today-items><h3>Items needing attention · ${items.length}</h3>${items.map(item=>`<div class="starter-setting-row"><div><strong>${esc(profileChildName(item.childId))} · ${item.quantity>1?item.quantity+' × ':''}${esc(item.name)}</strong><small>${esc(item.scope)} · ${esc(item.status)}</small></div>${btn('View item',`mpsOpenChildItem('${item.childId}','${item.id}')`,'secondary','sm')}</div>`).join('')}</section>`;
 };
 const mpsItemsBaseDaycareRoster=daycareRoster;
 daycareRoster=function(date=TODAY){
@@ -59177,7 +59179,7 @@ function mpsObservationVisibility(value){return ['Internal','Parent-eligible'].i
 function mpsObservationModal(data={}){
  const context=mpsEvidenceContext(data);if(!context)return modal('Observation unavailable','',notice('Choose a Classroom and child you can teach.','info'),btn('Close','closeOverlay()'));
  const children=currentChildrenInScope().filter(child=>childClassroom(child)===context.roomId),scope=context.title?`<p class="observation-activity-context"><strong>Activity:</strong> ${esc(context.title)}</p>`:'';
- return modal('Add observation','Record what you noticed about one child.',`<div id="obs_error" class="form-error" role="alert" hidden></div>${scope}<div class="field"><label for="obs_child">Child</label><select id="obs_child"><option value="">Choose child</option>${children.map(child=>`<option value="${esc(child.id)}" ${data.childId===child.id?'selected':''}>${esc(child.legalName)}</option>`).join('')}</select></div><div class="field"><label for="obs_date">When observed</label><input id="obs_date" type="date" value="${esc(context.date)}"></div><div class="field"><label for="obs_text">What did you notice?</label><textarea id="obs_text" placeholder="Describe what the child did or said."></textarea></div><details class="evidence-optional"><summary>What this may show & next step — optional</summary>${textArea('What this may show','','obs_interpretation')}${textArea('Next step','','obs_next_step')}</details><div class="field"><label for="obs_visibility">Sharing</label><select id="obs_visibility" aria-describedby="obs_sharing_help"><option value="Internal">Internal</option><option value="Parent-eligible">Parent-eligible</option></select><small id="obs_sharing_help">Internal stays with staff. Parent-eligible may appear in this child's monthly family update.</small></div>${mpsObservationPhotoInput(context,children)}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save observation','saveObservation()','primary')}`);
+ return modal('Add observation','Record what you noticed about one child.',`<div id="obs_error" class="form-error" role="alert" hidden></div>${scope}<div class="field"><label for="obs_child">Child</label><select id="obs_child"><option value="">Choose child</option>${children.map(child=>`<option value="${esc(child.id)}" ${data.childId===child.id?'selected':''}>${esc(child.legalName)}</option>`).join('')}</select></div><div class="field"><label for="obs_date">When observed</label><input id="obs_date" type="date" value="${esc(context.date)}"></div><div class="field"><label for="obs_text">What did you notice?</label><textarea id="obs_text" placeholder="Describe what the child did or said."></textarea></div><details class="evidence-optional"><summary>What it may show and what to try next (optional)</summary>${textArea('What this may show','','obs_interpretation')}${textArea('Next step','','obs_next_step')}</details><div class="field"><label for="obs_visibility">Sharing</label><select id="obs_visibility" aria-describedby="obs_sharing_help"><option value="Internal">Internal</option><option value="Parent-eligible">Parent-eligible</option></select><small id="obs_sharing_help">Internal stays with staff. Parent-eligible may appear in this child's monthly family update.</small></div>${mpsObservationPhotoInput(context,children)}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Save observation','saveObservation()','primary')}`);
 }
 function mpsObservationWrite(data,fields){
  const context=mpsEvidenceContext(data),childId=profileChildId(fields.childId),date=fields.date,text=String(fields.text||'').trim(),visibility=mpsObservationVisibility(fields.visibility);
@@ -59400,7 +59402,7 @@ function mpsProgressSet(key,value){const state=ui().drawer?.name==='child-progre
 function mpsProgressObservationCard(o,month){
  const sharing=mpsObservationSharing(o),included=mpsObservationIncluded(o,month),photo=mpsObservationPhotoRecord(o),reportPhoto=photo&&mpsReportPhotoRecord(o,o.childId),mutable=mpsProgressObservationMutable(o),report=mpsProgressReportForMonth(o.childId,month),canChange=mutable&&(!report||mpsReportEditable(report));
  const mediaState=photo?reportPhoto?'Eligible for parent report':sharing==='Internal'?'Internal media':'Consent or approval prevents report use':'';
- return `<article id="progress-observation-${esc(o.id)}" class="child-evidence-card card flat" data-child-progress-evidence-id="${esc(o.id)}"><header><strong>Observation</strong><span>${esc(fmtDate(o.date))}</span></header><p>${esc(o.text)}</p>${mpsObservationPhotoHtml(o)}${mediaState?`<small>${esc(mediaState)}</small>`:''}<div class="progress-evidence-state"><span>Sharing: ${esc(sharing)}</span>${sharing==='Parent-eligible'?`<span>${included?'Included in report':'Excluded from report'} · ${esc(mpsReportMonthLabel(month))}</span>`:''}</div>${o.interpretation||o.nextStep?`<details><summary>Interpretation & next step</summary>${o.interpretation?kv('What this may show',esc(o.interpretation)):''}${o.nextStep?kv('Next step',esc(o.nextStep)):''}</details>`:''}${canChange?`<small class="progress-sharing-help">Sharing controls whether family updates may use this Observation. Report inclusion changes this month only.</small>`:''}<footer>${canChange?btn(sharing==='Parent-eligible'?'Make internal':'Make parent-eligible',`mpsSetObservationSharing('${esc(o.id)}','${sharing==='Parent-eligible'?'Internal':'Parent-eligible'}')`,'secondary','sm'):''}${canChange&&sharing==='Parent-eligible'?btn(included?'Remove from report':'Add back to report',`mpsToggleObservationMonth('${esc(o.id)}','${esc(month)}')`,'secondary','sm'):''}</footer></article>`;
+ return `<article id="progress-observation-${esc(o.id)}" class="child-evidence-card card flat" data-child-progress-evidence-id="${esc(o.id)}"><header><strong>Observation</strong><span>${esc(fmtDate(o.date))}</span></header><p>${esc(o.text)}</p>${mpsObservationPhotoHtml(o)}${mediaState?`<small>${esc(mediaState)}</small>`:''}<div class="progress-evidence-state"><span>Sharing: ${esc(sharing)}</span>${sharing==='Parent-eligible'?`<span>${included?'Included in report':'Excluded from report'} · ${esc(mpsReportMonthLabel(month))}</span>`:''}</div>${o.interpretation||o.nextStep?`<details><summary>Interpretation & next step</summary>${o.interpretation?kv('What this may show',esc(o.interpretation)):''}${o.nextStep?kv('Next step',esc(o.nextStep)):''}</details>`:''}${canChange?`<small class="progress-sharing-help">${sharing==='Internal'?'Internal keeps this observation with staff. Make it parent-eligible to allow it in family updates.':'Parent-eligible means a family update may include this observation; it is not sent automatically. Include or remove it for this month only.'}</small>`:''}<footer>${canChange?btn(sharing==='Parent-eligible'?'Make internal':'Make parent-eligible',`mpsSetObservationSharing('${esc(o.id)}','${sharing==='Parent-eligible'?'Internal':'Parent-eligible'}')`,'secondary','sm'):''}${canChange&&sharing==='Parent-eligible'?btn(included?'Remove from report':'Add back to report',`mpsToggleObservationMonth('${esc(o.id)}','${esc(month)}')`,'secondary','sm'):''}</footer></article>`;
 }
 function mpsProgressAssessmentCard(a){const evidence=(a.evidenceIds||[]).map(id=>db.observations[id]).filter(Boolean);return `<article class="child-evidence-card card flat" data-child-progress-evidence-id="${esc(a.id)}"><header><strong>Assessment</strong><span>${esc(fmtDate(a.date))}</span></header><p>${esc(a.target?.label||'Earlier assessment · target not recorded')}</p><p>${a.resultKind==='non-rating'?'No judgement recorded':'Developmental level'}: ${esc(a.result||'Not recorded')}</p>${evidence.length?`<p class="assessment-observation-links">Supported by ${evidence.map(o=>`<a href="#progress-observation-${esc(o.id)}">${mpsObservationSharing(o)==='Internal'?'Internal observation':'Observation'} · ${esc(fmtDate(o.date))}</a>`).join(', ')} below.</p>`:''}</article>`}
 function mpsProgressActivityGroup(g,month){return `<section class="progress-activity-group" data-progress-activity="${esc(g.actual.id)}"><header><h3>${esc(g.title)}</h3><small>${esc(fmtDate(g.date))}</small></header>${g.assessments.filter(item=>mpsProgressValidAssessment(item.record)).map(item=>mpsProgressAssessmentCard(item.record)).join('')}${g.assessments.filter(item=>!mpsProgressValidAssessment(item.record)).map(item=>mpsProgressAssessmentCard(item.record)).join('')}${g.observations.map(item=>mpsProgressObservationCard(item.record,month)).join('')}</section>`}
@@ -59809,7 +59811,7 @@ function mpsInvoicePdfBlob(facts){
   };
   begin();ctx.fillStyle='#143f3e';ctx.font='bold 46px Arial, sans-serif';ctx.fillText('INVOICE',left,y+34);y+=78;
   row('Invoice number',facts.number);row('Child',facts.child);row('Issued on',facts.issued);row('Payment due',facts.due);
-  section('RECIPIENTS AT ISSUE');
+  section('RECIPIENTS WHEN ISSUED');
   if(facts.recipients.length)facts.recipients.forEach((recipient,index)=>row(`Recipient ${index+1}`,recipient));
   else row('Recipients','Not recorded on this invoice');
   section('INVOICE ITEMS');
@@ -59927,7 +59929,7 @@ function billingDetailBalance(inv){
 }
 function billingDetailHistory(inv){
   const entries=inv.history||[];
-  return `<details class="invoice-detail-history" ontoggle="billingDetailRevealHistory(this)"><summary>History & audit</summary><div>${entries.length?entries.map(h=>`<p><strong>${esc(billingDetailWhen(h.at))}</strong> · ${esc((h.text||'Invoice updated').replace(/ · prototype PDF filename recorded/i,''))}${staffHistoryActor(h)?' · '+esc(staffHistoryActor(h)):''}</p>`).join(''):'<p>No recorded history yet.</p>'}</div></details>`;
+  return `<details class="invoice-detail-history" ontoggle="billingDetailRevealHistory(this)"><summary>History</summary><div>${entries.length?entries.map(h=>`<p><strong>${esc(billingDetailWhen(h.at))}</strong> · ${esc((h.text||'Invoice updated').replace(/ · prototype PDF filename recorded/i,''))}${staffHistoryActor(h)?' · '+esc(staffHistoryActor(h)):''}</p>`).join(''):'<p>No recorded history yet.</p>'}</div></details>`;
 }
 function billingDetailRevealHistory(details){
   if(!details.open)return;
@@ -59973,7 +59975,7 @@ function billingDetailView(inv,issueRoute=false){
     +billingDetailSection('Invoice items',items)
     +billingDetailSection('Balance',billingDetailBalance(inv))
     +(events?billingDetailSection('Payments & adjustments',events):'')
-    +billingDetailSection('Invoice document',mpsInvoicePdfFacts(inv.id)?`<div class="invoice-detail-document"><p>Generated from this invoice's saved issue details${pdf?` · ${esc(pdf)}`:''}</p><div class="invoice-document-actions">${btn('View invoice PDF',`mpsInvoicePdfAction('${esc(inv.id)}','view')`,'secondary','sm')}${btn('Download invoice PDF',`mpsInvoicePdfAction('${esc(inv.id)}','download')`,'secondary','sm')}</div></div>`:`<p class="invoice-detail-muted">${inv.status==='draft'?'Available after issue':inv.status==='discarded'?'No invoice document was issued.':'Saved invoice information is insufficient to create a PDF.'}</p>`)
+    +billingDetailSection('Invoice document',mpsInvoicePdfFacts(inv.id)?`<div class="invoice-detail-document">${pdf?`<p class="invoice-detail-muted">${esc(pdf)}</p>`:''}<div class="invoice-document-actions">${btn('View invoice PDF',`mpsInvoicePdfAction('${esc(inv.id)}','view')`,'secondary','sm')}${btn('Download invoice PDF',`mpsInvoicePdfAction('${esc(inv.id)}','download')`,'secondary','sm')}</div></div>`:`<p class="invoice-detail-muted">${inv.status==='draft'?'Available after issue':inv.status==='discarded'?'No invoice document was issued.':'Saved invoice information is insufficient to create a PDF.'}</p>`)
     +billingDetailHistory(inv)
     +billingDetailRelatedInvoices(inv)
     +(available?`<p class="invoice-detail-available">Available customer credit · ${billingMoney(available,inv)}</p>`:'')
@@ -60251,9 +60253,9 @@ function mpsTodayHomeExceptions(){
  const incidents=(db.health?.incidents||[]).filter(incident=>incident.status!=='Closed'&&mpsIncidentCanView(incident));
  const contact=incidents.filter(incident=>incidentChildIds(incident).some(id=>['pending','attempted'].includes(mpsIncidentContactState(incident,id))));
  const followup=incidents.filter(incident=>mpsIncidentCanReview(incident)&&['Open','Open follow-up'].includes(incident.followup));
- if(contact.length||followup.length)actions.push({sev:'amber',icon:'heart-pulse',title:'Incident care needs review',sub:[contact.length?`${contact.length} with Guardian contact unresolved`:'',followup.length?`${followup.length} with follow-up open`:''].filter(Boolean).join(' · '),go:"setRoute('health');setHealthTab('incidents')"});
+ if(contact.length||followup.length)actions.push({sev:'amber',icon:'heart-pulse',title:'Incident care needs review',sub:[contact.length?`${contact.length} with Guardian contact unresolved`:'',followup.length?`${followup.length} with follow-up open`:''].filter(Boolean).join(' · '),go:"setRoute('health');setHealthTab('incidents')",actionLabel:'Review incidents'});
  const late=canReviewLatePickup()?Object.values(db.daycare?.latePickups||{}).filter(lp=>latePickupVisible(lp)&&(lp.status==='pending'||lp.adjustmentRequired)):[];
- if(late.length)actions.push({sev:'amber',icon:'circle-alert',title:'Late pickup needs review',sub:`${late.length} ${late.length===1?'record':'records'} · checkout already recorded`,go:"setRoute('attendance');setAttendanceTab('pickup')"});
+ if(late.length)actions.push({sev:'amber',icon:'circle-alert',title:'Late pickup needs review',sub:`${late.length} ${late.length===1?'record':'records'} · checkout already recorded`,go:"setRoute('attendance');setAttendanceTab('pickup')",actionLabel:'Review pickup'});
  return actions;
 }
 renderToday=function(){
@@ -60285,7 +60287,7 @@ function changeLessonLevel(id){
  if(!has('Head Teacher')||!mpsPlanningRooms(id).length)return false;
  ui().lessonLevel=id;ui().lessonClass=mpsPlanningRooms(id)[0].id;save();render();return true;
 }
-function mpsLevelAppliesHtml(){const level=mpsPlanningLevel(),rooms=level&&mpsPlanningRooms(level.id),w=currentWeek();if(!rooms?.length)return '';if(w.ownership!=='level-week'){const owner=rooms.find(room=>db.curriculum.weeks?.[room.id]?.[mpsLessonWeekStart()]===w);return `<div class="lesson-level-applicability"><strong>Earlier Classroom plan:</strong> ${esc(owner?.name||'Classroom')}</div>`}return `<div class="lesson-level-applicability" data-plan-level="${esc(level.id)}"><strong>Applies to:</strong> ${esc(rooms.map(room=>room.name).join(' · '))}</div>`}
+function mpsLevelAppliesHtml(){const level=mpsPlanningLevel(),rooms=level&&mpsPlanningRooms(level.id),w=currentWeek();if(!rooms?.length)return '';if(w.ownership!=='level-week'){const owner=rooms.find(room=>db.curriculum.weeks?.[room.id]?.[mpsLessonWeekStart()]===w);return `<div class="lesson-level-applicability"><strong>Earlier plan for ${esc(owner?.name||'this Classroom')}</strong></div>`}return `<div class="lesson-level-applicability" data-plan-level="${esc(level.id)}"><strong>Applies to:</strong> ${esc(rooms.map(room=>room.name).join(' · '))}</div>`}
 lessonClassControl=function(){
  const level=mpsPlanningLevel(),levels=educationConfig().levels.filter(item=>!item.retired&&mpsPlanningRooms(item.id).length);
  return `<div class="lesson-class-control"><div class="field"><label for="lessonLevelSelect">Level</label><select id="lessonLevelSelect" onchange="changeLessonLevel(this.value)">${levels.map(item=>`<option value="${esc(item.id)}" ${item.id===level?.id?'selected':''}>${esc(item.name)} · ${esc(educationLevelRangeLabel(item))}</option>`).join('')}</select></div></div>`;
@@ -60408,7 +60410,7 @@ modalView=function(m){
   const blockedNames=eligibility.blocked.map(id=>profileChildName(id));
   const blockedText=blockedNames.length>1?`${blockedNames.slice(0,-1).join(', ')} and ${blockedNames.at(-1)} do not have current Facebook permission`:blockedNames.length===1?`${blockedNames[0]} does not have current Facebook permission`:'No identifiable child is recorded';
   const consent=eligibility.ok?'Eligible — current Facebook Yes':`Blocked — ${esc(blockedText)}`;
-  return modal('Review final intended Facebook asset','Check every identifiable child before approving this asset.',`${kv('Photo',esc(photo.title))}${kv('Identifiable children',photo.childIds.map(id=>profileChildLink(id)).join(', '))}${kv('Consent check',consent)}${kv('Intended use',esc(photo.marketing.use||'Not recorded'))}${notice('Rejecting this public use keeps the private photo intact.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Reject for marketing',`rejectMarketing('${photo.id}')`,'danger')}${eligibility.ok?btn('Approve asset',`approveMarketing('${photo.id}')`,'primary'):''}`);
+  return modal('Review final intended Facebook asset','Check every identifiable child before approving this photo.',`${kv('Photo',esc(photo.title))}${kv('Identifiable children',photo.childIds.map(id=>profileChildLink(id)).join(', '))}${kv('Consent check',consent)}${kv('Intended use',esc(photo.marketing.use||'Not recorded'))}${notice('Rejecting this public use keeps the private photo intact.','info')}`,`${btn('Cancel','closeOverlay()','secondary')}${btn('Reject for marketing',`rejectMarketing('${photo.id}')`,'danger')}${eligibility.ok?btn('Approve asset',`approveMarketing('${photo.id}')`,'primary'):''}`);
  }
  return mpsPhotoBaseModalView(m);
 };
@@ -60538,7 +60540,7 @@ todayActions=function(){
   const actions=mpsBq152PreviousTodayActions();
   if(!has('Head Teacher')&&!has('Family legal review'))return actions;
   for(const c of Object.values(db.admissions||{}))if(mpsFamilyLegalDeclaration(c)&&!mpsFamilyLegalState(c).ready&&mpsCanReviewFamilyLegal(c))
-    actions.push({sev:'amber',icon:'shield',title:`${c.childName} · legal arrangements to review`,sub:'Parent declaration · authority-sensitive decisions on hold',go:`openModal('family-legal-review',{caseId:'${esc(c.id)}'})`});
+    actions.push({sev:'amber',icon:'shield',title:`${c.childName} · legal arrangements to review`,sub:'Parent declaration · authority-sensitive decisions on hold',go:`openModal('family-legal-review',{caseId:'${esc(c.id)}'})`,actionLabel:'Review arrangements'});
   return actions;
 };
 function mpsLegalReviewOutcomeChanged(){const section=document.getElementById('family_legal_restricted');if(section)section.hidden=val('family_legal_outcome')!=='Restrictions apply'}
@@ -61425,14 +61427,14 @@ function mpsIncidentReviewBlocker(incident,followup){
 function mpsIncidentChildSelectionChanged(){
   const count=mpsIncidentSelectedChildIds().length,wrap=byId('inc_contact_entry'),help=byId('inc_contact_entry_help');
   if(wrap)wrap.hidden=count!==1;
-  if(help)help.textContent=count===0?'Select an involved Child. A facility Incident with no Child has no Guardian contact.':count>1?'Record each child’s Guardian contact separately after saving.':'';
+  if(help)help.textContent=count===0?'Add the children involved. For a Safety / Facility or Other incident with no child, guardian contact does not apply.':count>1?'Record each child’s Guardian contact separately after saving.':'';
   if(count!==1&&byId('inc_contact'))byId('inc_contact').value='Not yet contacted';
 }
 function mpsIncidentSelectedChildIds(){return ui().modal?.name==='incident'&&Array.isArray(ui().modal.data?.selectedChildIds)?ui().modal.data.selectedChildIds:[]}
 function mpsIncidentChildClassroom(child){const label=childClass(child);return label&&label!=='Needs staff review'?label:'Classroom not recorded'}
 function mpsIncidentSelectedChildrenHtml(){
   const ids=mpsIncidentSelectedChildIds(),children=new Map(healthScopedChildren().map(child=>[child.id,child]));
-  return ids.length?ids.filter(id=>children.has(id)).map(id=>`<span class="incident-selected-child"><span><strong>${esc(profileChildName(id))}</strong><small>${esc(mpsIncidentChildClassroom(children.get(id)))}</small></span><button type="button" data-child-id="${esc(id)}" onclick="mpsIncidentRemoveChild(this.dataset.childId)" aria-label="Remove ${esc(profileChildName(id))}">Remove</button></span>`).join(''):'<p>No children selected. A facility-only Incident can have none.</p>';
+  return ids.length?ids.filter(id=>children.has(id)).map(id=>`<span class="incident-selected-child"><span><strong>${esc(profileChildName(id))}</strong><small>${esc(mpsIncidentChildClassroom(children.get(id)))}</small></span><button type="button" data-child-id="${esc(id)}" onclick="mpsIncidentRemoveChild(this.dataset.childId)" aria-label="Remove ${esc(profileChildName(id))}">Remove</button></span>`).join(''):'<p>No children selected.</p>';
 }
 function mpsIncidentRenderSelectedChildren(){const selected=byId('inc_selected_children');if(selected)selected.innerHTML=mpsIncidentSelectedChildrenHtml()}
 function mpsIncidentRenderChildResults(){
@@ -61496,7 +61498,7 @@ incidentModal=function(data={}){
     `<div class="form-grid incident-occurrence-fields">${field('Occurrence date',TODAY,'date',false,'inc_date')}${staffTimeField('Occurrence time',mpsMedicationLocalClock(),false,'inc_time')}</div>`+
     `${field('Location','','text',false,'inc_location')}${textArea('What happened','','inc_what')}<p class="field-help incident-fact-help">Describe what was seen or reported, without guessing at a cause.</p>`+
     `${textArea('Injury / condition observed','','inc_condition')}${textArea('Immediate action / first aid','','inc_action')}${mpsIncidentPhotoInput()}`+
-    `<div id="inc_contact_entry" ${selected.length===1?'':'hidden'}>${selectField('Guardian contact',['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'],'Not yet contacted','inc_contact')}</div><p id="inc_contact_entry_help" class="field-help">${selected.length===1?'':'Select an involved Child. A facility Incident with no Child has no Guardian contact.'}</p>`,
+    `<div id="inc_contact_entry" ${selected.length===1?'':'hidden'}>${selectField('Guardian contact',['Not yet contacted','Called — spoke to guardian','Called — no answer','Informed in person'],'Not yet contacted','inc_contact')}</div><p id="inc_contact_entry_help" class="field-help">${selected.length===1?'':'Add the children involved. For a Safety / Facility or Other incident with no child, guardian contact does not apply.'}</p>`,
     `${btn('Cancel','closeOverlay()','secondary')}${btn('Save incident','saveIncident()','primary')}`);
 };
 saveIncident=async function(){
@@ -61873,9 +61875,9 @@ renderReports=function(){
   const status=r.sentAt?'Sent':frozen?'Approved':review?'Head Teacher review':'Teacher review';
   const actions=(editable?btn('Save draft','mpsSaveReportDraft(false)','secondary')+btn('Complete teacher review','markReportTeacherReady()','primary'):review?(has('Head Teacher')?btn('Approve exact report','approveReport()','primary')+btn('Edit draft','mpsEditReportDraft()','secondary'):''):sendAvailable?btn('Record as sent','sendReport()','primary'):'')+(correctionAvailable?btn('Correct report',`openModal('report-correction',{reportId:'${r.id}'})`,'secondary'):'');
   const parent=frozen?mpsReportParentHtml(content):review?`<h3>Family update for approval</h3>${mpsReportParentHtml(content)}`:`<div class="report-progress-link">${btn('Review evidence in Progress',`mpsOpenChildProgress('${esc(r.childId)}')`,'secondary','sm')}</div>${mpsReportParentHtml(content)}<details class="report-note-editor" ${r.teacherNote?'open':''}><summary>Add a note for the family — optional</summary>${mpsReportTextArea('Note for the family',r.teacherNote||'','report_note')}</details>`;
-  const handoff=frozen&&!r.sentAt?`<section class="report-handoff" data-report-handoff><h4>Share the approved update</h4><p><strong>Authorised recipient:</strong> ${recipientDisplay(linkedRecipientIds(r.childId))}</p><p>${sendAvailable?'Open the exact approved update, save it as a PDF and share it manually. Record as sent only after sharing.':'Confirm an authorised recipient before recording a send.'}</p>${sendAvailable&&mpsReportExactHandoffReady(r)?btn('Open update to share','mpsOpenApprovedUpdate()','secondary'):sendAvailable?'<small>An exact copy of this earlier update or its saved image is unavailable here. Use the original approved record for manual sharing.</small>':''}</section>`:'';
+  const handoff=frozen&&!r.sentAt?`<section class="report-handoff" data-report-handoff><h4>Share the approved update</h4><p><strong>Authorised recipient:</strong> ${recipientDisplay(linkedRecipientIds(r.childId))}</p>${sendAvailable?'<p>Open the exact approved update, save it as a PDF and share it manually. Record as sent only after sharing.</p>':''}${sendAvailable&&mpsReportExactHandoffReady(r)?btn('Open update to share','mpsOpenApprovedUpdate()','secondary'):sendAvailable?'<small>An exact copy of this earlier update or its saved image is unavailable here. Use the original approved record for manual sharing.</small>':''}</section>`:'';
   const delivery=!editable&&(!frozen||r.sentAt)?`<aside class="span-4 card report-delivery"><h3>Delivery</h3>${kv('Recipients',r.sentAt&&r.sentRecipients?esc(r.sentRecipients.map(x=>x.name).join(', ')):recipientDisplay(linkedRecipientIds(r.childId)))}${kv('Channel','WhatsApp Web · manual')}${kv('Status',r.sentAt?'Sent':frozen?'Approved / not sent':'Not yet approved')}${r.sentAt?kv('Recorded by',esc(r.sentActor?.name||'Not recorded'))+kv('Sent at',esc(staffHistoryDate(r.sentAt))):''}${frozen?`<details><summary>Approval details</summary>${kv('Approved by',esc(frozen.approvedBy||frozen.approvalActor?.name||'Not recorded'))}${kv('Approved at',esc(frozen.approvedAt?staffHistoryDate(frozen.approvedAt):'Not recorded'))}</details>`:''}</aside>`:'';
-  body=`<div class="grid report-layout${delivery?'':' report-layout-single'}"><div class="span-8 card report-workspace" data-report-kind="monthly"><header class="card-header"><div class="grow"><h3>${esc(content?.childName||profileChildName(r.childId))}</h3><p>${esc(content?.month||mpsReportMonthLabel(s.monthKey))}</p></div>${badge(status,r.sentAt||frozen?'green':'amber')}</header>${parent}${handoff}<div class="report-actions">${actions}</div>${frozen&&!r.sentAt&&!sendAvailable?notice('Add or confirm an authorised report recipient before sending.','info'):''}${mpsReportVersionHistory(r)}</div>${delivery}</div>`;
+  body=`<div class="grid report-layout${delivery?'':' report-layout-single'}"><div class="span-8 card report-workspace" data-report-kind="monthly"><header class="card-header"><div class="grow"><h3>${esc(content?.childName||profileChildName(r.childId))}</h3><p>${esc(content?.month||mpsReportMonthLabel(s.monthKey))}</p></div>${badge(status,r.sentAt||frozen?'green':'amber')}</header>${parent}${handoff}<div class="report-actions">${actions}</div>${mpsReportVersionHistory(r)}</div>${delivery}</div>`;
  }
  const history=mpsHistoricalTermReports(s.childId),historyHtml=history.length?`<details class="report-historical-term"><summary>Earlier Term reports · ${history.length}</summary>${history.map(item=>`<div class="report-historical-term-row"><span>${esc(mpsReportFrozen(item).term?.label||'Earlier Term report')}</span>${btn('Open',`mpsOpenReportById('${esc(item.id)}')`,'secondary','sm')}</div>`).join('')}</details>`:'';
  return shell(pageHead('Parent reporting','Reports',mpsReportPageGuidance(r),r?mpsUtilityAction('Parent preview','mpsPreviewReport()','file-text'):'')+mpsReportControls()+body+historyHtml);
